@@ -1,0 +1,419 @@
+<?php
+/**
+ * HUBzero CMS
+ *
+ * Copyright 2005-2015 HUBzero Foundation, LLC.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ *
+ * HUBzero is a registered trademark of Purdue University.
+ *
+ * @package   hubzero-cms
+ * @author    Shawn Rice <zooley@purdue.edu>
+ * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
+ * @license   http://opensource.org/licenses/MIT MIT
+ */
+
+namespace Components\Wiki\Admin\Controllers;
+
+use Hubzero\Component\AdminController;
+use Components\Wiki\Models\Book;
+use Components\Wiki\Models\Page;
+use Components\Wiki\Models\Comment;
+use Components\Wiki\Tables;
+use Request;
+use Config;
+use User;
+use Lang;
+use Date;
+use App;
+
+/**
+ * Wiki controller class for entries
+ */
+class Comments extends AdminController
+{
+	/**
+	 * Execute a task
+	 *
+	 * @return  void
+	 */
+	public function execute()
+	{
+		$this->registerTask('add', 'edit');
+		$this->registerTask('apply', 'save');
+		$this->registerTask('publish', 'state');
+		$this->registerTask('unpublish', 'state');
+
+		parent::execute();
+	}
+
+	/**
+	 * Display a list of blog entries
+	 *
+	 * @return  void
+	 */
+	public function displayTask()
+	{
+		$this->view->filters = array(
+			'pageid' => Request::getState(
+				$this->_option . '.' . $this->_controller . '.pageid',
+				'pageid',
+				0,
+				'int'
+			),
+			'search' => urldecode(Request::getState(
+				$this->_option . '.' . $this->_controller . '.search',
+				'search',
+				''
+			)),
+			// Get sorting variables
+			'sort' => Request::getState(
+				$this->_option . '.' . $this->_controller . '.sort',
+				'filter_order',
+				'created'
+			),
+			'sort_Dir' => Request::getState(
+				$this->_option . '.' . $this->_controller . '.sortdir',
+				'filter_order_Dir',
+				'ASC'
+			),
+			// Get paging variables
+			'limit' => Request::getState(
+				$this->_option . '.' . $this->_controller . '.limit',
+				'limit',
+				Config::get('list_limit'),
+				'int'
+			),
+			'start' => Request::getState(
+				$this->_option . '.' . $this->_controller . '.limitstart',
+				'limitstart',
+				0,
+				'int'
+			)
+		);
+
+		$this->view->entry = new Page($this->view->filters['pageid']);
+
+		// Instantiate our HelloEntry object
+		$obj = new Tables\Comment($this->database);
+
+		// Get records
+		$rows = $obj->find('list', $this->view->filters);
+
+		$levellimit = ($this->view->filters['limit'] == 0) ? 500 : $this->view->filters['limit'];
+
+		$list = array();
+		$children = array();
+		if ($rows)
+		{
+			// First pass - collect children
+			foreach ($rows as $v)
+			{
+				//$v->name = '';
+				$pt = $v->parent;
+				$list = @$children[$pt] ? $children[$pt] : array();
+				array_push($list, $v);
+				$children[$pt] = $list;
+			}
+
+			// Second pass - get an indent list of the items
+			$list = $this->treeRecurse(0, '', array(), $children, max(0, $levellimit-1));
+		}
+
+		// Get record count
+		$this->view->total = count($list);
+
+		$this->view->rows = array_slice($list, $this->view->filters['start'], $this->view->filters['limit']);
+
+		// Set any errors
+		foreach ($this->getErrors() as $error)
+		{
+			$this->view->setError($error);
+		}
+
+		// Output the HTML
+		$this->view->display();
+	}
+
+	/**
+	 * Recursive function to build tree
+	 *
+	 * @param   integer  $id        Parent ID
+	 * @param   string   $indent    Indent text
+	 * @param   array    $list      List of records
+	 * @param   array    $children  Container for parent/children mapping
+	 * @param   integer  $maxlevel  Maximum levels to descend
+	 * @param   integer  $level     Indention level
+	 * @param   integer  $type      Indention type
+	 * @return  void
+	 */
+	public function treeRecurse($id, $indent, $list, $children, $maxlevel=9999, $level=0, $type=1)
+	{
+		if (@$children[$id] && $level <= $maxlevel)
+		{
+			foreach ($children[$id] as $v)
+			{
+				$id = $v->id;
+
+				if ($type)
+				{
+					$pre    = '<span class="treenode">&#8970;</span>&nbsp;';
+					$spacer = '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
+				}
+				else
+				{
+					$pre    = '- ';
+					$spacer = '&nbsp;&nbsp;';
+				}
+
+				if (!is_a($v, 'stdClass'))
+				{
+					$data = $v->toArray();
+				}
+				else
+				{
+					foreach (get_object_vars($v) as $key => $val)
+					{
+						if (substr($key, 0, 1) != '_')
+						{
+							$data[$key] = $val;
+						}
+					}
+				}
+
+				$k = new \stdClass;
+				foreach ($data as $key => $val)
+				{
+					$k->$key = $val;
+				}
+
+				if ($v->parent == 0)
+				{
+					$txt = '';
+				}
+				else
+				{
+					$txt = $pre;
+				}
+				$pt = $v->parent;
+
+				$list[$id] = $k;
+				$list[$id]->treename = "$indent$txt";
+				$list[$id]->children = count(@$children[$id]);
+				$list = $this->treeRecurse($id, $indent . $spacer, $list, $children, $maxlevel, $level+1, $type);
+			}
+		}
+		return $list;
+	}
+
+	/**
+	 * Show a form for editing an entry
+	 *
+	 * @param   object  $row  WikiModelComment
+	 * @return  void
+	 */
+	public function editTask($row=null)
+	{
+		Request::setVar('hidemainmenu', 1);
+
+		if (!is_object($row))
+		{
+			// Incoming
+			$id = Request::getVar('id', array(0));
+			if (is_array($id) && !empty($id))
+			{
+				$id = $id[0];
+			}
+
+			// Load the article
+			$row = new Comment($id);
+		}
+
+		$this->view->row = $row;
+
+		if (!$this->view->row->exists())
+		{
+			$this->view->row->set('pageid', Request::getInt('pageid', 0));
+			$this->view->row->set('created_by', User::get('id'));
+			$this->view->row->set('created', Date::toSql());  // use gmdate() ?
+		}
+
+		// Set any errors
+		foreach ($this->getErrors() as $error)
+		{
+			$this->view->setError($error);
+		}
+
+		// Output the HTML
+		$this->view
+			->setLayout('edit')
+			->display();
+	}
+
+	/**
+	 * Save an entry
+	 *
+	 * @return  void
+	 */
+	public function saveTask()
+	{
+		// Check for request forgeries
+		Request::checkToken();
+
+		// Incoming
+		$fields = Request::getVar('fields', array(), 'post', 'none', 2);
+		$fields = array_map('trim', $fields);
+
+		// Initiate extended database class
+		$row = new Comment($fields['id']);
+		if (!$row->bind($fields))
+		{
+			$this->setError($row->getError());
+			$this->editTask($row);
+			return;
+		}
+
+		// Store new content
+		if (!$row->store(true))
+		{
+			$this->setError($row->getError());
+			$this->editTask($row);
+			return;
+		}
+
+		if ($this->getTask() == 'apply')
+		{
+			return $this->editTask($row);
+		}
+
+		// Set the redirect
+		App::redirect(
+			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&pageid=' . $fields['pageid'], false),
+			Lang::txt('COM_WIKI_COMMENT_SAVED')
+		);
+	}
+
+	/**
+	 * Delete one or more entries
+	 *
+	 * @return  void
+	 */
+	public function removeTask()
+	{
+		// Check for request forgeries
+		Request::checkToken();
+
+		// Incoming
+		$ids = Request::getVar('id', array());
+		$ids = (!is_array($ids) ? array($ids) : $ids);
+
+		if (count($ids) > 0)
+		{
+			// Loop through all the IDs
+			foreach ($ids as $id)
+			{
+				$entry = new Comment(intval($id));
+				// Delete the entry
+				if (!$entry->delete())
+				{
+					\Notify::error($entry->getError());
+				}
+			}
+		}
+
+		// Set the redirect
+		App::redirect(
+			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&pageid=' . Request::getInt('pageid', 0), false),
+			Lang::txt('COM_WIKI_COMMENTS_DELETED', count($ids))
+		);
+	}
+
+	/**
+	 * Set the status on one or more entries
+	 *
+	 * @return  void
+	 */
+	public function stateTask()
+	{
+		// Check for request forgeries
+		Request::checkToken(['get', 'post']);
+
+		$state = $this->getTask() == 'unpublish' ? 2 : 0;
+
+		// Incoming
+		$ids    = Request::getVar('id', array());
+		$ids    = (!is_array($ids) ? array($ids) : $ids);
+		$pageid = Request::getInt('pageid', 0);
+
+		// Check for an ID
+		if (count($ids) < 1)
+		{
+			$action = ($state == 1) ? Lang::txt('COM_WIKI_UNPUBLISH') : Lang::txt('COM_WIKI_PUBLISH');
+
+			App::redirect(
+				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&pageid=' . $pageid, false),
+				Lang::txt('COM_WIKI_ERROR_SELECT_TO', $action),
+				'error'
+			);
+			return;
+		}
+
+		// Loop through all the IDs
+		foreach ($ids as $id)
+		{
+			$entry = new Comment(intval($id));
+			$entry->set('status', $state);
+			if (!$entry->store())
+			{
+				\Notify::error($entry->getError());
+			}
+		}
+
+		// Set message
+		if ($state == 1)
+		{
+			$message = Lang::txt('COM_WIKI_ITEMS_PUBLISHED', count($ids));
+		}
+		else
+		{
+			$message = Lang::txt('COM_WIKI_ITEMS_UNPUBLISHED', count($ids));
+		}
+
+		// Set redirect
+		App::redirect(
+			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&pageid=' . $pageid, false),
+			$message
+		);
+	}
+
+	/**
+	 * Cancels a task and redirects to listing
+	 *
+	 * @return  void
+	 */
+	public function cancelTask()
+	{
+		// Set the redirect
+		App::redirect(
+			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&pageid=' . Request::getInt('pageid', 0), false)
+		);
+	}
+}
+

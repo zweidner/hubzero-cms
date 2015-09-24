@@ -1,0 +1,155 @@
+/**
+ * Copyright 2005-2009 HUBzero Foundation, LLC.
+ * All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License,
+ * version 2 as published by the Free Software Foundation. 
+ */
+
+/*
+
+	-- -- -- -- -- -- --
+	Project team CSS
+	-- -- -- -- -- -- --
+
+*/
+
+	.add-team {
+		margin: 2em 0;
+	}
+	#edit-project-content .list-editing {
+		margin: 1em 0;
+	}
+	#hubForm .add-team input {
+		width: 100%;
+		display: inline;
+	}
+	#hubForm .add-team input.btn {
+		width: auto;
+	}
+	#hubForm .add-team label {
+		float: left;
+		display: block;
+		width: 180px !important;
+	}
+	#hubForm .add-team li {
+		white-space: normal;
+	}
+	.or_separator {
+		float: left;
+		font-style: italic;
+		font-size: 85%;
+		padding: 0;
+		margin: 1em 1em;
+	}
+	#setup .or_separator {
+		margin: 2em 1em;
+	}
+	#team-save {
+		position: absolute;
+	}
+	#setup #team-save {
+		margin-top: 2em !important;
+	}
+	#setup .combine_options label  {
+		padding-right: 0;
+		margin-right: -1em;
+	}
+	#t-delete.inactive {
+		background: #E2E2E2;
+	}
+	#t-delete {
+		background: #FFFFFF;
+	}
+	#team-spacer {
+		position: relative;
+		float: left;
+		width: 100%;
+		display: block;
+		margin-top: 1em;
+	}
+	.invited {
+		display: block;
+		color: #9bbc7d;
+		font-style: italic;
+		font-weight: bold;
+	}
+	.instr {
+		position: absolute;
+		margin-top: -1.5em;
+		*margin-top: 0;
+	}
+	#edit-project-content .instr {
+		*margin-top: -1em;
+	}
+	.frole:hover {
+		cursor: pointer;
+	}
+	.frole {
+		border-bottom: 1px dotted #CCC;
+	}
+	#abox-content p.anote {
+		font-size: 85%;
+		color: #999;
+		margin: 1em 0 1em 0;
+	}
+	#hubForm .combine_options {
+		margin: 1em 0;
+	}
+	#hubForm .combine_options label {
+		display: inline;
+	}
+	#hubForm .combine_options .option {
+		margin: 0 !important;
+		padding: 0;
+	}
+	#hubForm .editable label {
+		padding: 0;
+	}
+	#hubForm .editable label select {
+		font-size: 100%;
+		padding: 0.3em 0;
+	}
+	#hubForm .editable .btn {
+		font-size: 90%;
+	}
+	
+/* Publication authors listing
+--------------------------------------------- */
+	#author-access {
+		margin-top: 2em;
+	}
+	
+/* Team table 
+--------------------------------------------- */
+
+	table th.activesort {
+		font-weight: bold !important;
+	}
+	table th.activesort a {
+		color: #000;
+	}
+	table#teamlist img {
+		border: 1px solid #CCCCCC;
+		width: 30px;
+	}
+	table.listing tbody tr.native {
+		background: #effeee;
+		border: 1px solid #effeee;
+	}
+	table.listing tbody tr.u_invited {
+		background: #f6f6f6;
+		border: 1px solid #f6f6f6;
+	}
+
+/* Misc
+--------------------------------------------- */
+	.online {
+		color: #52ad4b;
+		font-weight: bold;
+	}
+	
+/* IE7 hacks 
+--------------------------------------------- */
+	

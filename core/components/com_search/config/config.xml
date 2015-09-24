@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+@package        hubzero-cms
+@file           components/com_search/config.xml
+@copyright      Copyright 2005-2015 HUBzero Foundation, LLC.
+@license        http://opensource.org/licenses/MIT MIT
+
+Copyright 2005-2015 HUBzero Foundation, LLC.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+HUBzero is a registered trademark of Purdue University.
+-->
+
+<config>
+	<fieldset name="basic">
+		<field name="engine" type="list" default="basic" label="COM_SEARCH_PARAM_ENGINE_LABEL" description="COM_SEARCH_PARAM_ENGINE_DESC">
+			<option value="basic">COM_SEARCH_PARAM_ENGINE_BASIC</option>
+			<option value="hubgraph">HUBgraph</option>
+		</field>
+	</fieldset>
+	<fieldset name="hubgraph">
+		<field name="hubgraph_host" type="text" menu="hide" default="unix:///var/run/hubzero-hubgraph/hubgraph-server.sock" label="COM_SEARCH_PARAM_HUBGRAPH_HOST_LABEL" description="COM_SEARCH_PARAM_HUBGRAPH_HOST_DESC" />
+		<field name="hubgraph_port" type="text" menu="hide" default="" label="COM_SEARCH_PARAM_HUBGRAPH_PORT_LABEL" description="COM_SEARCH_PARAM_HUBGRAPH_PORT_DESC" />
+		<field name="hubgraph_showTagCloud" type="list" default="1" label="COM_SEARCH_PARAM_HUBGRAPH_TAGGCLOUD_LABEL" description="COM_SEARCH_PARAM_HUBGRAPH_TAGGCLOUD_DESC">
+			<option value="0">JNO</option>
+			<option value="1">JYES</option>
+		</field>
+		<field name="hubgraph_enabledOptions" type="text" menu="hide" default="" label="COM_SEARCH_PARAM_HUBGRAPH_ENABLEDOPTIONS_LABEL" description="COM_SEARCH_PARAM_HUBGRAPH_ENABLEDOPTIONS_DESC" />
+	</fieldset>
+	<fieldset name="permissions" label="JCONFIG_PERMISSIONS_LABEL" description="JCONFIG_PERMISSIONS_DESC">
+		<field name="rules" type="rules" label="JCONFIG_PERMISSIONS_LABEL" filter="rules" validate="rules" component="com_search" section="component">
+			<action name="core.admin" title="JACTION_ADMIN" description="JACTION_ADMIN_COMPONENT_DESC" />
+			<action name="core.manage" title="JACTION_MANAGE" description="JACTION_MANAGE_COMPONENT_DESC" />
+		</field>
+	</fieldset>
+</config>

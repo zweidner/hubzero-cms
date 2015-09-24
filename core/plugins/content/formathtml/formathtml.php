@@ -1,0 +1,159 @@
+<?php
+/**
+ * HUBzero CMS
+ *
+ * Copyright 2005-2015 HUBzero Foundation, LLC.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ *
+ * HUBzero is a registered trademark of Purdue University.
+ *
+ * @package   hubzero-cms
+ * @author    Shawn Rice <zooley@purdue.edu>
+ * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
+ * @license   http://opensource.org/licenses/MIT MIT
+ */
+
+// No direct access
+defined('_HZEXEC_') or die;
+
+/**
+ * HTML formatted Content Plugin
+ */
+class plgContentFormathtml extends \Hubzero\Plugin\Plugin
+{
+	/**
+	 * Finder before save content method
+	 * Article is passed by reference, but after the save, so no changes will be saved.
+	 * Method is called right after the content is saved
+	 *
+	 * @param   string The context of the content passed to the plugin
+	 */
+	public function onContentBeforeSave($context, &$article, $isNew)
+	{
+		if (!($article instanceof \Hubzero\Base\Object) || $context == 'com_content.article')
+		{
+			return;
+		}
+
+		$key = $this->_key($context);
+
+		$content = ltrim($article->get($key));
+
+		if (!$content) return;
+
+		// Is there a format already applied?
+		if (preg_match('/^<!-- \{FORMAT:(.*)\} -->/i', $content, $matches))
+		{
+			$format = strtolower(trim($matches[1]));
+			if ($format != 'html')
+			{
+				return;
+			}
+		}
+		// No format applied
+		elseif (strstr($content, '</'))
+		{
+			// Force apply a format?
+			if (!$this->params->get('applyFormat'))
+			{
+				return;
+			}
+		}
+
+		if ($this->params->get('sanitizeBefore', 1))
+		{
+			$content = \Hubzero\Utility\Sanitize::clean($content);
+			$content = \Hubzero\Utility\Sanitize::html($content);
+		}
+
+		if ($this->params->get('applyFormat'))
+		{
+			$content = preg_replace('/^(<!-- \{FORMAT:HTML\} -->)/i', '', $content);
+			$content = '<!-- {FORMAT:HTML} -->' . $content;
+		}
+
+		$article->set($key, $content);
+	}
+
+	/**
+	 * Convert content to HTML
+	 *
+	 * @param  string $context The context of the content being passed to the plugin.
+	 * @param  object $article The article object.  Note $article->text is also available
+	 * @param  object $params  The article params
+	 * @param  int    $page    The 'page' number
+	 */
+	public function onContentPrepare($context, &$article, &$params, $page = 0)
+	{
+		if (!($article instanceof \Hubzero\Base\Object) || $context == 'com_content.article')
+		{
+			return;
+		}
+
+		$key = $this->_key($context);
+
+		$content = ltrim($article->get($key));
+
+		if (!$content) return;
+
+		// Is there a format already applied?
+		if (preg_match('/^<!-- \{FORMAT:(.*)\} -->/i', $content, $matches))
+		{
+			// Is the format we want?
+			$format = strtolower(trim($matches[1]));
+			if ($format != 'html')
+			{
+				// Not HTML. Do nothing.
+				return;
+			}
+		}
+
+		$content = preg_replace('/^(<!-- \{FORMAT:HTML\} -->)/i', '', $content);
+
+		if (trim($content))
+		{
+			include_once(__DIR__ . '/parser.php');
+
+			$parser = new \Plugins\Content\Formathtml\Parser($params);
+
+			$content = $parser->parse($content);
+		}
+
+		$article->set($key, $content);
+	}
+
+	/**
+	 * Check if the context provided the content field name as
+	 * it may vary between models.
+	 *
+	 * @param   string $context A dot-notation string
+	 * @return  string
+	 */
+	private function _key($context)
+	{
+		$parts = explode('.', $context);
+		$key = 'content';
+		if (isset($parts[2]))
+		{
+			$key = $parts[2];
+		}
+		return $key;
+	}
+}

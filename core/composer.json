@@ -1,0 +1,92 @@
+{
+    "name": "hubzero/cms",
+    "description": "HUBzero CMS",
+    "version": "1.1.4",
+    "type": "project",
+    "keywords": [ "cms" , "hubzero" ],
+    "homepage": "http://hubzero.org",
+    "time": "2013-05-07 10:13:22",
+    "license": "LGPL-2.1",
+    "authors": [
+        {
+            "name": "Nicholas J. Kisseberth",
+            "email": "nkissebe@purdue.edu",
+            "role": "Senior Software Engineer"
+        },
+        {
+            "name": "Shawn Rice",
+            "email": "zooley@purdue.edu",
+            "role": "Senior Web Application Programmer"
+        },
+        {
+            "name": "Alissa Nedossekina",
+            "email": "alisa@purdue.edu",
+            "role": "Senior Web Application Programmer"
+        },
+        {
+            "name": "Chris Smoak",
+            "email": "csmoak@purdue.edu",
+            "role": "Web Application Programmer"
+        },
+        {
+            "name": "Ilya Shunko",
+            "email": "ishunko@purdue.edu",
+            "role": "Web Application Programmer"
+        },
+        {
+            "name": "Steve Snyder",
+            "email": "snyder13@purdue.edu",
+            "role": "Web Application Programmer"
+        },
+        {
+            "name": "Sam Wilson",
+            "email": "spwilson@purdue.edu",
+            "role": "Software Engineer"
+        },
+        {
+            "name": "Dave Benham",
+            "email": "dbenham@purdue.edu",
+            "role": "Software Engineer"
+        }
+    ],
+    "support": {
+        "email": "support@hubzero.org",
+        "issues": "http://hubzero.org/support/ticket/new",
+        "source": "http://hubzero.org/download"
+    },
+    "require": {
+        "ezyang/htmlpurifier": "4.5.0",
+        "facebook/php-sdk": "3.2.2",
+        "facebook/php-sdk-v4": "4.0.11",
+        "tecnick.com/tcpdf": "6.0.017",
+        "leafo/lessphp": "0.3.9",
+        "swiftmailer/swiftmailer": "v5.0.2",
+        "monolog/monolog": "1.11.0",
+        "willdurand/geocoder": "2.8.*",
+        "guzzle/guzzle": "3.8.*@dev",
+        "predis/predis": "0.8.6",
+        "phpoffice/phpexcel": "1.8.0",
+        "symfony/yaml": "2.5.*",
+        "symfony/http-foundation": "2.5.5",
+        "simshaun/recurr": "0.3.2",
+        "pelago/emogrifier": "dev-master",
+        "aferrandini/phpqrcode": "1.0.1",
+        "google/apiclient": "1.1.*",
+        "guzzlehttp/guzzle": "5.2.*",
+        "authy/php": "2.*",
+        "mandrill/mandrill": "1.0.*",
+        "phpdocumentor/reflection-docblock": "2.0.4",
+        "bshaffer/oauth2-server-php": "v1.4",
+        "pear/net_dns2": "1.4.*",
+        "hubzero/orcid-php": "0.*",
+        "league/flysystem": "1.0.*",
+        "league/flysystem-dropbox": "1.0.*"
+    },
+    "autoload": {
+    "psr-0": { "Hubzero": "libraries/" },
+        "classmap": [ "libraries/joomla" ]
+    },
+    "config": {
+        "preferred-install": "dist"
+    }
+}

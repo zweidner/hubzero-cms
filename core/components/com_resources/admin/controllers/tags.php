@@ -1,0 +1,146 @@
+<?php
+/**
+ * HUBzero CMS
+ *
+ * Copyright 2005-2015 HUBzero Foundation, LLC.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ *
+ * HUBzero is a registered trademark of Purdue University.
+ *
+ * @package   hubzero-cms
+ * @author    Shawn Rice <zooley@purdue.edu>
+ * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
+ * @license   http://opensource.org/licenses/MIT MIT
+ */
+
+namespace Components\Resources\Admin\Controllers;
+
+use Components\Resources\Tables\Resource;
+use Components\Resources\Helpers\Tags as TagCloud;
+use Hubzero\Component\AdminController;
+use stdClass;
+use Request;
+use Route;
+use Lang;
+use User;
+use App;
+
+/**
+ * Manage resource entry tags
+ */
+class Tags extends AdminController
+{
+	/**
+	 * Manage tags on a resource
+	 *
+	 * @return  void
+	 */
+	public function displayTask()
+	{
+		$this->view->id = Request::getInt('id', 0);
+
+		// Get resource title
+		$this->view->row = new Resource($this->database);
+		$this->view->row->load($this->view->id);
+
+		// Get all tags
+		$query  = "SELECT id, tag, raw_tag, admin FROM `#__tags` ORDER BY raw_tag ASC";
+		$this->database->setQuery($query);
+		$this->view->tags = $this->database->loadObjectList();
+		if ($this->database->getErrorNum())
+		{
+			echo $this->database->stderr();
+			return false;
+		}
+
+		// Get tags for this resource
+		$rt = new TagCloud($this->view->id);
+
+		$mytagarray    = array();
+		$myrawtagarray = array();
+		foreach ($rt->tags() as $tagMen)
+		{
+			$mytagarray[]    = $tagMen->get('tag');
+			$myrawtagarray[] = $tagMen->get('raw_tag');
+		}
+		$this->view->mytagarray = $mytagarray;
+
+		$this->view->objtags = new stdClass;
+		$this->view->objtags->tagMen = implode(', ', $myrawtagarray);
+
+		// Set any errors
+		foreach ($this->getErrors() as $error)
+		{
+			$this->view->setError($error);
+		}
+
+		// Output the HTML
+		$this->view->display();
+	}
+
+	/**
+	 * Saves changes to the tag list on a resource
+	 * Redirects back to main resource listing
+	 *
+	 * @return  void
+	 */
+	public function saveTask()
+	{
+		// Check for request forgeries
+		Request::checkToken();
+
+		// Incoming
+		$id       = Request::getInt('id', 0);
+		$entered  = Request::getVar('tags', '');
+		$selected = Request::getVar('tgs', array(0));
+
+		// Process tags
+		$tagging = new TagCloud($id);
+		$tagArray  = $tagging->parseTags($entered);
+		$tagArray2 = $tagging->parseTags($entered, 1);
+
+		$diffTags = array_diff($tagArray, $selected);
+		foreach ($diffTags as $diffed)
+		{
+			array_push($selected, $tagArray2[$diffed]);
+		}
+		$tags = implode(',', $selected);
+		$tagging->setTags($tags, User::get('id'), 1);
+
+		// Redirect
+		App::redirect(
+			Route::url('index.php?option=' . $this->_option . '&controller=items', false),
+			Lang::txt('COM_RESOURCES_TAGS_UPDATED', $id)
+		);
+	}
+
+	/**
+	 * Cancel a task (redirects to default task)
+	 *
+	 * @return  void
+	 */
+	public function cancelTask()
+	{
+		App::redirect(
+			Route::url('index.php?option=' . $this->_option . '&controller=items', false)
+		);
+	}
+}
+
