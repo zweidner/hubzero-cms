@@ -75,6 +75,7 @@ if (isset($this->messages))
 				</div><!-- /.container .data-entry -->
 
 				<div class="container"> <!-- .container for citation type (aff, nonaff, all) -->
+					<?php if ($this->config->get('display') != "group"): ?>
 					<nav class="entries-filters">
 						<ul class="entries-menu filter-options">
 							<?php
@@ -99,13 +100,10 @@ if (isset($this->messages))
 								}
 							?>
 							<li><a <?php if ($this->filters['filter'] == '' || $this->filters['filter'] == 'all') { echo 'class="active"'; } ?> href="<?php echo Route::url($base . '&action=browse'.$queryString.'&filters[filter]=all'); ?>"><?php echo Lang::txt('PLG_GROUPS_CITATIONS_ALL'); ?></a></li>
-							<li><a <?php if ($this->filters['filter'] == 'aff') { echo 'class="active"'; } ?> href="<?php echo Route::url($base . '&action=browse'.$queryString.'&filters[filter]=aff'); ?>"><?php echo Lang::txt('PLG_GROUPS_CITATIONS_AFFILIATED'); ?></a></li>
-							<li><a <?php if ($this->filters['filter'] == 'nonaff') { echo 'class="active"'; } ?> href="<?php echo Route::url($base . '&action=browse'.$queryString.'&filters[filter]=nonaff'); ?>"><?php echo Lang::txt('PLG_GROUPS_CITATIONS_NONAFFILIATED'); ?></a></li>
-							<?php if ($this->config->get('display') != "group"): ?>
 								<li><a <?php if ($this->filters['filter'] == 'member') { echo 'class="active"'; } ?> href="<?php echo Route::url($base . '&action=browse'.$queryString.'&filters[filter]=member'); ?>"><?php echo Lang::txt('PLG_GROUPS_CITATIONS_MEMBERCONTRIBUTED'); ?></a></li>
-							<?php endif; ?>
 						</ul>
 					</nav>
+					<?php endif; ?>
 				<?php if ($this->citations->count() > 0) : ?>
 					<table class="citations entries">
 						<thead>
@@ -132,6 +130,7 @@ if (isset($this->messages))
 						<tbody>
 							<?php $x = 0; ?>
 							<?php foreach ($this->citations as $cite) : ?>
+								<?php if (!$this->isManager && $cite->published == $cite::STATE_UNPUBLISHED) { continue; } ?> 
 								<tr class="citation-row <?php echo ($cite->published == $cite::STATE_UNPUBLISHED ? 'unpublished' : ''); ?>">
 									<td class="batch">
 										<input type="checkbox" class="download-marker" name="download_marker[]" value="<?php echo $cite->id; ?>" />

@@ -130,6 +130,12 @@ echo '<?xml version="1.0" encoding="utf-8"?>';
 		margin-bottom: 1.5em;
 		padding: 1.5em;
 	}
+	.oaiContainer .oaiContainer {
+		border: none;
+		background: transparent;
+		margin: 0;
+		padding: 0;
+	}
 	.oaiContainer:hover {
 		border-color: #222;
 	}
@@ -533,7 +539,7 @@ echo '<?xml version="1.0" encoding="utf-8"?>';
 
 <!-- ListIdentifiers -->
 <xsl:template match="oai:ListIdentifiers">
-	<xsl:apply-templates select="oai:record" />
+	<xsl:apply-templates select="oai:header" />
 	<xsl:apply-templates select="oai:resumptionToken" />
 </xsl:template>
 
@@ -545,7 +551,7 @@ echo '<?xml version="1.0" encoding="utf-8"?>';
 
 <xsl:template match="oai:set">
 	<div class="oaiContainer oaiSet">
-		<h2>Set</h2>
+		<!-- <h2>Set</h2> -->
 		<table class="values">
 			<tbody>
 				<tr>
@@ -574,7 +580,7 @@ echo '<?xml version="1.0" encoding="utf-8"?>';
 
 <xsl:template match="oai:metadataFormat">
 	<div class="oaiContainer">
-		<h2>Metadata Format</h2>
+		<!-- <h2>Metadata Format</h2> -->
 		<table class="values">
 			<tbody>
 				<tr>
@@ -600,11 +606,11 @@ echo '<?xml version="1.0" encoding="utf-8"?>';
 
 <!-- record object -->
 
-<xsl:template match="oai:record" xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<xsl:template match="oai:record" xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/" xmlns:oai_qdc="http://worldcat.org/xmlschemas/qdc-1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/">
 	<div class="oaiContainer">
 		<xsl:choose>
 			<xsl:when test="oai:metadata">
-				<h2 class="oaiRecordTitle"><xsl:value-of select="oai:metadata/oai_dc:dc/dc:title"/></h2>
+				<h2 class="oaiRecordTitle"><xsl:value-of select="oai:metadata/oai_dc:dc/dc:title"/><xsl:value-of select="oai:metadata/oai_qdc:qualifieddc/dc:title"/></h2>
 				<div class="oaiRecord">
 					<xsl:apply-templates select="oai:metadata" />
 					<xsl:apply-templates select="oai:about" />
@@ -617,7 +623,9 @@ echo '<?xml version="1.0" encoding="utf-8"?>';
 	</div>
 </xsl:template>
 
+
 <xsl:template match="oai:header">
+	<div class="oaiContainer">
 	<table class="values">
 		<tbody>
 			<tr>
@@ -637,6 +645,7 @@ echo '<?xml version="1.0" encoding="utf-8"?>';
 			<xsl:apply-templates select="oai:setSpec"/>
 		</tbody>
 	</table>
+	</div>
 	<xsl:if test="@status='deleted'">
 		<p>This record has been deleted.</p>
 	</xsl:if>
@@ -704,7 +713,7 @@ echo '<?xml version="1.0" encoding="utf-8"?>';
 		</xsl:if>
 		<table>
 			<tbody>
-				<xsl:apply-templates select="*[not(self::dc:creator or self::dc:subject or self::dc:title or self::dc:relation or self::dc:relation.hasPart or self::dc:relation.isPartOf or self::dc:relation.hasVersion)]" />
+				<xsl:apply-templates select="*[not(self::dc:creator or self::dc:subject or self::dc:title or self::dc:relation)]" />
 				<xsl:if test="count(dc:relation) &gt; 0">
 					<tr>
 						<th class="key">Related</th>
@@ -713,27 +722,67 @@ echo '<?xml version="1.0" encoding="utf-8"?>';
 						</td>
 					</tr>
 				</xsl:if>
-				<xsl:if test="count(dc:relation.hasPart) &gt; 0">
+			</tbody>
+		</table>
+	</div>
+</xsl:template>
+
+<!-- oai_qdc record -->
+<xsl:template match="oai_qdc:qualifieddc" xmlns:oai_qdc="http://worldcat.org/xmlschemas/qdc-1.0/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+	<div class="dcdata">
+		<xsl:if test="count(dc:creator) &gt; 0">
+			<div class="authors">
+				By <xsl:apply-templates select="dc:creator" />
+			</div>
+		</xsl:if>
+		<table>
+			<tbody>
+				<xsl:apply-templates select="*[not(self::dc:creator or self::dc:subject or self::dc:title or self::dc:relation or self::dcterms:hasPart or self::dcterms:isPartOf or self::dcterms:hasVersion or self::dcterms:references or self::dcterms:isReferencedBy)]" />
+				<xsl:if test="count(dc:relation) &gt; 0">
+					<tr>
+						<th class="key">Related</th>
+						<td class="value">
+							<ul class="relations"><xsl:apply-templates select="dc:relation"/></ul>
+						</td>
+					</tr>
+				</xsl:if>
+				<xsl:if test="count(dcterms:hasPart) &gt; 0">
 					<tr>
 						<th class="key">Parts</th>
 						<td class="value">
-							<ul class="relations"><xsl:apply-templates select="dc:relation.hasPart"/></ul>
+							<ul class="relations"><xsl:apply-templates select="dcterms:hasPart"/></ul>
 						</td>
 					</tr>
 				</xsl:if>
-				<xsl:if test="count(dc:relation.isPartOf) &gt; 0">
+				<xsl:if test="count(dcterms:isPartOf) &gt; 0">
 					<tr>
 						<th class="key">Is Part Of</th>
 						<td class="value">
-							<ul class="relations"><xsl:apply-templates select="dc:relation.isPartOf"/></ul>
+							<ul class="relations"><xsl:apply-templates select="dcterms:isPartOf"/></ul>
 						</td>
 					</tr>
 				</xsl:if>
-				<xsl:if test="count(dc:relation.hasVersion) &gt; 0">
+				<xsl:if test="count(dcterms:hasVersion) &gt; 0">
 					<tr>
 						<th class="key">Versions</th>
 						<td class="value">
-							<ul class="relations"><xsl:apply-templates select="dc:relation.hasVersion"/></ul>
+							<ul class="relations"><xsl:apply-templates select="dcterms:hasVersion"/></ul>
+						</td>
+					</tr>
+				</xsl:if>
+				<xsl:if test="count(dcterms:references) &gt; 0">
+					<tr>
+						<th class="key">References</th>
+						<td class="value">
+							<ul class="relations"><xsl:apply-templates select="dcterms:references"/></ul>
+						</td>
+					</tr>
+				</xsl:if>
+				<xsl:if test="count(dcterms:isReferencedBy) &gt; 0">
+					<tr>
+						<th class="key">Is Referenced By</th>
+						<td class="value">
+							<ul class="relations"><xsl:apply-templates select="dcterms:isReferencedBy"/></ul>
 						</td>
 					</tr>
 				</xsl:if>
@@ -790,16 +839,24 @@ echo '<?xml version="1.0" encoding="utf-8"?>';
 	<li><a class="link" href="{.}"><xsl:value-of select="."/></a></li>
 </xsl:template>
 
-<xsl:template match="dc:relation.hasVersion" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<xsl:template match="dcterms:hasVersion" xmlns:dcterms="http://purl.org/dc/terms/">
 	<li><a class="link" href="{.}"><xsl:value-of select="."/></a></li>
 </xsl:template>
 
-<xsl:template match="dc:relation.hasPart" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<xsl:template match="dcterms:hasPart" xmlns:dcterms="http://purl.org/dc/terms/">
 	<li><a class="link" href="{.}"><xsl:value-of select="."/></a></li>
 </xsl:template>
 
-<xsl:template match="dc:relation.isPartOf" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<xsl:template match="dcterms:isPartOf" xmlns:dcterms="http://purl.org/dc/terms/">
 	<li><a class="link" href="{.}"><xsl:value-of select="."/></a></li>
+</xsl:template>
+
+<xsl:template match="dcterms:references" xmlns:dcterms="http://purl.org/dc/terms/">
+	<li><xsl:value-of select="."/></li>
+</xsl:template>
+
+<xsl:template match="dcterms:isReferencedBy" xmlns:dcterms="http://purl.org/dc/terms/">
+	<li><xsl:value-of select="."/></li>
 </xsl:template>
 
 <xsl:template match="dc:description" xmlns:dc="http://purl.org/dc/elements/1.1/">
