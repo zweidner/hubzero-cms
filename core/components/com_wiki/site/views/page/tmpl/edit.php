@@ -50,6 +50,17 @@ else
 {
 	$lid = Request::getInt('lid', (time() . rand(0,10000)), 'post');
 }
+
+$db = App::get('db');
+$tbl = new \Components\Wiki\Tables\Page($db);
+
+$db->setQuery($tbl->buildQuery(array('search' => 'Help:WikiMacros', 'sort' => 'title', 'sort_Dir' => 'asc', 'limit' => 1, 'start' => 0)));
+$macros = new \Components\Wiki\Models\Page($db->loadObject());
+$macros->set('group_cn', null);
+
+$db->setQuery($tbl->buildQuery(array('search' => 'Help:WikiFormatting', 'sort' => 'title', 'sort_Dir' => 'asc', 'limit' => 1, 'start' => 0)));
+$formatting = new \Components\Wiki\Models\Page($db->loadObject());
+$formatting->set('group_cn', null);
 ?>
 <header id="<?php echo ($this->sub) ? 'sub-content-header' : 'content-header'; ?>">
 	<h2><?php echo $this->escape($this->title); ?></h2>
@@ -112,9 +123,10 @@ if ($this->page->exists() && !$this->page->access('modify')) {
 	<?php if ($this->page->exists() && $this->page->access('edit')) { ?>
 		<p><?php echo Lang::txt('COM_WIKI_WARNING_TO_CHANGE_PAGENAME', Route::url($this->page->link('rename'))); ?></p>
 	<?php } ?>
-		<p><?php echo Lang::txt('COM_WIKI_IMAGE_MACRO_HINT', Route::url('index.php?option=' . $this->option . '&scope=' . $this->page->get('scope') . '&pagename=Help:WikiMacros#image')); ?></p>
-		<p><?php echo Lang::txt('COM_WIKI_FILE_MACRO_HINT', Route::url('index.php?option=' . $this->option . '&scope=' . $this->page->get('scope') . '&pagename=Help:WikiMacros#file')); ?></p>
-
+	<?php if ($macros) { ?>
+		<p><?php echo Lang::txt('COM_WIKI_IMAGE_MACRO_HINT', Route::url($macros->link() . '#image')); ?></p>
+		<p><?php echo Lang::txt('COM_WIKI_FILE_MACRO_HINT', Route::url($macros->link() . '#file')); ?></p>
+	<?php } ?>
 		<div id="file-manager" data-instructions="<?php echo Lang::txt('COM_WIKI_CLICK_OR_DROP_FILE'); ?>" data-action="<?php echo rtrim(Request::base(true), '/'); ?>/index.php?option=com_wiki&amp;no_html=1&amp;controller=media&amp;task=upload&amp;listdir=<?php echo $lid; ?>" data-list="<?php echo rtrim(Request::base(true), '/'); ?>/index.php?option=com_wiki&amp;no_html=1&amp;controller=media&amp;task=list&amp;listdir=<?php echo $lid; ?>">
 			<iframe name="filer" id="filer" src="<?php echo rtrim(Request::base(true), '/'); ?>/index.php?option=com_wiki&amp;tmpl=component&amp;controller=media&amp;scope=<?php echo $this->page->get('scope'); ?>&amp;pagename=<?php echo $this->page->get('pagename'); ?>&amp;listdir=<?php echo $lid; ?>"></iframe>
 		</div>
@@ -209,9 +221,11 @@ if ($this->page->exists() && !$this->page->access('modify')) {
 			echo \Components\Wiki\Helpers\Editor::getInstance()->display('revision[pagetext]', 'pagetext', $this->revision->get('pagetext'), '', '35', '40');
 			?>
 		</label>
+	<?php if ($formatting) { ?>
 		<p class="ta-right hint">
-			<?php echo Lang::txt('COM_WIKI_FIELD_PAGETEXT_HINT', Route::url('index.php?option=com_wiki&pagename=Help:WikiFormatting')); ?>
+			<?php echo Lang::txt('COM_WIKI_FIELD_PAGETEXT_HINT', Route::url($formatting->link())); ?>
 		</p>
+	<?php } ?>
 
 	<?php if ($this->sub) { ?>
 		<div class="field-wrap">
@@ -223,8 +237,10 @@ if ($this->page->exists() && !$this->page->access('modify')) {
 					<div id="file-uploader-list"></div>
 				</div>
 				<div class="col span-half omega">
-					<p><?php echo Lang::txt('COM_WIKI_IMAGE_MACRO_HINT', Route::url('index.php?option=' . $this->option . '&scope=' . $this->page->get('scope') . '&pagename=Help:WikiMacros#image')); ?></p>
-					<p><?php echo Lang::txt('COM_WIKI_FILE_MACRO_HINT', Route::url('index.php?option=' . $this->option . '&scope=' . $this->page->get('scope') . '&pagename=Help:WikiMacros#file')); ?></p>
+					<?php if ($macros) { ?>
+						<p><?php echo Lang::txt('COM_WIKI_IMAGE_MACRO_HINT', Route::url($macros->link() . '#image')); ?></p>
+						<p><?php echo Lang::txt('COM_WIKI_FILE_MACRO_HINT', Route::url($macros->link() . '#file')); ?></p>
+					<?php } ?>
 				</div>
 			</div><!-- / .grid -->
 		</div>
