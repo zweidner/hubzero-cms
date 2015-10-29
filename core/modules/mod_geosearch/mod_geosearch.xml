@@ -2,7 +2,7 @@
 
 <!--
 @package        hubzero-cms
-@file           plugins/resources/recommendations.xml
+@file           modules/mod_geosearch/mod_geosearch.xml
 @copyright      Copyright 2005-2015 HUBzero Foundation, LLC.
 @license        http://opensource.org/licenses/MIT MIT
 
@@ -29,18 +29,19 @@ THE SOFTWARE.
 HUBzero is a registered trademark of Purdue University.
 -->
 
-<extension version="1.7" type="plugin" group="resources">
-	<name>Resource - Classrooms</name>
+<extension version="1.5.0" client="site" type="module">
+	<name>mod_geosearch</name>
 	<author>HUBzero</author>
 	<copyright>Copyright 2005-2015 HUBzero Foundation, LLC.</copyright>
 	<license>http://opensource.org/licenses/MIT MIT</license>
-	<description>Resources Plugin class for classroom cluster visualization</description>
+	<description>MOD_GEOSEARCH_XML_DESCRIPTION</description>
 	<files>
-		<filename plugin="classrooms">classrooms.php</filename>
+		<filename module="mod_geosearch">mod_geosearch.php</filename>
+		<filename>mod_geosearch.xml</filename>
+		<filename>index.html</filename>
+		<filename>tmpl/index.html</filename>
+		<filename>tmpl/default.php</filename>
 	</files>
-	<languages>
-		<language tag="en-GB">en-GB.plg_resources_classrooms.ini</language>
-	</languages>
 	<config>
 	</config>
 </extension>
