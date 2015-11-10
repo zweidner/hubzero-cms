@@ -64,11 +64,12 @@ if (count($matches) > 0)
 {
 	foreach ($matches as $match)
 	{
-		$data[$match[1]] = $match[2];
+		$data[$match[1]] = str_replace('="/site', '="' . substr(PATH_APP, strlen(PATH_ROOT)) . '/site', $match[2]);
 	}
 }
 $this->model->resource->fulltxt = preg_replace("#<nb:(.*?)>(.*?)</nb:(.*?)>#s", '', $this->model->resource->fulltxt);
 $this->model->resource->fulltxt = trim($this->model->resource->fulltxt);
+$this->model->resource->fulltxt = str_replace('="/site', '="' . substr(PATH_APP, strlen(PATH_ROOT)) . '/site', $this->model->resource->fulltxt);
 
 include_once(PATH_CORE . DS . 'components' . DS . 'com_resources' . DS . 'models' . DS . 'elements.php');
 $elements = new \Components\Resources\Models\Elements($data, $this->model->type->customFields);
@@ -253,7 +254,7 @@ $maintext = $this->model->description('parsed');
 			<h4><?php echo Lang::txt('PLG_RESOURCES_ABOUT_TIME'); ?></h4>
 			<p class="resource-content"><time><?php
 				// If the resource had a specific event date/time
-				if (substr($this->model->attribs->get('timeof', ''), -8, 8) == '00:00:00')
+				if (substr(Date::of($this->model->attribs->get('timeof', ''))->toLocal(), -8, 8) == '00:00:00')
 				{
 					$exp = Lang::txt('DATE_FORMAT_HZ1'); //'%B %d %Y';
 				}
