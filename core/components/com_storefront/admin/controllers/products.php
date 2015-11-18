@@ -35,7 +35,9 @@ use Components\Storefront\Models\Archive;
 use Components\Storefront\Models\Warehouse;
 use Components\Storefront\Models\Product;
 use Hubzero\Html\Builder\Access;
+use Components\Cart\Helpers\CartDownload;
 
+require_once PATH_CORE . DS. 'components' . DS . 'com_cart' . DS . 'helpers' . DS . 'Download.php';
 require_once(dirname(dirname(__DIR__)) . DS . 'models' . DS . 'Warehouse.php');
 require_once(dirname(dirname(__DIR__)) . DS . 'models' . DS . 'Product.php');
 
@@ -195,6 +197,10 @@ class Products extends AdminController
 			$this->view->metaNeeded = true;
 		}
 
+		// Get number of downloads
+		$downloaded = CartDownload::countProductDownloads($id);
+		$this->view->downloaded = $downloaded;
+
 		// Set any errors
 		foreach ($this->getErrors() as $error)
 		{
@@ -230,6 +236,7 @@ class Products extends AdminController
 
 		// Incoming
 		$fields = Request::getVar('fields', array(), 'post');
+		//var_dump((($fields['pAlias']))); die;
 
 		$obj = new Archive();
 
@@ -241,7 +248,7 @@ class Products extends AdminController
 			{
 				$product->setName($fields['pName']);
 			}
-			if (isset($fields['pAlias']))
+			if (isset($fields['pAlias']) && $fields['pAlias'])
 			{
 				$product->setAlias($fields['pAlias']);
 			}
@@ -251,7 +258,7 @@ class Products extends AdminController
 			if (isset($fields['pFeatures'])) {
 				$product->setFeatures($fields['pFeatures']);
 			}
-			if (isset($fields['pTagline']))
+			if (isset($fields['pTagline']) && $fields['pTagline'])
 			{
 				$product->setTagline($fields['pTagline']);
 			}
@@ -287,7 +294,7 @@ class Products extends AdminController
 		{
 			\Notify::error($e->getMessage());
 			// Get the product
-			$product = $obj->product($fields['pId']);
+			//$product = $obj->product($fields['pId']);
 			$this->editTask($product);
 			return;
 		}
@@ -544,12 +551,11 @@ class Products extends AdminController
 			try {
 				$product = new Product($pId);
 				$product->setActiveStatus($state);
-				$productSaveResponse = $product->save();
+				$product->save();
 			}
 			catch (\Exception $e)
 			{
-				\Notify::error($e->getMessage());
-				return;
+				$error = true;
 			}
 		}
 
@@ -567,10 +573,32 @@ class Products extends AdminController
 			break;
 		}
 
+		$type = 'message';
+		if (isset($error) && $error)
+		{
+			switch ($state)
+			{
+				case '1':
+					$action = 'published';
+					break;
+				case '0':
+					$action = 'unpublished';
+					break;
+			}
+
+			$message = 'Product could not be ' . $action;
+			if (sizeof($ids) > 1)
+			{
+				$message = 'Some products could not be ' . $action;
+			}
+			$type = 'error';
+		}
+
 		// Redirect
 		App::redirect(
 				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller),
-				$message
+				$message,
+				$type
 		);
 	}
 

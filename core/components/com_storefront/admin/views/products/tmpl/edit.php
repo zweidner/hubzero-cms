@@ -58,6 +58,9 @@ function submitbutton(pressbutton)
 	if (document.getElementById('field-title').value == ''){
 		alert("<?php echo 'Title cannot be empty' ?>");
 	}
+	else if (document.getElementById('field-pTagline').value == ''){
+		alert("<?php echo 'Tagline cannot be empty' ?>");
+	}
 	else if (document.getElementById('field-description').value == ''){
 		alert("<?php echo 'Description cannot be empty' ?>");
 	}
@@ -78,7 +81,7 @@ function submitbutton(pressbutton)
 			</div>
 
 			<div class="input-wrap">
-				<label for="field-alais"><?php echo Lang::txt('Alias'); ?>: <span class="required"><?php echo Lang::txt('JOPTION_REQUIRED'); ?></span></label><br />
+				<label for="field-alais"><?php echo Lang::txt('Alias'); ?>:</label><br />
 				<input type="text" name="fields[pAlias]" id="field-alais" size="30" maxlength="100" value="<?php echo $this->escape(stripslashes($this->row->getAlias())); ?>" />
 			</div>
 
@@ -106,6 +109,21 @@ function submitbutton(pressbutton)
 					<td>
 						<?php echo $this->row->getId(); ?>
 						<input type="hidden" name="fields[pId]" id="field-id" value="<?php echo $this->escape($this->row->getId()); ?>" />
+					</td>
+				</tr>
+				<tr>
+					<th class="key"><?php echo Lang::txt('COM_STOREFRONT_DOWNLOADED'); ?>:</th>
+					<td>
+						<?php
+						echo $this->downloaded;
+						if ($this->downloaded == 0 || $this->downloaded > 1)
+						{
+							echo(' times');
+						}
+						else {
+							echo 'time';
+						}
+						?>
 					</td>
 				</tr>
 			</tbody>
