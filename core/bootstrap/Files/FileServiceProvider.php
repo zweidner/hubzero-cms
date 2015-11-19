@@ -25,32 +25,51 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @copyright Copyright 2015 HUBzero Foundation, LLC.
+ * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
 
-// Create aliaes for runtime
-return array(
-	// Core
-	'App'        => 'Hubzero\Facades\App',
-	'Config'     => 'Hubzero\Facades\Config',
-	'Request'    => 'Hubzero\Facades\Request',
-	'Response'   => 'Hubzero\Facades\Response',
-	'Event'      => 'Hubzero\Facades\Event',
-	'Route'      => 'Hubzero\Facades\Route',
-	'User'       => 'Hubzero\Facades\User',
-	'Lang'       => 'Hubzero\Facades\Lang',
-	'Log'        => 'Hubzero\Facades\Log',
-	'Date'       => 'Hubzero\Facades\Date',
-	'Plugin'     => 'Hubzero\Facades\Plugin',
-	'Filesystem' => 'Hubzero\Facades\Filesystem',
-	// Site specific
-	'Component'  => 'Hubzero\Facades\Component',
-	'Session'    => 'Hubzero\Facades\Session',
-	'Module'     => 'Hubzero\Facades\Module',
-	'Pathway'    => 'Hubzero\Facades\Pathway',
-	'Notify'     => 'Hubzero\Facades\Notify',
-	'Cache'      => 'Hubzero\Facades\Cache',
-	'Document'   => 'Hubzero\Facades\Document',
-	'Html'       => 'Hubzero\Facades\Html',
-);
+namespace Bootstrap\Files;
+
+use Hubzero\Base\Middleware;
+use Hubzero\Http\Request;
+use Hubzero\Content\Server;
+
+/**
+ * File service provider
+ */
+class FileServiceProvider extends Middleware
+{
+	/**
+	 * Handle request in stack
+	 * 
+	 * @param   object  $request  Request
+	 * @return  mixed
+	 */
+	public function handle(Request $request)
+	{
+		$response = $this->next($request);
+
+		$filename = $this->app['moderator']->getPath();
+
+		// Ensure the file exist
+		if (!file_exists($filename))
+		{
+			// Return message
+			header('HTTP/1.1 404 Not found');
+			exit();
+		}
+
+		// Initiate a new content server
+		$server = new Server();
+		$server->disposition('inline');
+		$server->acceptranges(false);
+
+		$server->filename($filename);
+
+		// Serve up the file
+		$result = $server->serve();
+
+		return $response;
+	}
+}

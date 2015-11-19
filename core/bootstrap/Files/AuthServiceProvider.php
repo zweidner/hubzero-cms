@@ -25,32 +25,53 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @copyright Copyright 2015 HUBzero Foundation, LLC.
+ * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
 
-// Create aliaes for runtime
-return array(
-	// Core
-	'App'        => 'Hubzero\Facades\App',
-	'Config'     => 'Hubzero\Facades\Config',
-	'Request'    => 'Hubzero\Facades\Request',
-	'Response'   => 'Hubzero\Facades\Response',
-	'Event'      => 'Hubzero\Facades\Event',
-	'Route'      => 'Hubzero\Facades\Route',
-	'User'       => 'Hubzero\Facades\User',
-	'Lang'       => 'Hubzero\Facades\Lang',
-	'Log'        => 'Hubzero\Facades\Log',
-	'Date'       => 'Hubzero\Facades\Date',
-	'Plugin'     => 'Hubzero\Facades\Plugin',
-	'Filesystem' => 'Hubzero\Facades\Filesystem',
-	// Site specific
-	'Component'  => 'Hubzero\Facades\Component',
-	'Session'    => 'Hubzero\Facades\Session',
-	'Module'     => 'Hubzero\Facades\Module',
-	'Pathway'    => 'Hubzero\Facades\Pathway',
-	'Notify'     => 'Hubzero\Facades\Notify',
-	'Cache'      => 'Hubzero\Facades\Cache',
-	'Document'   => 'Hubzero\Facades\Document',
-	'Html'       => 'Hubzero\Facades\Html',
-);
+namespace Bootstrap\Files;
+
+use Hubzero\Base\Middleware;
+use Hubzero\Http\Request;
+use Hubzero\Content\Moderator;
+
+/**
+ * Token based authentication service provider
+ */
+class AuthServiceProvider extends Middleware
+{
+	/**
+	 * Handle request in stack
+	 * 
+	 * @param   object  $request  Request
+	 * @return  mixed
+	 */
+	public function handle(Request $request)
+	{
+		$response = $this->next($request);
+
+		// Get the referer to parse for the applicable app
+		$referer = $request->header('referer');
+		$app     = Request::create($referer)->segment(1, 'site');
+		$app     = (in_array($app, ['site', 'administrator'])) ? $app : 'site';
+
+		// Get secret and session name manually
+		$secret      = $this->app['config']->get('secret');
+		$cookie_name = md5(md5($secret . $app));
+		$session_id  = $request->getVar($cookie_name, false, 'COOKIE');
+
+		// Build moderator
+		$identifier = $request->segment(2);
+		$moderator  = new Moderator($identifier, $session_id, $secret);
+
+		if (!$moderator->validateToken())
+		{
+			header('HTTP/1.1 401 You don\'t have permission to do this');
+			exit();
+		}
+
+		$this->app['moderator'] = $moderator;
+
+		return $response;
+	}
+}
