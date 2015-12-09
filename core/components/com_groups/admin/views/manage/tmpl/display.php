@@ -46,6 +46,12 @@ if ($canDo->get('core.manage') && $this->config->get('super_gitlab', 0))
 	Toolbar::custom('update', 'refresh', '', 'COM_GROUPS_UPDATE_CODE');
 	Toolbar::spacer();
 }
+if ($canDo->get('core.edit.state'))
+{
+	Toolbar::publishList();
+	Toolbar::unpublishList();
+	Toolbar::spacer();
+}
 if ($canDo->get('core.create'))
 {
 	Toolbar::addNew();
@@ -232,15 +238,15 @@ for ($i=0, $n=count($this->rows); $i < $n; $i++)
 				<td class="priority-3">
 					<?php if ($canDo->get('core.edit.state')) { ?>
 						<?php if (!$group->get('approved')) { ?>
-						<a class="jgrid state no" href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=' . $this->controller . '&task=approve&id=' . $row->cn); ?>" title="<?php echo Lang::txt('COM_GROUPS_APPROVE'); ?>">
-							<span class="not-approved">
-								<span class="text"><?php echo Lang::txt('COM_GROUPS_APPROVE'); ?></span>
-							</span>
-						</a>
+							<a class="jgrid state no" href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=' . $this->controller . '&task=approve&id=' . $row->cn); ?>" title="<?php echo Lang::txt('COM_GROUPS_APPROVE'); ?>">
+								<span class="not-approved">
+									<span class="text"><?php echo Lang::txt('COM_GROUPS_APPROVE'); ?></span>
+								</span>
+							</a>
 						<?php } else { ?>
-							<span class="state yes approved">
+							<a class="jgrid state yes approved" href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=' . $this->controller . '&task=unapprove&id=' . $row->cn); ?>" title="<?php echo Lang::txt('COM_GROUPS_UNAPPROVE'); ?>">
 								<span class="text"><?php echo Lang::txt('COM_GROUPS_APPROVED'); ?></span>
-							</span>
+							</a>
 						<?php } ?>
 					<?php } ?>
 				</td>

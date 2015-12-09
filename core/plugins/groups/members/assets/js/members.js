@@ -20,7 +20,7 @@ jQuery(document).ready(function(jq){
 		}
 	});
 
-	$('a.message-member').fancybox({
+	$('.message-member a').fancybox({
 		type: 'ajax',
 		width: 700,
 		height: 'auto',
@@ -55,7 +55,7 @@ jQuery(document).ready(function(jq){
 	$('a.assign-role').fancybox({
 		type: 'ajax',
 		width: 300,
-		height: 170,
+		height: 'auto',
 		autoSize: false,
 		fitToView: false,
 		titleShow: false,

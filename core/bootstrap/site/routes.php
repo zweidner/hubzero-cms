@@ -253,7 +253,12 @@ $router->rules('build')->append('rewrite', function ($uri)
 	}
 
 	// Add basepath to the uri
-	$uri->setPath(\App::get('request')->base(true) . '/' . $route);
+	$base = \App::get('request')->base(true);
+	if (!\App::isSite())
+	{
+		$base = '/' . ltrim(substr(ltrim($base, '/'), strlen(\App::get('client')->name)), '/');
+	}
+	$uri->setPath($base . '/' . $route);
 
 	return $uri;
 });
@@ -427,8 +432,8 @@ $router->rules('parse')->append('menu', function ($uri)
 				if (trim($item->route, '/') == trim($route, '/'))
 				{
 					if (trim($item->route, '/') != trim($item->link, '/')
-					 && trim($uri->base(true) . '/' . $item->route, '/') != trim($item->link, '/') // Added because it would cause redirect loop for installs not in top-level webroot
-					 && trim($uri->base(true) . '/index.php/' . $item->route, '/') != trim($item->link, '/')) // Added because it would cause redirect loop for installs not in top-level webroot
+					 && trim(\App::get('request')->base(true) . '/' . $item->route, '/') != trim($item->link, '/') // Added because it would cause redirect loop for installs not in top-level webroot
+					 && trim(\App::get('request')->base(true) . '/index.php/' . $item->route, '/') != trim($item->link, '/')) // Added because it would cause redirect loop for installs not in top-level webroot
 					{
 						\App::redirect($item->link);
 					}

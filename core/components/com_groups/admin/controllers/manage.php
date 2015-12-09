@@ -58,7 +58,7 @@ class Manage extends AdminController
 	/**
 	 * Displays a list of groups
 	 *
-	 * @return	void
+	 * @return  void
 	 */
 	public function displayTask()
 	{
@@ -166,7 +166,7 @@ class Manage extends AdminController
 	/**
 	 * Create a new group
 	 *
-	 * @return	void
+	 * @return  void
 	 */
 	public function addTask()
 	{
@@ -176,7 +176,7 @@ class Manage extends AdminController
 	/**
 	 * Displays an edit form
 	 *
-	 * @return	void
+	 * @return  void
 	 */
 	public function editTask()
 	{
@@ -218,9 +218,9 @@ class Manage extends AdminController
 	/**
 	 * Recursive array_map
 	 *
-	 * @param  $func string Function to map
-	 * @param  $arr  array  Array to process
-	 * @return array
+	 * @param   string  $func  Function to map
+	 * @param   array   $arr   Array to process
+	 * @return  array
 	 */
 	protected function _multiArrayMap($func, $arr)
 	{
@@ -237,7 +237,7 @@ class Manage extends AdminController
 	/**
 	 * Saves changes to a group or saves a new entry if creating
 	 *
-	 * @return void
+	 * @return  void
 	 */
 	public function saveTask()
 	{
@@ -350,6 +350,8 @@ class Manage extends AdminController
 		// Set the group changes and save
 		$group->set('cn', $g['cn']);
 		$group->set('type', $g['type']);
+		$group->set('approved', $g['approved']);
+		$group->set('published', $g['published']);
 		if ($isNew)
 		{
 			$group->create();
@@ -434,8 +436,8 @@ class Manage extends AdminController
 	/**
 	 * Generate default template files for special groups
 	 *
-	 * @param     object $group \Hubzero\User\Group
-	 * @return    void
+	 * @param   object  $group  \Hubzero\User\Group
+	 * @return  void
 	 */
 	private function _handleSuperGroup($group)
 	{
@@ -573,9 +575,10 @@ class Manage extends AdminController
 	}
 
 	/**
-	 * [_handSuperGroupGitlab description]
-	 * @param  [type] $group [description]
-	 * @return [type]        [description]
+	 * Create necessary super groups files
+	 *
+	 * @param   object  $group
+	 * @return  void
 	 */
 	private function _handSuperGroupGitlab($group)
 	{
@@ -710,7 +713,7 @@ class Manage extends AdminController
 	/**
 	 * Fetch from Gitlab
 	 *
-	 * @return void
+	 * @return  void
 	 */
 	public function updateTask()
 	{
@@ -868,7 +871,7 @@ class Manage extends AdminController
 	/**
 	 * Merge From from Gitlab
 	 *
-	 * @return void
+	 * @return  void
 	 */
 	public function doUpdateTask()
 	{
@@ -889,7 +892,8 @@ class Manage extends AdminController
 		{
 			App::redirect(
 				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-				Lang::txt('There are no eligible merge requests.'), 'warning'
+				Lang::txt('There are no eligible merge requests.'),
+				'warning'
 			);
 			return;
 		}
@@ -990,7 +994,7 @@ class Manage extends AdminController
 	/**
 	 * Removes a group and all associated information
 	 *
-	 * @return	void
+	 * @return  void
 	 */
 	public function deleteTask()
 	{
@@ -1076,22 +1080,11 @@ class Manage extends AdminController
 					'comments'  => $log
 				));
 			}
+
+			Notify::success(Lang::txt('COM_GROUPS_REMOVED'));
 		}
 
 		// Redirect back to the groups page
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-			Lang::txt('COM_GROUPS_REMOVED')
-		);
-	}
-
-	/**
-	 * Cancel a task (redirects to default task)
-	 *
-	 * @return	void
-	 */
-	public function cancelTask()
-	{
 		App::redirect(
 			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false)
 		);
@@ -1100,7 +1093,7 @@ class Manage extends AdminController
 	/**
 	 * Publish a group
 	 *
-	 * @return void
+	 * @return  void
 	 */
 	public function publishTask()
 	{
@@ -1142,20 +1135,21 @@ class Manage extends AdminController
 					'action'    => 'group_published',
 					'comments'  => 'published by administrator'
 				));
-
-				// Output messsage and redirect
-				App::redirect(
-					Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-					Lang::txt('COM_GROUPS_PUBLISHED')
-				);
 			}
+
+			// Output messsage and redirect
+			Notify::success(Lang::txt('COM_GROUPS_PUBLISHED'));
 		}
+
+		App::redirect(
+			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false)
+		);
 	}
 
 	/**
 	 * Unpublish a group
 	 *
-	 * @return void
+	 * @return  void
 	 */
 	public function unpublishTask()
 	{
@@ -1197,20 +1191,21 @@ class Manage extends AdminController
 					'action'    => 'group_unpublished',
 					'comments'  => 'unpublished by administrator'
 				));
-
-				// Output messsage and redirect
-				App::redirect(
-					Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-					Lang::txt('COM_GROUPS_UNPUBLISHED')
-				);
 			}
+
+			// Output messsage
+			Notify::success(Lang::txt('COM_GROUPS_UNPUBLISHED'));
 		}
+
+		App::redirect(
+			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false)
+		);
 	}
 
 	/**
 	 * Approve a group
 	 *
-	 * @return void
+	 * @return  void
 	 */
 	public function approveTask()
 	{
@@ -1239,7 +1234,7 @@ class Manage extends AdminController
 					continue;
 				}
 
-				//set the group to be published and update
+				// Set the group to be published and update
 				$group->set('approved', 1);
 				$group->update();
 
@@ -1251,20 +1246,74 @@ class Manage extends AdminController
 				));
 			}
 
-			// Output messsage and redirect
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-				Lang::txt('COM_GROUPS_APPROVED')
-			);
+			Notify::success(Lang::txt('COM_GROUPS_APPROVED'));
 		}
+
+		// Output messsage and redirect
+		App::redirect(
+			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false)
+		);
+	}
+
+	/**
+	 * Unapprove a group
+	 *
+	 * @return  void
+	 */
+	public function unapproveTask()
+	{
+		// Incoming
+		$ids = Request::getVar('id', array());
+
+		// Get the single ID we're working with
+		if (!is_array($ids))
+		{
+			$ids = array($ids);
+		}
+
+		// Do we have any IDs?
+		if (!empty($ids))
+		{
+			// foreach group id passed in
+			foreach ($ids as $id)
+			{
+				// Load the group page
+				$group = new Group();
+				$group->read($id);
+
+				// Ensure we found the group info
+				if (!$group)
+				{
+					continue;
+				}
+
+				// Set the group to be published and update
+				$group->set('approved', 0);
+				$group->update();
+
+				// log publishing
+				Log::log(array(
+					'gidNumber' => $group->get('gidNumber'),
+					'action'    => 'group_unapproved',
+					'comments'  => 'unapproved by administrator'
+				));
+			}
+
+			Notify::success(Lang::txt('COM_GROUPS_UNAPPROVED'));
+		}
+
+		// Output messsage and redirect
+		App::redirect(
+			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false)
+		);
 	}
 
 	/**
 	 * Check if a group alias is valid
 	 *
-	 * @param 		integer 	$cname 			Group alias
-	 * @param 		boolean		$allowDashes 	Allow dashes in cn
-	 * @return 		boolean		True if valid, false if not
+	 * @param   integer  $cname        Group alias
+	 * @param   boolean  $allowDashes  Allow dashes in cn
+	 * @return  boolean  True if valid, false if not
 	 */
 	private function _validCn($cn, $allowDashes = false)
 	{
@@ -1298,8 +1347,8 @@ class Manage extends AdminController
 	 * Authorization check
 	 * Checks if the group is a system group and the user has super admin access
 	 *
-	 * @param     object $group \Hubzero\User\Group
-	 * @return    boolean True if authorized, false if not.
+	 * @param   object   $group  \Hubzero\User\Group
+	 * @return  boolean  True if authorized, false if not.
 	 */
 	protected function authorize($task, $group=null)
 	{
