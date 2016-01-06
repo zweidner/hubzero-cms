@@ -3,6 +3,7 @@
  * HUBzero CMS
  *
  * Copyright 2005-2015 HUBzero Foundation, LLC.
+ * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,69 +26,60 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author	Kevin Wojkovich <kevinw@purdue.edu>
+ * @author    Kevin Wojkovich <kevinw@purdue.edu> 
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
- * @since	 Class available since release 1.3.2
  */
 
-namespace Components\Citations\Models;
+namespace Modules\Feedaggregator;
 
-use Hubzero\Database\Relational;
-use Hubzero\Utility\String;
-use Hubzero\Base\Object;
+use Hubzero\Module\Module;
+use Components\Feedaggregator\Models\Posts;
+use stdClass;
+use Lang;
 
 /**
- * Hubs database model
- *
- * @uses \Hubzero\Database\Relational
+ * Module class for displaying items from a feed
  */
-class Author extends Relational
+class Helper extends Module
 {
 	/**
-	 * The table namespace
+	 * Get approved Posts from the Aggregated Feed
 	 *
-	 * @var string
-	 **/
-	protected $namespace = 'citations';
-	// table name jos_citations
-
-	/**
-	 * Default order by for model
-	 *
-	 * @var string
-	 **/
-	public $orderBy = 'author';
-
-	/**
-	 * Fields and their validation criteria
-	 *
-	 * @var array
-	 **/
-	protected $rules = array(
-		//'name'	=> 'notempty',
-		//'liaison' => 'notempty'
-	);
-
-	/**
-	 * Automatically fillable fields
-	 *
-	 * @var array
-	 **/
-	public $always = array(
-		//'name_normalized',
-		//'asset_id'
-	);
-
-
-	/**
-	 * Defines the inverse relationship between a record and a task
-	 *
-	 * @return \Hubzero\Database\Relationship\belongsToOne
-	 * @author
-	 **/
-	public function citation()
+	 * @return  mixed
+	 */
+	public function getPosts()
 	{
-		return $this->belongsToOne('Citation', 'cid', 'id');
+		// Get the approved posts
+		$model = new Posts;
+		$posts = $model->getPostsByStatus(1000,0,2);
+		return $posts;
+	}
+
+	/**
+	 * Display module
+	 *
+	 * @return  void
+	 */
+	public function display()
+	{
+		// Legacy compatibility for older view overrides
+		$params = $this->params;
+		$module = $this->module;
+
+		$posts = $this->getPosts();
+
+		// Check if feed URL has been set
+		if (count($posts) < 1)
+		{
+			echo '<p class="warning">';
+			echo Lang::txt('MOD_FEED_ERR_NO_URL');
+			echo '</p>';
+			return;
+		}
+
+		$moduleclass_sfx = htmlspecialchars($params->get('moduleclass_sfx'));
+
+		require $this->getLayoutPath($params->get('layout', 'default'));
 	}
 }

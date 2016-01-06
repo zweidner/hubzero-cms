@@ -3,6 +3,7 @@
  * HUBzero CMS
  *
  * Copyright 2005-2015 HUBzero Foundation, LLC.
+ * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,69 +26,14 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author	Kevin Wojkovich <kevinw@purdue.edu>
+ * @author    Kevin Wojkovich <kevinw@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
- * @since	 Class available since release 1.3.2
  */
 
-namespace Components\Citations\Models;
+namespace Modules\Feedaggregator;
 
-use Hubzero\Database\Relational;
-use Hubzero\Utility\String;
-use Hubzero\Base\Object;
+require_once __DIR__ . DS . 'helper.php';
+require_once(PATH_CORE . DS . 'components' . DS . 'com_feedaggregator' . DS . 'models' . DS . 'posts.php');
 
-/**
- * Hubs database model
- *
- * @uses \Hubzero\Database\Relational
- */
-class Author extends Relational
-{
-	/**
-	 * The table namespace
-	 *
-	 * @var string
-	 **/
-	protected $namespace = 'citations';
-	// table name jos_citations
-
-	/**
-	 * Default order by for model
-	 *
-	 * @var string
-	 **/
-	public $orderBy = 'author';
-
-	/**
-	 * Fields and their validation criteria
-	 *
-	 * @var array
-	 **/
-	protected $rules = array(
-		//'name'	=> 'notempty',
-		//'liaison' => 'notempty'
-	);
-
-	/**
-	 * Automatically fillable fields
-	 *
-	 * @var array
-	 **/
-	public $always = array(
-		//'name_normalized',
-		//'asset_id'
-	);
-
-
-	/**
-	 * Defines the inverse relationship between a record and a task
-	 *
-	 * @return \Hubzero\Database\Relationship\belongsToOne
-	 * @author
-	 **/
-	public function citation()
-	{
-		return $this->belongsToOne('Citation', 'cid', 'id');
-	}
-}
+with(new Helper($params, $module))->display();

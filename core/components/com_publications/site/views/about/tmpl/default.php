@@ -37,7 +37,7 @@ $webpath 	= $this->config->get('webpath');
 
 $authorized = $this->publication->access('view-all');
 
-$abstract	= stripslashes($this->publication->abstract);
+$abstract	= $this->publication->abstract;
 $description = $this->publication->describe('parsed');
 
 $this->publication->authors();
@@ -77,7 +77,7 @@ $schema 	= $metaElements->getSchema();
 
 	<h4><?php echo Lang::txt('COM_PUBLICATIONS_ABSTRACT'); ?></h4>
 	<div class="pub-content">
-		<?php echo $description; ?>
+		<?php echo $abstract; ?>
 	</div>
 
 <?php
