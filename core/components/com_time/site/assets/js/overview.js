@@ -71,7 +71,7 @@ jQuery(document).ready(function ( jq ) {
 					success: function ( json ) {
 						$.each(json, function ( i, val ) {
 							points[i] = [i, parseInt(val.length, 10)];
-							total += val.reduce(function(a, b) { return parseInt(a, 10) + parseInt(b, 10); }, 0);
+							total += Math.round(val.reduce(function(a, b) { return parseFloat(a) + parseFloat(b); }, 0));
 						});
 
 						$('.hours').html(total + 'hr' + ((total != 1) ? 's' : ''));
@@ -156,9 +156,9 @@ jQuery(document).ready(function ( jq ) {
 
 		calendar.fullCalendar({
 			header         : {
-				left       :   '',
+				left       : 'title',
 				center     : '',
-				right      :  ''
+				right      : 'today,prev,next'
 			},
 			timezone       : 'local',
 			defaultView    : 'agendaDay',
@@ -194,6 +194,9 @@ jQuery(document).ready(function ( jq ) {
 			},
 			eventAfterAllRender : function ( view ) {
 				graphs();
+
+				// Set height of input box (minus margin and borders)
+				$('.details-inner').height($('.calendar').height() - 32);
 			},
 			events : '/api/time/today'
 		});
@@ -243,6 +246,11 @@ jQuery(document).ready(function ( jq ) {
 				data: "hid="+$(this).val()+"&pactive=1",
 				dataType: "json",
 				cache: false,
+				statusCode: {
+					404: function() {
+						location.reload();
+					}
+				},
 				success: function ( json ) {
 					// If success, update the list of tasks based on the chosen hub
 					var options = '';
