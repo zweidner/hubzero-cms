@@ -70,7 +70,7 @@ jQuery(document).ready(function ( jq ) {
 					cache: false,
 					success: function ( json ) {
 						$.each(json, function ( i, val ) {
-							points[i] = [i, parseInt(val.length, 10)];
+							points[i] = [i, val.reduce(function(a, b) { return parseFloat(a) + parseFloat(b); }, 0)];
 							total += Math.round(val.reduce(function(a, b) { return parseFloat(a) + parseFloat(b); }, 0));
 						});
 
@@ -160,6 +160,7 @@ jQuery(document).ready(function ( jq ) {
 				center     : '',
 				right      : 'today,prev,next'
 			},
+			titleFormat    : 'ddd, MMM D, YYYY',
 			timezone       : 'local',
 			defaultView    : 'agendaDay',
 			contentHeight  : 370,
