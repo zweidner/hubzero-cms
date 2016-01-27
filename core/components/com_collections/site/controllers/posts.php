@@ -547,7 +547,7 @@ class Posts extends SiteController
 			}
 		}
 
-		if (!$no_html)
+		if (!Request::getInt('no_html', 0))
 		{
 			// Output messsage and redirect
 			App::redirect(

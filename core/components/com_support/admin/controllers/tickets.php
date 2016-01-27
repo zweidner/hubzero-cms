@@ -572,18 +572,21 @@ class Tickets extends AdminController
 				$html = $eview->loadTemplate();
 				$html = str_replace("\n", "\r\n", $html);
 
-				foreach ($row->attachments() as $attachment)
+				if (!$this->config->get('email_terse'))
 				{
-					if ($attachment->size() < 2097152)
+					foreach ($row->attachments() as $attachment)
 					{
-						if ($attachment->isImage())
+						if ($attachment->size() < 2097152)
 						{
-							$file = basename($attachment->link('filepath'));
-							$html = preg_replace('/<a class="img" data\-filename="' . str_replace('.', '\.', $file) . '" href="(.*?)"\>(.*?)<\/a>/i', '<img src="' . $message->getEmbed($attachment->link('filepath')) . '" alt="" />', $html);
-						}
-						else
-						{
-							$message->addAttachment($attachment->link('filepath'));
+							if ($attachment->isImage())
+							{
+								$file = basename($attachment->link('filepath'));
+								$html = preg_replace('/<a class="img" data\-filename="' . str_replace('.', '\.', $file) . '" href="(.*?)"\>(.*?)<\/a>/i', '<img src="' . $message->getEmbed($attachment->link('filepath')) . '" alt="" />', $html);
+							}
+							else
+							{
+								$message->addAttachment($attachment->link('filepath'));
+							}
 						}
 					}
 				}
@@ -644,6 +647,12 @@ class Tickets extends AdminController
 
 		Event::trigger('support.onTicketUpdate', array($row, $rowc));
 
+		if ($tmp = Request::getInt('tmp_dir'))
+		{
+			$attach = new Tables\Attachment($this->database);
+			$attach->updateCommentId($tmp, $rowc->get('id'));
+		}
+
 		if (!$isNew)
 		{
 			$attachment = $this->uploadTask($row->get('id'), $rowc->get('id'));
@@ -651,7 +660,10 @@ class Tickets extends AdminController
 
 		// Only do the following if a comment was posted or ticket was reassigned
 		// otherwise, we're only recording a changelog
-		if ($rowc->get('comment') || $row->get('owner') != $old->get('owner') || $rowc->attachments()->total() > 0)
+		if ($rowc->get('comment')
+		 || $row->get('owner') != $old->get('owner')
+		 || $row->get('group') != $old->get('group')
+		 || $rowc->attachments()->total() > 0)
 		{
 			// Send e-mail to ticket submitter?
 			if (Request::getInt('email_submitter', 0) == 1)
@@ -689,6 +701,30 @@ class Tickets extends AdminController
 						'email' => $row->owner('email'),
 						'id'    => $row->owner('id')
 					));
+				}
+				elseif ($row->get('group'))
+				{
+					$group = \Hubzero\User\Group::getInstance($row->get('group'));
+
+					if ($group)
+					{
+						foreach ($group->get('managers') as $manager)
+						{
+							$manager = User::getInstance($manager);
+
+							if (!$manager || !$manager->get('id'))
+							{
+								continue;
+							}
+
+							$rowc->addTo(array(
+								'role'  => Lang::txt('COM_SUPPORT_COMMENT_SEND_EMAIL_GROUPMANAGER'),
+								'name'  => $manager->get('name'),
+								'email' => $manager->get('email'),
+								'id'    => $manager->get('id')
+							));
+						}
+					}
 				}
 			}
 
@@ -745,11 +781,14 @@ class Tickets extends AdminController
 				$message['multipart'] = str_replace("\n", "\r\n", $message['multipart']);
 
 				$message['attachments'] = array();
-				foreach ($rowc->attachments() as $attachment)
+				if (!$this->config->get('email_terse'))
 				{
-					if ($attachment->size() < 2097152)
+					foreach ($rowc->attachments() as $attachment)
 					{
-						$message['attachments'][] = $attachment->link('filepath');
+						if ($attachment->size() < 2097152)
+						{
+							$message['attachments'][] = $attachment->link('filepath');
+						}
 					}
 				}
 
@@ -1439,7 +1478,7 @@ class Tickets extends AdminController
 
 		// Incoming file
 		$file = Request::getVar('upload', '', 'files', 'array');
-		if (!$file['name'])
+		if (!is_array($file) || !isset($file['name']) || !$file['name'])
 		{
 			$this->setError(Lang::txt('COM_SUPPORT_ERROR_NO_FILE'));
 			return '';

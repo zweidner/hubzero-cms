@@ -30,55 +30,28 @@
  * @license   http://opensource.org/licenses/MIT MIT
  */
 
-// no direct access
+// No direct access.
 defined('_HZEXEC_') or die();
-?>
-<fieldset class="adminform">
-	<legend><?php echo Lang::txt('COM_SYSTEM_INFO_CONFIGURATION_FILE'); ?></legend>
-	<table class="adminlist">
-		<thead>
-			<tr>
-				<th scope="col">
-					<?php echo Lang::txt('COM_SYSTEM_INFO_SETTING'); ?>
-				</th>
-				<th scope="col">
-					<?php echo Lang::txt('COM_SYSTEM_INFO_VALUE'); ?>
-				</th>
-			</tr>
-		</thead>
-		<tbody>
-			<?php foreach ($this->config as $key => $value):?>
-				<tr>
-					<td>
-						<?php echo $key;?>
-					</td>
-					<td>
-						<?php
-						if (is_array($value))
-						{
-							foreach ($value as $ky => $val)
-							{
-								if (is_array($val))
-								{
-									foreach ($val as $k => $v)
-									{
-										echo htmlspecialchars($k, ENT_QUOTES) .' = ' . htmlspecialchars($v, ENT_QUOTES) . '<br />';
-									}
-								}
-								else
-								{
-									echo htmlspecialchars($ky, ENT_QUOTES) .' = ' . htmlspecialchars($val, ENT_QUOTES) . '<br />';
-								}
-							}
-						}
-						else
-						{
-							echo htmlspecialchars($value, ENT_QUOTES);
-						}
-						?>
-					</td>
-				</tr>
-			<?php endforeach;?>
-		</tbody>
-	</table>
-</fieldset>
+
+$no_html = Request::getInt('no_html', 0);
+
+$assets = $this->model->attachments('list', array(
+	'ticket'  => $this->ticket,
+	'comment_id' => $this->comment
+));
+if ($assets->total() > 0)
+{
+	$i = 0;
+	foreach ($assets as $asset)
+	{
+		$this->view('_asset')
+		     ->set('i', $i)
+		     ->set('option', $this->option)
+		     ->set('controller', $this->controller)
+		     ->set('asset', $asset)
+		     ->set('no_html', $no_html)
+		     ->display();
+
+		$i++;
+	}
+}

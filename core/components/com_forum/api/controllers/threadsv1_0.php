@@ -116,7 +116,7 @@ class Threadsv1_0 extends ApiController
 				$obj->threads    = $section->count('threads');
 				$obj->posts      = $section->count('posts');
 
-				$obj->uri        = str_replace('/api', '', $base . '/' . ltrim(Route::url('index.php?option=com_forum&section=' . $section->get('alias')), '/'));
+				//$obj->url        = str_replace('/api', '', $base . '/' . ltrim(Route::url($section->link()), '/'));
 
 				$response->sections[] = $obj;
 			}
@@ -228,7 +228,9 @@ class Threadsv1_0 extends ApiController
 				$obj->threads     = $category->count('threads');
 				$obj->posts       = $category->count('posts');
 
-				$obj->uri         = str_replace('/api', '', $base . '/' . ltrim(Route::url('index.php?option=com_forum&section=' . $section->get('alias') . '&category=' . $category->get('alias')), '/'));
+				$category->set('section_alias', $section->get('alias'));
+
+				$obj->url         = str_replace('/api', '', $base . '/' . ltrim(Route::url($category->link()), '/'));
 
 				$response->categories[] = $obj;
 			}
@@ -324,6 +326,8 @@ class Threadsv1_0 extends ApiController
 			throw new Exception(Lang::txt('Category not found.'), 404);
 		}
 
+		$base = str_replace('/api', '', rtrim(Request::base(), '/'));
+
 		$response = new stdClass;
 
 		$response->section = new stdClass;
@@ -333,6 +337,7 @@ class Threadsv1_0 extends ApiController
 		$response->section->created    = $section->get('created');
 		$response->section->scope      = $section->get('scope');
 		$response->section->scope_id   = $section->get('scope_id');
+		//$response->section->url        = str_replace('/api', '', $base . '/' . ltrim(Route::url($section->link()), '/'));
 
 		$response->category = new stdClass;
 		$response->category->id          = $category->get('id');
@@ -342,14 +347,13 @@ class Threadsv1_0 extends ApiController
 		$response->category->created     = $category->get('created');
 		$response->category->scope       = $category->get('scope');
 		$response->category->scope_id    = $category->get('scope_id');
+		$response->category->url         = str_replace('/api', '', $base . '/' . ltrim(Route::url($category->link()), '/'));
 
 		$response->threads = array();
 		$response->total = $category->threads('count', array('state' => 1));
 
 		if ($response->total)
 		{
-			$base = str_replace('/api', '', rtrim(Request::base(), '/'));
-
 			foreach ($category->threads('list', array('state' => 1)) as $thread)
 			{
 				$obj = new stdClass;
@@ -369,7 +373,11 @@ class Threadsv1_0 extends ApiController
 
 				$obj->posts       = $thread->posts('count');
 
-				$obj->url         = $base . '/' . ltrim(Route::url('index.php?option=com_forum&section=' . $section->get('alias') . '&category=' . $category->get('alias') . '&thread=' . $thread->get('id')), '/');
+				$category->set('section_alias', $section->get('alias'));
+				$thread->set('section', $section->get('alias'));
+				$thread->set('category', $category->get('alias'));
+
+				$obj->url         = $base . '/' . ltrim(Route::url($thread->link()), '/');
 
 				$response->threads[] = $obj;
 			}
