@@ -437,6 +437,7 @@ class plgGroupsCitations extends \Hubzero\Plugin\Plugin
 
 		// Incoming - expecting an array id[]=4232
 		$id = Request::getInt('id', 0);
+		$id = ($id < 0 ? 0 : $id);
 
 		// Pub author
 		$pubAuthor = false;
@@ -503,7 +504,7 @@ class plgGroupsCitations extends \Hubzero\Plugin\Plugin
 		{
 			if ($view->row->relatedAuthors->count())
 			{
-				$view->authors = $view->row->relatedAuthors;
+				$view->authors = $view->row->relatedAuthors()->order('ordering', 'asc');
 			}
 			elseif ($view->row->relatedAuthors->count() == 0 && $view->row->author != '')
 			{
@@ -616,6 +617,7 @@ class plgGroupsCitations extends \Hubzero\Plugin\Plugin
 				'url' => Request::getVar('uri'),
 				'eprint' => Request::getVar('eprint'),
 				'abstract' => Request::getVar('abstract'),
+				'note' => Request::getVar('note'),
 				'keywords' => Request::getVar('keywords'),
 				'research_notes' => Request::getVar('research_notes'),
 				'language' => Request::getVar('language'),
@@ -630,8 +632,7 @@ class plgGroupsCitations extends \Hubzero\Plugin\Plugin
 		if (!$citation->save())
 		{
 			$this->setError($citation->getError());
-			$this->_edit();
-			return;
+			return $this->_edit();
 		}
 
 		$authorCount = $citation->relatedAuthors()->count();

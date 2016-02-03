@@ -145,6 +145,7 @@ class plgGroupsForum extends \Hubzero\Plugin\Plugin
 			}
 
 			//user vars
+			$this->group_plugin_acl = $group_plugin_acl;
 			$this->authorized = $authorized;
 
 			//group vars
@@ -463,22 +464,17 @@ class plgGroupsForum extends \Hubzero\Plugin\Plugin
 
 		// Incoming
 		$this->view->filters = array(
-			//'authorized' => 1,
 			'scope'      => $this->model->get('scope'),
 			'scope_id'   => $this->model->get('scope_id'),
 			'search'     => Request::getVar('q', ''),
 			'state'      => 1,
-			'access'     => 0
+			'access'     => array(0)
 		);
-		/*
-		 * Commented out, see ticket QUBES #311
-		 * Kevin Wojkovich - 8/12/2015
-		 *
-		 */
-		//if (!User::isGuest())
-		//{
-		//	$this->view->filters['access'] = array(0, 1, 3);
-		//}
+
+		if (!User::isGuest())
+		{
+			$this->view->filters['access'] = array(0, 1, 3);
+		}
 		if (in_array(User::get('id'), $this->members))
 		{
 			$this->view->filters['access'] = array(0, 1, 3, 4);
@@ -498,7 +494,14 @@ class plgGroupsForum extends \Hubzero\Plugin\Plugin
 		 && $this->params->get('access-create-section')
 		 && Request::getWord('action') == 'populate')
 		{
-			if (!$this->model->setup())
+			switch ($this->group_plugin_acl)
+			{
+				case 'members':    $access = 4; break;
+				case 'registered': $access = 1; break;
+				case 'anyone':
+				default:           $access = 0; break;
+			}
+			if (!$this->model->setup($access))
 			{
 				$this->setError($this->model->getError());
 			}
@@ -732,10 +735,24 @@ class plgGroupsForum extends \Hubzero\Plugin\Plugin
 			return;
 		}
 
+		if ($this->view->section->get('scope_id') != $this->model->get('scope_id')
+		 || $this->view->section->get('scope') != $this->model->get('scope'))
+		{
+			App::abort(404, Lang::txt('PLG_GROUPS_FORUM_ERROR_SECTION_NOT_FOUND'));
+			return;
+		}
+
 		$this->view->category = $this->view->section->category($this->view->filters['category']);
 		if (!$this->view->category->exists())
 		{
 			App::abort(404, Lang::txt('Category not found.'));
+			return;
+		}
+
+		if ($this->view->category->get('scope_id') != $this->model->get('scope_id')
+		 || $this->view->category->get('scope') != $this->model->get('scope'))
+		{
+			App::abort(404, Lang::txt('PLG_GROUPS_FORUM_ERROR_CATEGORY_NOT_FOUND'));
 			return;
 		}
 
@@ -1087,8 +1104,22 @@ class plgGroupsForum extends \Hubzero\Plugin\Plugin
 			return;
 		}
 
+		if ($this->view->section->get('scope_id') != $this->model->get('scope_id')
+		 || $this->view->section->get('scope') != $this->model->get('scope'))
+		{
+			App::abort(404, Lang::txt('PLG_GROUPS_FORUM_ERROR_SECTION_NOT_FOUND'));
+			return;
+		}
+
 		$this->view->category = $this->view->section->category($this->view->filters['category']);
 		if (!$this->view->category->exists())
+		{
+			App::abort(404, Lang::txt('PLG_GROUPS_FORUM_ERROR_CATEGORY_NOT_FOUND'));
+			return;
+		}
+
+		if ($this->view->category->get('scope_id') != $this->model->get('scope_id')
+		 || $this->view->category->get('scope') != $this->model->get('scope'))
 		{
 			App::abort(404, Lang::txt('PLG_GROUPS_FORUM_ERROR_CATEGORY_NOT_FOUND'));
 			return;
@@ -1098,6 +1129,14 @@ class plgGroupsForum extends \Hubzero\Plugin\Plugin
 
 		// Load the topic
 		$this->view->thread = $this->view->category->thread($this->view->filters['parent']);
+
+		// Make sure thread belongs to this group
+		if ($this->view->thread->get('scope_id') != $this->model->get('scope_id')
+		 || $this->view->thread->get('scope') != $this->model->get('scope'))
+		{
+			App::abort(404, Lang::txt('PLG_GROUPS_FORUM_ERROR_THREAD_NOT_FOUND'));
+			return;
+		}
 
 		// Redirect if the thread is soft-deleted
 		if ($this->view->thread->get('state') == 2)

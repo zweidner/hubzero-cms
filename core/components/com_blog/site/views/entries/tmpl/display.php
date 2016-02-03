@@ -126,7 +126,7 @@ $rows = $this->model->entries('list', $this->filters);
 									<a href="<?php echo Route::url($row->link()); ?>">
 										<?php echo $this->escape(stripslashes($row->get('title'))); ?>
 									</a>
-									<?php if (User::get('id') == $row->get('created_by')) { ?>
+									<?php if (User::get('id') == $row->get('created_by') || User::authorise('core.manage', $this->option)) { ?>
 										<a class="edit" href="<?php echo Route::url($row->link('edit')); ?>" title="<?php echo Lang::txt('COM_BLOG_EDIT'); ?>">
 											<?php echo Lang::txt('COM_BLOG_EDIT'); ?>
 										</a>
@@ -175,7 +175,7 @@ $rows = $this->model->entries('list', $this->filters);
 											</span>
 										</dd>
 									<?php } ?>
-									<?php if (User::get('id') == $row->get('created_by')) { ?>
+									<?php if (User::get('id') == $row->get('created_by') || User::authorise('core.manage', $this->option)) { ?>
 										<dd class="state <?php echo $row->state('text'); ?>">
 											<?php echo Lang::txt('COM_BLOG_STATE_' . strtoupper($row->state('text'))); ?>
 										</dd>
