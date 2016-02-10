@@ -222,18 +222,33 @@ class Record extends \Hubzero\Content\Import\Model\Record
 			$this->record->entry->loadByUsername($this->raw->username);
 		}
 
-		if (!$this->record->entry->get('uidNumber'))
+		$d = Date::of('now');
+
+		if ($this->raw->registerDate)
 		{
-			$this->raw->registerDate = Date::toSql();
+			try
+			{
+				$d = Date::of($this->raw->registerDate);
+			}
+			catch (Exception $e)
+			{
+				array_push($this->record->errors, $e->getMessage());
+			}
+			$this->raw->registerDate = $d->toSql();
+		}
+
+		if (!$this->record->entry->get('uidNumber') && !$this->raw->registerDate)
+		{
+			$this->raw->registerDate = $d->toSql();
 		}
 
 		// Set modified date/user
-		$this->raw->modifiedDate = Date::toSql();
+		$this->raw->modifiedDate = Date::of('now')->toSql();
 
 		foreach (get_object_vars($this->raw) as $key => $val)
 		{
 			// These two need some extra loving and care, so we skip them for now...
-			if (substr($key, 0, 1) == '_' || $key == 'username' || $key == 'uidNumber')
+			if (substr($key, 0, 1) == '_' || $key == 'username' || $key == 'uidNumber' || $key == 'groups')
 			{
 				continue;
 			}
@@ -412,16 +427,32 @@ class Record extends \Hubzero\Content\Import\Model\Record
 				$newUsertype = $db->loadResult();
 			}
 
-			$user = User::getRoot();
+			$d = Date::of('now');
+			if ($this->raw->registerDate)
+			{
+				try
+				{
+					$d = Date::of($this->raw->registerDate);
+				}
+				catch (Exception $e)
+				{
+					array_push($this->record->errors, $e->getMessage());
+				}
+			}
+
+			$user = new \JUser();
 			$user->set('username', $this->_profile->get('username'));
 			$user->set('name', $this->_profile->get('name'));
 			$user->set('email', $this->_profile->get('email'));
 			$user->set('id', 0);
 			$user->set('groups', array($newUsertype));
-			$user->set('registerDate', Date::of('now')->toSql());
+			$user->set('registerDate', $d->toSql());
 			$user->set('password', $this->raw->password);
 			$user->set('password_clear', $this->raw->password);
-			$user->save();
+			if (!$user->save())
+			{
+				throw new Exception($user->getError());
+			}
 			$user->set('password_clear', '');
 
 			// Attempt to get the new user
@@ -462,7 +493,7 @@ class Record extends \Hubzero\Content\Import\Model\Record
 			throw new Exception(Lang::txt('Unable to save the entry data.'));
 		}
 
-		if ($password = $this->raw->password)
+		if ($this->raw->password)
 		{
 			/*if ($isNew)
 			{
@@ -472,7 +503,7 @@ class Record extends \Hubzero\Content\Import\Model\Record
 			}
 			else
 			{*/
-				\Hubzero\User\Password::changePassword($this->_profile->get('uidNumber'), $password);
+				\Hubzero\User\Password::changePassword($this->_profile->get('uidNumber'), $this->raw->password);
 			//}
 		}
 
@@ -573,7 +604,21 @@ class Record extends \Hubzero\Content\Import\Model\Record
 	{
 		if (isset($this->raw->groups))
 		{
-			$this->record->groups = $this->_multiValueField($this->raw->groups);
+			$this->record->groups = (array)$this->_multiValueField($this->raw->groups);
+
+			foreach ($this->record->groups as $i => $gid)
+			{
+				$gid = trim($gid, '"');
+				$gid = trim($gid, "'");
+
+				$this->record->groups[$i] = $gid;
+
+				$group = \Hubzero\User\Group::getInstance($gid);
+				if (!$group || !$group->get('gidNumber'))
+				{
+					array_push($this->record->errors, Lang::txt('COM_MEMBERS_IMPORT_ERROR_GROUP_NOT_FOUND', $gid));
+				}
+			}
 		}
 	}
 
@@ -599,9 +644,12 @@ class Record extends \Hubzero\Content\Import\Model\Record
 		// Get all the user's current groups
 		$existing = $this->_profile->getGroups();
 		$gids = array();
-		foreach ($existing as $e)
+		if ($existing)
 		{
-			$gids[] = $existing->gidNumber;
+			foreach ($existing as $e)
+			{
+				$gids[] = $e->gidNumber;
+			}
 		}
 
 		// Add user to specified groups
