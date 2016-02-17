@@ -25,67 +25,99 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Sam Wilson <samwilson@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
 
-namespace Components\Time\Api;
+namespace Components\Groups\Models;
 
-use Hubzero\Component\Router\Base;
+use Hubzero\Database\Relational;
+use Hubzero\Config\Registry;
+use Hubzero\User\Group;
+
+include_once(__DIR__ . DS . 'member' . DS . 'role.php');
 
 /**
- * Routing class for the component
+ * Group role
  */
-class Router extends Base
+class Role extends Relational
 {
 	/**
-	 * Build the route for the component
+	 * The table namespace
 	 *
-	 * @param   array  &$query  An array of URL arguments
-	 * @return  array  The URL arguments to use to assemble the subsequent URL
+	 * @var string
 	 */
-	public function build(&$query)
+	protected $namespace = 'xgroups';
+
+	/**
+	 * Default order by for model
+	 *
+	 * @var string
+	 */
+	public $orderBy = 'name';
+
+	/**
+	 * Default order direction for select queries
+	 *
+	 * @var  string
+	 */
+	public $orderDir = 'asc';
+
+	/**
+	 * Fields and their validation criteria
+	 *
+	 * @var  array
+	 */
+	protected $rules = array(
+		'name'      => 'notempty',
+		'gidNumber' => 'positive|nonzero'
+	);
+
+	/**
+	 * Get parent group
+	 *
+	 * @return  object
+	 */
+	public function group()
 	{
-		$segments = array();
-
-		if (!empty($query['task']))
-		{
-			$segments[] = $query['task'];
-			unset($query['task']);
-		}
-
-		return $segments;
+		return Group::getInstance($this->get('gidNumber'));
 	}
 
 	/**
-	 * Parse the segments of a URL
+	 * Get group permissions
 	 *
-	 * @param   array  &$segments  The segments of the URL to parse
-	 * @return  array  The URL attributes to be used by the application
+	 * @return  object
 	 */
-	public function parse(&$segments)
+	public function transformPermissions()
 	{
-		$vars = array();
-		$vars['controller'] = 'time';
+		$registry = new Registry($this->get('permissions'));
+		$registry->separator = '/';
+		return $registry;
+	}
 
-		if (isset($segments[0]))
+	/**
+	 * Get a list of members
+	 *
+	 * @return  object
+	 */
+	public function members()
+	{
+		return $this->oneToMany('\Components\Groups\Models\Member\Role', 'roleid');
+	}
+
+	/**
+	 * Get group permissions
+	 *
+	 * @return  object
+	 */
+	public function destroy()
+	{
+		foreach ($this->members()->rows() as $member)
 		{
-			if (in_array($segments[0], ['records', 'tasks', 'hubs']))
-			{
-				$vars['controller'] = $segments[0];
-			}
-			else
-			{
-				$vars['task'] = $segments[0];
-			}
+			$member->destroy();
 		}
 
-		if (isset($segments[1]) && is_numeric($segments[1]))
-		{
-			$vars['id'] = $segments[1];
-		}
-
-		return $vars;
+		return parent::destroy();
 	}
 }
+

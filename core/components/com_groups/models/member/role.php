@@ -25,67 +25,73 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Sam Wilson <samwilson@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
 
-namespace Components\Time\Api;
+namespace Components\Groups\Models\Member;
 
-use Hubzero\Component\Router\Base;
+use Hubzero\Database\Relational;
+use Hubzero\User\Profile;
 
 /**
- * Routing class for the component
+ * Group member role
  */
-class Router extends Base
+class Role extends Relational
 {
 	/**
-	 * Build the route for the component
+	 * The table namespace
 	 *
-	 * @param   array  &$query  An array of URL arguments
-	 * @return  array  The URL arguments to use to assemble the subsequent URL
+	 * @var string
 	 */
-	public function build(&$query)
+	protected $namespace = 'xgroups_member';
+
+	/**
+	 * Default order by for model
+	 *
+	 * @var string
+	 */
+	public $orderBy = 'name';
+
+	/**
+	 * Default order direction for select queries
+	 *
+	 * @var  string
+	 */
+	public $orderDir = 'asc';
+
+	/**
+	 * Fields and their validation criteria
+	 *
+	 * @var  array
+	 */
+	protected $rules = array(
+		'roleid'    => 'positive|nonzero',
+		'uidNumber' => 'positive|nonzero'
+	);
+
+	/**
+	 * Get associated role
+	 *
+	 * @return  object
+	 */
+	public function role()
 	{
-		$segments = array();
-
-		if (!empty($query['task']))
-		{
-			$segments[] = $query['task'];
-			unset($query['task']);
-		}
-
-		return $segments;
+		return $this->belongsToOne('\Components\Groups\Models\Role', 'roleid');
 	}
 
 	/**
-	 * Parse the segments of a URL
+	 * Member profile
 	 *
-	 * @param   array  &$segments  The segments of the URL to parse
-	 * @return  array  The URL attributes to be used by the application
+	 * @return  object
 	 */
-	public function parse(&$segments)
+	public function member()
 	{
-		$vars = array();
-		$vars['controller'] = 'time';
-
-		if (isset($segments[0]))
+		if ($profile = Profile::getInstance($this->get('uidNumber')))
 		{
-			if (in_array($segments[0], ['records', 'tasks', 'hubs']))
-			{
-				$vars['controller'] = $segments[0];
-			}
-			else
-			{
-				$vars['task'] = $segments[0];
-			}
+			return $profile;
 		}
-
-		if (isset($segments[1]) && is_numeric($segments[1]))
-		{
-			$vars['id'] = $segments[1];
-		}
-
-		return $vars;
+		return new Profile;
 	}
 }
+
