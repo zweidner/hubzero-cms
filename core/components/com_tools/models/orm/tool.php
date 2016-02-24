@@ -25,40 +25,25 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
+ * @author    Sam Wilson <samwilson@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
+namespace Components\Tools\Models\Orm;
 
-// No direct access
-defined('_HZEXEC_') or die();
+use Hubzero\Database\Relational;
 
 /**
- * IpGeoBase plugin for geocode
+ * Tool database model
  *
- * The IpGeoBaseProvider named ip_geo_base is able to geocode
- * IPv4 addresses only, very accurate in Russia.
+ * @uses \Hubzero\Database\Relational
  */
-class plgGeocodeIpgeobase extends \Hubzero\Plugin\Plugin
+class Tool extends Relational
 {
 	/**
-	 * Return a geocode provider
+	 * The table namespace
 	 *
-	 * @param  string  $context
-	 * @param  object  $adapter
-	 * @param  boolean $ip
-	 * @return object
-	 */
-	public function onGeocodeProvider($context, $adapter, $ip=false)
-	{
-		if ($context != 'geocode.locate')
-		{
-			return;
-		}
-
-		return new \Geocoder\Provider\IpGeoBaseProvider(
-			$adapter
-		);
-	}
+	 * @var string
+	 **/
+	protected $table = '#__tool';
 }
-
