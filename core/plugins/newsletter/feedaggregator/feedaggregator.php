@@ -25,60 +25,48 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author	Kevin Wojkovich <kevinw@purdue.edu>
+ * @author 		Kevin Wojkovich <kevinw@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
- * @since	 Class available since release 1.3.2
  */
 
-namespace Components\Feedaggregator\Models\Orm;
+// No direct access
+defined( '_HZEXEC_' ) or die();
 
-use Hubzero\Database\Relational;
-use Hubzero\Utility\String;
-use Hubzero\Base\Object;
+use Components\Feedaggregator\Models\Orm\Post;
 
-/**
- * Hubs database model
- *
- * @uses \Hubzero\Database\Relational
- */
-class Post extends Relational
+require_once(PATH_CORE . DS . 'components' . DS . 'com_feedaggregator' . DS . 'models' . DS . 'orm' . DS . 'post.php');
+
+class plgNewsletterFeedaggregator extends \Hubzero\Plugin\Plugin
 {
-	/**
-	 * The table namespace
-	 *
-	 * @var string
-	 **/
-	protected $namespace = 'feedaggregator';
-
-	/**
-	 * Default order by for model
-	 *
-	 * @var string
-	 **/
-	public $orderBy = 'id';
-
-	/**
-	 * Fields and their validation criteria
-	 *
-	 * @var array
-	 **/
-	protected $rules = array(
-		'title' => 'notempty'
-	);
-
-	/**
-	 * Automatically fillable fields
-	 *
-	 * @var array
-	 **/
-	public $always = array(
-	);
-
-	public static function getLatest($limit = 10, $dateField = 'created', $sort = 'DESC')
+	public function __construct(&$subject, $config)
 	{
-		$rows = Post::all()->where('status', '=', '2')->order($dateField, $sort)->limit($limit);
+		parent::__construct($subject, $config);
+	}
 
-		return $rows;
+	public function onGetEnabledDigests()
+	{
+		$name = 'feedaggregator';
+		return $name;
+	}
+
+	public function onGetLatest($num = 5, $dateField = 'created', $sort = 'DESC')
+	{
+		$model = Post::getLatest($num, $dateField, $sort)->rows()->toObject();
+
+		$objects = array();
+
+		foreach ($model as $m)
+		{
+			$object = new stdClass;
+			$object->title = $m->title;
+			$object->body = preg_replace('/[^ .,;a-zA-Z0-9_-]|[,;]/', '', $m->description);
+			$object->date = Date::of($m->created)->toLocal("F j, Y");
+			$object->path = $m->url;
+			$object->id = $m->id;
+
+			array_push($objects, $object);
+		}
+		return $objects;
 	}
 }

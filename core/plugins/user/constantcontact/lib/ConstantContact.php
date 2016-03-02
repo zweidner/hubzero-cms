@@ -284,13 +284,12 @@ class ConstantContact
 		$CampaignsCollection = new CampaignsCollection($this->CTCTRequest);
 		return $CampaignsCollection->getCampaigns($page);
 	}
-	
-	   /**
+
+	/**
 	 * Get a Campaign from an ID
 	 * @param string $ID - Must be an ID of a campaign
 	 * @return Campaign Object of Campaign of given ID
 	 */
-	
 	public function getCampaignByID($ID)
 	{
 		$CampaignsCollection = new CampaignsCollection($this->CTCTRequest);
@@ -567,7 +566,7 @@ class ConstantContact
 	 * @param  Event Event - Event object to get details for
 	 * @return Event
 	 */
-	public function getEventDetails(Event $Event)
+	public function getEventDetails(CCEvent $Event)
 	{
 		$EventsCollection = new EventsCollection($this->CTCTRequest);
 		return $EventsCollection->getEventDetails($this->CTCTRequest->baseUri.$Event->link);
@@ -578,7 +577,7 @@ class ConstantContact
 	 * @param Event $Event - Event Object
 	 * @return array - up to 50 registrants and a link to the next page if one exists
 	 */
-	public function getRegistrants(Event $Event, $page = null)
+	public function getRegistrants(CCEvent $Event, $page = null)
 	{
 		$EventsCollection = new EventsCollection($this->CTCTRequest);
 		if ($page !== null)

@@ -980,8 +980,30 @@ class Tickets extends SiteController
 		 || !$customValidation)
 		{
 			Request::setVar('task', 'new');
+
 			// Output form with error messages
-			$this->view->setError(2);
+			if (!$reporter['name']
+			 || !$reporter['email']
+			 || !$problem['long'])
+			{
+				$this->setError(Lang::txt('COM_SUPPORT_ERROR_MISSING_DATA'));
+			}
+
+			if (!$validemail)
+			{
+				$this->setError(Lang::txt('COM_SUPPORT_ERROR_INVALID_EMAIL'));
+			}
+
+			if (!$customValidation)
+			{
+				$this->setError(Lang::txt('COM_SUPPORT_ERROR_INVALID_DATA'));
+			}
+
+			foreach ($this->getErrors() as $error)
+			{
+				$this->view->setError($error);
+			}
+
 			return $this->newTask();
 		}
 
@@ -1056,7 +1078,7 @@ class Tickets extends SiteController
 			}
 		}
 
-		$group = Request::getVar('group', '');
+		$group = isset($problem['group']) ? $problem['group'] : '';
 
 		// Initiate class and bind data to database fields
 		$row = new Ticket();
