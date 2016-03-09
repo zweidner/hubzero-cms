@@ -369,7 +369,7 @@ class plgProjectsFiles extends \Hubzero\Plugin\Plugin
 		);
 
 		// Retrieve items
-		$view->files = $this->repo->filelistNew($view->params);
+		$view->files = $this->repo->filelist($view->params);
 		$view->model = $model;
 		return $view->loadTemplate();
 	}
@@ -441,7 +441,7 @@ class plgProjectsFiles extends \Hubzero\Plugin\Plugin
 		);
 
 		// Retrieve items
-		$view->items = $this->repo->filelistNew($view->params);
+		$view->items = $this->repo->filelist($view->params);
 
 		$view->publishing	= false; // do not show publishing info
 		$view->title		= $this->_area['title'];
@@ -521,27 +521,24 @@ class plgProjectsFiles extends \Hubzero\Plugin\Plugin
 		{
 			// Set params
 			$params = array(
-				'filter'               => Request::getVar('filter', ''),
-				'limit'                => Request::getInt('limit', 0),
-				'start'                => Request::getInt('limitstart', 0),
-				'sortby'               => 'localpath', // important for selector!
-				'showFullMetadata'     => false,
-				'getParents'           => true, // show folders
-				'getChildren'          => true, // look inside directories
-				'selector'						 => true, // applies some limits to prevent JS from crashing
-				'subdir'							 => $directory,
+				'sortby'           => 'localpath',
+				'showFullMetadata' => false,
+				'subdir'           => $directory
 			);
 
 			// Retrieve items
-			$filelist = $this->repo->filelist($params);
+			$view->items     = $this->repo->filelist($params);
+			$view->directory = $directory;
 
-			/** Switch between the top-level consolidated view and the 
-			 ** regular view, related to performance issues when the project has
-			 ** an extraordinary number of files. -- Kevin <kevinw@purdue.edu>
-			 **/
-			$view->items = is_object($filelist[0]) ? $filelist : $filelist[0];
-		  $view->folders = is_array($filelist[0]) ? $filelist[1] : NULL;
+			// Get directories
+			$params = array(
+				'subdir'           => NULL,
+				'sortby'           => 'localpath',
+				'showFullMetadata' => false,
+				'dirsOnly'         => true,
+			);
 
+			$view->folders = $this->repo->filelist($params);
 		}
 
 		$view->option 		= $this->model->isProvisioned() ? 'com_publications' : $this->_option;
@@ -799,7 +796,7 @@ class plgProjectsFiles extends \Hubzero\Plugin\Plugin
 		}
 
 		// Redirect to file list
-		$url  = $this->model->link('files');
+		$url  = $this->model->link('files') . '&action=browse';
 		$url .= $this->repo->isLocal() ? '' : '&repo=' . $this->repo->get('name');
 		$url .= $this->subdir ? '&subdir=' . urlencode($this->subdir) : '';
 
@@ -847,7 +844,7 @@ class plgProjectsFiles extends \Hubzero\Plugin\Plugin
 		}
 
 		// Redirect to file list
-		$url  = $this->model->link('files');
+		$url  = $this->model->link('files') . '&action=browse';
 		$url .= $this->repo->isLocal() ? '' : '&repo=' . $this->repo->get('name');
 		$url .= $this->subdir ? '&subdir=' . urlencode($this->subdir) : '';
 
@@ -985,7 +982,7 @@ class plgProjectsFiles extends \Hubzero\Plugin\Plugin
 		}
 
 		// Redirect to file list
-		$url  = $this->model->link('files');
+		$url  = $this->model->link('files') . '&action=browse';
 		$url .= $this->repo->isLocal() ? '' : '&repo=' . $this->repo->get('name');
 		$url .= $this->subdir ? '&subdir=' . urlencode($this->subdir) : '';
 
@@ -1075,7 +1072,7 @@ class plgProjectsFiles extends \Hubzero\Plugin\Plugin
 		}
 
 		// Redirect to file list
-		$url  = $this->model->link('files');
+		$url  = $this->model->link('files') . '&action=browse';
 		$url .= $this->repo->isLocal() ? '' : '&repo=' . $this->repo->get('name');
 		$url .= $this->subdir ? '&subdir=' . urlencode($this->subdir) : '';
 
@@ -1123,7 +1120,7 @@ class plgProjectsFiles extends \Hubzero\Plugin\Plugin
 				'dirsOnly'             => true,
 			);
 
-			$view->list			= $this->repo->filelistNew($listParams);
+			$view->list			= $this->repo->filelist($listParams);
 			$view->path 		= $this->_path;
 			$view->items 		= array();
 			$view->database 	= $this->_database;
@@ -1224,7 +1221,7 @@ class plgProjectsFiles extends \Hubzero\Plugin\Plugin
 		}
 
 		// Redirect to file list
-		$url  = $this->model->link('files');
+		$url  = $this->model->link('files') . '&action=browse';
 		$url .= $this->repo->isLocal() ? '' : '&repo=' . $this->repo->get('name');
 		$url .= $this->subdir ? '&subdir=' . urlencode($this->subdir) : '';
 
@@ -1589,7 +1586,7 @@ class plgProjectsFiles extends \Hubzero\Plugin\Plugin
 		}
 
 		// Redirect to file list
-		$url  = $this->model->link('files');
+		$url  = $this->model->link('files') . '&action=browse';
 		$url .= $this->repo->isLocal() ? '' : '&repo=' . $this->repo->get('name');
 		$url .= $this->subdir ? '&subdir=' . urlencode($this->subdir) : '';
 
@@ -1873,7 +1870,7 @@ class plgProjectsFiles extends \Hubzero\Plugin\Plugin
 		}
 
 		// Redirect to file list
-		$url  = $this->model->link('files');
+		$url  = $this->model->link('files') . '&action=browse';
 		$url .= $this->repo->isLocal() ? '' : '&repo=' . $this->repo->get('name');
 		$url .= $this->subdir ? '&subdir=' . urlencode($this->subdir) : '';
 
