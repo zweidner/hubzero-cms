@@ -31,6 +31,9 @@
 namespace Components\Publications\Models\Attachment;
 
 use Components\Publications\Models\Attachment as Base;
+use Hubzero\Filesystem\Manager;
+use Hubzero\Filesystem\Entity;
+use Components\Projects\Models\Orm\Connection;
 use stdClass;
 use ZipArchive;
 
@@ -322,7 +325,7 @@ class File extends Base
 				// File model
 				$file = new \Components\Projects\Models\File($filePath);
 
-				$list .= '<li class="' . $class . '"><span class="item-title">' . $file::drawIcon($file->get('ext')) . ' ' . trim($where, DS) . '</span>';
+				$list .= '<li class="' . $class . '"><span class="item-title" id="file-' . $attach->id . '">' . $file::drawIcon($file->get('ext')) . ' ' . trim($where, DS) . '</span>';
 				$list .= '<span class="item-details">' . $attach->path . '</span>';
 				$list .= '</li>';
 			}
@@ -875,10 +878,54 @@ class File extends Base
 				continue;
 			}
 
+			$identifier = urldecode($identifier);
+
+			// Catch items coming in from connections
+			if (preg_match('/^([0-9]*):\/\//', $identifier, $matches))
+			{
+				if (isset($matches[1]))
+				{
+					require_once PATH_CORE . DS . 'components' . DS . 'com_projects' . DS . 'models' . DS . 'orm' . DS . 'connection.php';
+
+					// Grab the connection id
+					$connection = $matches[1];
+
+					// Reset identifier
+					$identifier = str_replace($matches[0], '', $identifier);
+					$connection = Connection::oneOrFail($connection);
+
+					// Create file objects
+					$conFile = Entity::fromPath($identifier, $connection->adapter());
+
+					if (!$conFile->isLocal())
+					{
+						// Create a temp file and write to it
+						$tempFile = Manager::getTempPath($conFile->getName());
+						Manager::copy($conFile, $tempFile);
+					}
+					else
+					{
+						$tempFile = $conFile;
+					}
+
+					// Insert the file into the repo
+					$result = $pub->_project->repo()->insert([
+						'subdir'   => $conFile->getParent(),
+						'dataPath' => $tempFile->getAbsolutePath(),
+						'update'   => false
+					]);
+
+					if (!$conFile->isLocal())
+					{
+						$tempFile->delete();
+					}
+				}
+			}
+
 			$a++;
 			$ordering = $i + 1;
 
-			if ($this->addAttachment(urldecode($identifier), $pub, $configs, User::get('id'), $elementId, $element, $ordering))
+			if ($this->addAttachment($identifier, $pub, $configs, User::get('id'), $elementId, $element, $ordering))
 			{
 				$i++;
 			}
