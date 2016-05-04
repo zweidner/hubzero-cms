@@ -23,7 +23,7 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Ilya Shunko <ishunko@purdue.edu>
+ * @author    HUBzero
  * @copyright Copyright 2005-2011 Purdue University. All rights reserved.
  * @license   http://www.gnu.org/licenses/lgpl-3.0.html LGPLv3
  */
@@ -31,51 +31,47 @@
 // Check to ensure this file is included in Joomla!
 defined('_JEXEC') or die( 'Restricted access' );
 
+$this->css()
+	->js()
+
 ?>
 
 <header id="content-header">
-	<h2><?php echo $this->collectionName; ?></h2>
-
-	<div id="content-header-extra">
-		<p>
-			<a class="btn" href="/cart"><?php echo  Lang::txt('COM_STOREFRONT_CART'); ?></a>
-		</p>
-	</div>
-
+	<h2><?php echo Lang::txt('COM_CART_ORDERS') ?></h2>
 </header>
 
-<section class="section">
+<form action="<?php echo Route::url('index.php?option=' . $this->option . '&controller=' . $this->controller); ?>" id="ordersform" method="get">
+<section class="main section">
 	<div class="section-inner">
 
-	<?php
-
-		if (!empty($this->products))
-		{
-			echo '<ul>';
-			foreach ($this->products as $product)
+		<?php
+			if (!$this->transactions)
 			{
-				// find if there is an alias
-				$productIdentificator = $product->pId;
-				if (!empty($product->pAlias))
-				{
-					$productIdentificator = $product->pAlias;
-				}
-
-				echo '<li>';
-					echo '<a href="';
-					echo Route::url('index.php?option=' . Request::getVar('option')) . 'product/' . $productIdentificator;
-					echo '">';
-					echo $product->pName;
-					echo '</a>';
-				echo '</li>';
+				echo '<p class="no-results">You have not placed any orders yet. Is it time to <a href="/storefront">start shopping?</a>';
 			}
-			echo '</ul>';
-		}
-		else {
-			echo Lang::txt('COM_STOREFRONT_NO_PRODUCTS');
-		}
-
-	?>
+			else {
+				echo '<ol class="entries">';
+				foreach ($this->transactions as $transaction)
+				{
+					// Instantiate a new view
+					$this->view('transaction', 'orders')
+						->set('transaction', $transaction)
+						->display();
+				}
+				echo '</ol>';
+			}
+		?>
 
 	</div>
+
+	<?php
+	// Initiate paging
+	$pageNav = $this->pagination(
+		$this->total,
+		$this->filters['start'],
+		$this->filters['limit']
+	);
+	echo $pageNav->render();
+	?>
 </section>
+</form>
