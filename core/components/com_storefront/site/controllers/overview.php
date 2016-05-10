@@ -23,40 +23,60 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
- * @copyright Copyright 2005-2011 Purdue University. All rights reserved.
+ * @author    Ilya Shunko <ishunko@purdue.edu>
+ * @copyright Copyright 2005-2012 Purdue University. All rights reserved.
  * @license   http://www.gnu.org/licenses/lgpl-3.0.html LGPLv3
  */
 
-namespace Components\Cart\Admin;
+namespace Components\Storefront\Site\Controllers;
 
-$option = 'com_cart';
+//use Components\Storefront\Models\Warehouse;
 
-if (!\User::authorise('core.manage', $option))
+
+/**
+ * Courses controller class
+ */
+class Overview extends ComponentController
 {
-	return \App::abort(404, \Lang::txt('JERROR_ALERTNOAUTHOR'));
+	/**
+	 * Execute a task
+	 *
+	 * @return     void
+	 */
+	public function execute()
+	{
+		// Get the task
+		$this->_task  = Request::getVar('task', '');
+
+		if (empty($this->_task))
+		{
+			$this->_task = 'default';
+			$this->registerTask('__default', $this->_task);
+		}
+
+		parent::execute();
+	}
+
+	/**
+	 * Display default page
+	 *
+	 * @return     void
+	 */
+	public function defaultTask()
+	{
+		$config = $this->config;
+
+		if (Pathway::count() <= 0)
+		{
+			Pathway::append(
+					Lang::txt(strtoupper($this->_option)),
+					'index.php?option=' . $this->_option
+			);
+		}
+
+		$this->view->config = $config;
+		$this->view->display();
+	}
+
 }
 
-require_once(__DIR__ . DS . 'helpers' . DS . 'permissions.php');
-
-$scope = \Request::getCmd('scope', 'site');
-$controllerName = \Request::getCmd('controller', 'downloads');
-
-\Submenu::addEntry(
-		Lang::txt('COM_CART_SOFTWARE_DOWNLOADS'),
-		\Route::url('index.php?option=com_cart&controller=downloads'),
-		$controllerName == 'downloads'
-);
-
-if (!file_exists(__DIR__ . DS . 'controllers' . DS . $controllerName . '.php'))
-{
-	$controllerName = 'downloads';
-}
-require_once(__DIR__ . DS . 'controllers' . DS . $controllerName . '.php');
-$controllerName = __NAMESPACE__ . '\\Controllers\\' . ucfirst($controllerName);
-
-// Instantiate controller
-$controller = new $controllerName();
-
-$controller->execute();
-$controller->redirect();

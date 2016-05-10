@@ -32,6 +32,7 @@ namespace Components\Storefront\Site\Controllers;
 
 use Components\Storefront\Models\Warehouse;
 
+
 /**
  * Courses controller class
  */
@@ -79,5 +80,6 @@ class Storefront extends ComponentController
 
 		$this->view->display();
 	}
+
 }
 
