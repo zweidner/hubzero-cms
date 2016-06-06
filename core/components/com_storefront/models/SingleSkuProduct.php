@@ -36,7 +36,7 @@ require_once(__DIR__ . DS . 'Warehouse.php');
 
 /**
  *
- * Storefront course product class
+ * Storefront single sku product class
  *
  */
 class SingleSkuProduct extends Product
@@ -47,12 +47,15 @@ class SingleSkuProduct extends Product
 	 * @param  void
 	 * @return void
 	 */
-	public function __construct()
+	public function __construct($pId = false)
 	{
-		parent::__construct();
+		parent::__construct($pId);
 
-		// Create SKU automatically
-		$this->setSku(new Sku());
+		if (!$pId)
+		{
+			// Create SKU automatically
+			$this->setSku(new Sku());
+		}
 	}
 
 	/**

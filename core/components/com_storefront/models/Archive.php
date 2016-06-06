@@ -3,8 +3,10 @@
 namespace Components\Storefront\Models;
 
 use Components\Storefront\Models\Warehouse;
+use Components\Storefront\Models\Sku;
 
 require_once(__DIR__ . DS . 'Warehouse.php');
+require_once(__DIR__ . DS . 'Sku.php');
 
 /**
 * Archive model. Interface between admin and Warehouse
@@ -110,39 +112,6 @@ class Archive extends \Hubzero\Base\Object
 		return $types;
 	}
 
-	/**
-	 * Get product meta
-	 *
-	 * @param      pId
-	 * @return     types
-	 */
-	public function getProductMeta($pId)
-	{
-		$warehouse = new Warehouse();
-		$meta = $warehouse->getProductMeta($pId, true);
-
-		$metaObj = new \stdClass();
-		foreach ($meta as $key => $m)
-		{
-			$metaObj->$key = $m->pmValue;
-		}
-
-		return $metaObj;
-	}
-
-	/**
-	 * Set product meta
-	 *
-	 * @param      pId
-	 * @param      array Meta
-	 * @return     types
-	 */
-	public function setProductMeta($pId, $meta)
-	{
-		$warehouse = new Warehouse();
-		$meta = $warehouse->setProductMeta($pId, $meta);
-	}
-
 	/* SKUs */
 	/**
 	 * Get a count or list of skus
@@ -199,30 +168,6 @@ class Archive extends \Hubzero\Base\Object
 		}
 	}
 
-	public function sku($sId)
-	{
-		$warehouse = new Warehouse();
-
-		if ($sId)
-		{
-			$skuInfo = $warehouse->getSkuInfo($sId);
-			$productType = $warehouse->getProductTypeInfo($skuInfo['info']->ptId)['ptName'];
-		}
-
-		// Initialize the correct SKU
-		if (!empty($productType) && $productType == 'Software Download')
-		{
-			require_once(__DIR__ . DS . 'SoftwareSku.php');
-			$sku = new SoftwareSku($sId);
-		}
-		else
-		{
-			require_once(__DIR__ . DS . 'Sku.php');
-			$sku = new Sku($sId);
-		}
-		return $sku;
-	}
-
 	/**
 	 * Update SKU info
 	 *
@@ -232,8 +177,6 @@ class Archive extends \Hubzero\Base\Object
 	 */
 	public function updateSku($sku, $fields)
 	{
-		$checkIntegrity = true;
-		//print_r($fields); die;
 		if (isset($fields['sPrice']))
 		{
 			$sku->setPrice($fields['sPrice']);
@@ -257,10 +200,6 @@ class Archive extends \Hubzero\Base\Object
 		if (isset($fields['state']))
 		{
 			$sku->setActiveStatus($fields['state']);
-			if (!$fields['state'])
-			{
-				$checkIntegrity = false;
-			}
 		}
 		if (isset($fields['restricted']))
 		{
@@ -287,23 +226,6 @@ class Archive extends \Hubzero\Base\Object
 			foreach ($fields['meta'] as $metaKey => $metaVal)
 			{
 				$sku->addMeta($metaKey, $metaVal);
-			}
-		}
-
-		// Before saving SKU, check the for possible conflicts (integrity check) except when the SKU gets unpublished
-		if ($checkIntegrity)
-		{
-			require_once(dirname(__DIR__) . DS . 'helpers' . DS . 'Integrity.php');
-			$integrityCheck = \Integrity::skuIntegrityCheck($sku);
-
-			if ($integrityCheck->status != 'ok')
-			{
-				$errorMessage = "Integrity check error:";
-				foreach ($integrityCheck->errors as $error)
-				{
-					$errorMessage .= '<br>' . $error;
-				}
-				throw new \Exception($errorMessage);
 			}
 		}
 

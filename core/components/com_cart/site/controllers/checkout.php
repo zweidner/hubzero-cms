@@ -33,6 +33,7 @@ namespace Components\Cart\Site\Controllers;
 use Components\Cart\Models\Cart;
 use Components\Cart\Models\CurrentCart;
 use Components\Storefront\Models\Warehouse;
+use Components\Storefront\Models\Product;
 
 require_once dirname(dirname(__DIR__)) . DS . 'models' . DS . 'CurrentCart.php';
 require_once PATH_CORE . DS. 'components' . DS . 'com_storefront' . DS . 'models' . DS . 'Warehouse.php';
@@ -193,11 +194,10 @@ class Checkout extends ComponentController
 			// Get product id
 			$pId = $skuInfo['info']->pId;
 			// Get EULA
-			$productEula = $warehouse->getProductMeta($pId)['eula']->pmValue;
+			$productEula = Product::getMetaValue($pId, 'eula');
 		}
 
 		$this->view->productEula = $productEula;
-
 
 		$eulaSubmitted = Request::getVar('submitEula', false, 'post');
 
@@ -229,6 +229,20 @@ class Checkout extends ComponentController
 		if (!empty($errors))
 		{
 			$this->view->notifications = $errors;
+		}
+
+		if (Pathway::count() <= 0)
+		{
+			Pathway::append(
+				Lang::txt(strtoupper($this->_option)),
+				'index.php?option=' . $this->_option
+			);
+		}
+		if ($this->_task)
+		{
+			Pathway::append(
+				Lang::txt('EULA')
+			);
 		}
 
 		$this->view->display();
@@ -377,6 +391,20 @@ class Checkout extends ComponentController
 		}
 
 		$cart->finalizeTransaction();
+
+		if (Pathway::count() <= 0)
+		{
+			Pathway::append(
+				Lang::txt(strtoupper($this->_option)),
+				'index.php?option=' . $this->_option
+			);
+		}
+		if ($this->_task)
+		{
+			Pathway::append(
+				Lang::txt('Review your order')
+			);
+		}
 
 		$this->view->token = $token;
 		$this->view->transactionItems = $transaction->items;

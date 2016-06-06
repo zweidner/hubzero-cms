@@ -33,6 +33,7 @@ use Components\Cart\Models\Cart;
 use Components\Cart\Helpers\CartHelper;
 use Hubzero\Base\Model;
 use User;
+use Components\Storefront\Models\Product;
 
 require_once 'Cart.php';
 require_once dirname(__DIR__) . DS . 'helpers' . DS . 'Helper.php';
@@ -459,20 +460,17 @@ class CurrentCart extends Cart
 		// Get transaction info
 		$tInfo = $this->getTransactionData();
 
-		if (!$tInfo || $tInfo->tAge > $this->transactionKillAge)
+		// Only pending and released transactions can be lifted
+		if (!$tInfo || ($tInfo->tStatus != 'pending' && $tInfo->tStatus != 'released'))
 		{
-			// No transaction found
 			return false;
 		}
 
-		// Only pending and released transactions can be lifted
-		if ($tInfo->tStatus != 'pending' && $tInfo->tStatus != 'released')
-		{
-			return false;
-		}
+		$params =  Component::params('com_cart');
+		$transactionTTL = ($params->get('transactionTTL'));
 
 		// See if transaction is expired
-		if ($tInfo->tAge > $this->transactionTTL)
+		if ($tInfo->tAge > $transactionTTL)
 		{
 			// If transaction has not yet been processed as expired (status is still 'pending') release the transaction
 			if ($tInfo->tStatus == 'pending')
@@ -1999,9 +1997,10 @@ class CurrentCart extends Cart
 			// if soft, check if EULA is needed
 			if ($productInfo->ptModel == 'software')
 			{
-				$productMeta = $warehouse->getProductMeta($skuInfo['info']->pId);
+				$eulaRequired = Product::getMetaValue($skuInfo['info']->pId, 'eulaRequired');
+
 				// If EULA is needed, add step, note the EULA required for each SKU, so for multiple SKUs of the same product, multiple EULA will be required
-				if (!empty($productMeta['eulaRequired']) && $productMeta['eulaRequired']->pmValue)
+				if ($eulaRequired)
 				{
 					$step = new \stdClass();
 					$step->name = 'eula';
@@ -2018,8 +2017,11 @@ class CurrentCart extends Cart
 				$postSteps[] = $step;
 			}
 
-			// lock items
-			$warehouse->updateInventory($sId, $skuInfo['cartInfo']->qty, 'subtract');
+			// Reserve/lock items
+			require_once(PATH_CORE . DS. 'components' . DS . 'com_storefront' . DS . 'models' . DS . 'Sku.php');
+			$sku = \Components\Storefront\Models\Sku::getInstance($sId);
+			//print_r($sku); die;
+			$sku->reserveInventory($skuInfo['cartInfo']->qty);
 		}
 
 		// populate items
@@ -2096,9 +2098,13 @@ class CurrentCart extends Cart
 		// lock transaction items
 		$warehouse = $this->warehouse;
 
+		require_once(PATH_CORE . DS. 'components' . DS . 'com_storefront' . DS . 'models' . DS . 'Sku.php');
+
 		foreach ($tItems as $sId => $item)
 		{
-			$warehouse->updateInventory($sId, $item['transactionInfo']->qty, 'subtract');
+			$sku = \Components\Storefront\Models\Sku::getInstance($sId);
+			$sku->reserveInventory($item['transactionInfo']->qty);
+			//$warehouse->updateInventory($sId, $item['transactionInfo']->qty, 'subtract');
 		}
 
 		parent::updateTransactionStatus('pending', $this->cart->tId);
