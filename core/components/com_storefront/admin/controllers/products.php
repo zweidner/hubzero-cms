@@ -190,7 +190,7 @@ class Products extends AdminController
 
 		// Check if meta is needed for this product
 		$pType = null;
-		if ($this->view->row->getId())
+		if ($this->view->row->getTypeInfo())
 		{
 			$pType = $this->view->row->getTypeInfo()->name;
 		}
@@ -199,11 +199,11 @@ class Products extends AdminController
 		if ($pType == 'Software Download')
 		{
 			$this->view->metaNeeded = true;
-		}
 
-		// Get number of downloads
-		$downloaded = CartDownload::countProductDownloads($id);
-		$this->view->downloaded = $downloaded;
+			// Get number of downloads
+			$downloaded = CartDownload::countProductDownloads($id);
+			$this->view->downloaded = $downloaded;
+		}
 
 		// Set any errors
 		foreach ($this->getErrors() as $error)
@@ -253,7 +253,8 @@ class Products extends AdminController
 		$obj = new Archive();
 
 		// Save product
-		try {
+		try
+		{
 			$product = new Product($fields['pId']);
 
 			if (isset($fields['pName']))
@@ -302,6 +303,9 @@ class Products extends AdminController
 			$product->setOptionGroups($fields['optionGroups']);
 			$product->setPublishTime($fields['publish_up'], $fields['publish_down']);
 			$product->save();
+
+			$accessgroups = Request::getVar('accessgroups', array(), 'post');
+			$product->setAccessGroups($accessgroups);
 		}
 		catch (\Exception $e)
 		{

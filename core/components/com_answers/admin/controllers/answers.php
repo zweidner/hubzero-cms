@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Alissa Nedossekina <alisa@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -35,7 +34,6 @@ namespace Components\Answers\Admin\Controllers;
 use Hubzero\Component\AdminController;
 use Components\Answers\Models\Question;
 use Components\Answers\Models\Response;
-use Components\Answers\Tables;
 use Exception;
 use Request;
 use Notify;
@@ -73,11 +71,17 @@ class Answers extends AdminController
 	public function displayTask()
 	{
 		// Filters
-		$this->view->filters = array(
-			'filterby' => Request::getState(
+		$filters = array(
+			'search' => Request::getState(
+				$this->_option . '.' . $this->_controller . '.search',
+				'search',
+				''
+			),
+			'state' => Request::getState(
 				$this->_option . '.' . $this->_controller . '.filterby',
-				'filterby',
-				'all'
+				'state',
+				-1,
+				'int'
 			),
 			'question_id' => Request::getState(
 				$this->_option . '.' . $this->_controller . '.qid',
@@ -85,21 +89,7 @@ class Answers extends AdminController
 				0,
 				'int'
 			),
-			// Paging
-			'limit' => Request::getState(
-				$this->_option . '.' . $this->_controller . '.limit',
-				'limit',
-				Config::get('list_limit'),
-				'int'
-			),
-			'start' => Request::getState(
-				$this->_option . '.' . $this->_controller . '.limitstart',
-				'limitstart',
-				0,
-				'int'
-			),
 			// Sorting
-			'sortby' => '',
 			'sort' => Request::getState(
 				$this->_option . '.' . $this->_controller . '.sort',
 				'filter_order',
@@ -112,27 +102,44 @@ class Answers extends AdminController
 			)
 		);
 
-		$this->view->question = new Question($this->view->filters['question_id']);
+		$records = Response::all()
+			->including(['creator', function ($creator){
+				$creator->select('*');
+			}]);
 
-		$ar = new Tables\Response($this->database);
+		$question = new Question;
 
-		// Get a record count
-		$this->view->total   = $ar->find('count', $this->view->filters);
-
-		// Get records
-		$this->view->results = $ar->find('list', $this->view->filters);
-
-		// Did we get any results?
-		if ($this->view->results)
+		if ($filters['question_id'] > 0)
 		{
-			foreach ($this->view->results as $key => $result)
-			{
-				$this->view->results[$key] = new Response($result);
-			}
+			$question = Question::oneOrFail($filters['question_id']);
+
+			$records->whereEquals('question_id', $filters['question_id']);
 		}
 
+		if ($filters['state'] >= 0)
+		{
+			$records->whereEquals('state', $filters['state']);
+		}
+
+		if ($filters['search'])
+		{
+			$filters['search'] = strtolower((string)$filters['search']);
+
+			$records->whereLike('answer', $filters['search'], 1)
+				->resetDepth();
+		}
+
+		$rows = $records
+			->ordered('filter_order', 'filter_order_Dir')
+			->paginated('limitstart', 'limit')
+			->rows();
+
 		// Output the HTML
-		$this->view->display();
+		$this->view
+			->set('rows', $rows)
+			->set('filters', $filters)
+			->set('question', $question)
+			->display();
 	}
 
 	/**
@@ -143,25 +150,30 @@ class Answers extends AdminController
 	 */
 	public function editTask($row=null)
 	{
-		Request::setVar('hidemainmenu', 1);
+		if (!User::authorise('core.edit', $this->_option)
+		 && !User::authorise('core.create', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
 
-		// Incoming
-		$qid = Request::getInt('qid', 0);
+		Request::setVar('hidemainmenu', 1);
 
 		if (!is_object($row))
 		{
 			$id = Request::getVar('id', array(0));
 			$id = (is_array($id) && !empty($id)) ? $id[0] : $id;
 
-			$row = new Response($id);
+			$row = Response::oneOrNew($id);
 		}
 
+		$qid = Request::getInt('qid', 0);
 		$qid = $qid ?: $row->get('question_id');
 
-		$this->view->set('question', new Question($qid));
+		$question = Question::oneOrFail($qid);
 
 		// Output the HTML
 		$this->view
+			->set('question', $question)
 			->set('row', $row)
 			->setLayout('edit')
 			->display();
@@ -177,23 +189,24 @@ class Answers extends AdminController
 		// Check for request forgeries
 		Request::checkToken();
 
-		// Incoming
-		$answer = Request::getVar('answer', array(), 'post', 'none', 2);
-
-		// Initiate extended database class
-		$row = new Response(intval($answer['id']));
-		if (!$row->bind($answer))
+		if (!User::authorise('core.edit', $this->_option)
+		 && !User::authorise('core.create', $this->_option))
 		{
-			Notify::error($row->getError());
-			return $this->editTask($row);
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
 		}
 
+		// Incoming
+		$fields = Request::getVar('answer', array(), 'post', 'none', 2);
+
+		// Initiate extended database class
+		$row = Response::oneOrNew(intval($fields['id']))->set($fields);
+
 		// Code cleaner
-		$row->set('state', (isset($answer['state']) ? 1 : 0));
-		$row->set('anonymous', (isset($answer['anonymous']) ? 1 : 0));
+		$row->set('state', (isset($fields['state']) ? 1 : 0));
+		$row->set('anonymous', (isset($fields['anonymous']) ? 1 : 0));
 
 		// Store content
-		if (!$row->store(true))
+		if (!$row->save())
 		{
 			Notify::error($row->getError());
 			return $this->editTask($row);
@@ -207,9 +220,7 @@ class Answers extends AdminController
 		}
 
 		// Redirect
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false)
-		);
+		$this->cancelTask();
 	}
 
 	/**
@@ -222,6 +233,11 @@ class Answers extends AdminController
 		// Check for request forgeries
 		Request::checkToken();
 
+		if (!User::authorise('core.delete', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		// Incoming
 		$ids = Request::getVar('id', array());
 		$ids = (!is_array($ids) ? array($ids) : $ids);
@@ -232,10 +248,11 @@ class Answers extends AdminController
 			// Loop through each ID
 			foreach ($ids as $id)
 			{
-				$ar = new Response(intval($id));
-				if (!$ar->delete())
+				$ar = Response::oneOrFail(intval($id));
+
+				if (!$ar->destroy())
 				{
-					throw new Exception($ar->getError(), 500);
+					Notify::error($ar->getError());
 				}
 			}
 		}
@@ -256,49 +273,35 @@ class Answers extends AdminController
 		// Check for request forgeries
 		Request::checkToken(['get', 'post']);
 
+		if (!User::authorise('core.edit.state', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		// Incoming
 		$qid = Request::getInt('qid', 0);
 		$id  = Request::getVar('id', array(0));
+		$id  = !is_array($id) ? array($id) : $id;
 
-		if (!is_array($id))
-		{
-			$id = array($id);
-		}
-
-		$publish = ($this->getTask() == 'accept') ? 1 : 0;
+		$publish = ($this->_task == 'accept') ? 1 : 0;
 
 		// Check for an ID
 		if (count($id) < 1)
 		{
 			$action = ($publish == 1) ? 'accept' : 'reject';
 
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-				Lang::txt('COM_ANSWERS_ERROR_SELECT_ANSWER_TO', $action),
-				'error'
-			);
-			return;
+			Notify::warning(Lang::txt('COM_ANSWERS_ERROR_SELECT_ANSWER_TO', $action));
+			return $this->cancelTask();
 		}
 		else if (count($id) > 1)
 		{
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-				Lang::txt('COM_ANSWERS_ERROR_ONLY_ONE_ACCEPTED_ANSWER'),
-				'error'
-			);
-			return;
+			Notify::warning(Lang::txt('COM_ANSWERS_ERROR_ONLY_ONE_ACCEPTED_ANSWER'));
+			return $this->cancelTask();
 		}
 
-		$ar = new Response($id[0]);
-		if (!$ar->exists())
-		{
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false)
-			);
-			return;
-		}
+		$ar = Response::oneOrFail($id[0]);
 
-		if ($publish == 1)
+		/*if ($publish == 1)
 		{
 			// Unmark all other entries
 			$tbl = new Tables\Response($this->database);
@@ -319,30 +322,46 @@ class Answers extends AdminController
 
 		// Mark this entry
 		$ar->set('state', $publish);
-		if (!$ar->store(false))
+
+		if (!$ar->save())
 		{
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-				$ar->getError(),
-				'error'
-			);
-			return;
+			Notify::error($ar->getError());
+			return $this->cancelTask();
+		}*/
+
+		if ($publish == 1)
+		{
+			if (!$ar->accept())
+			{
+				Notify::error($ar->getError());
+				return $this->cancelTask();
+			}
+		}
+		else
+		{
+			if (!$ar->reject())
+			{
+				Notify::error($ar->getError());
+				return $this->cancelTask();
+			}
 		}
 
 		// Set message
-		if ($publish == '1')
+		if ($i)
 		{
-			$message = Lang::txt('COM_ANSWERS_ANSWER_ACCEPTED');
-		}
-		else if ($publish == '0')
-		{
-			$message = Lang::txt('COM_ANSWERS_ANSWER_REJECTED');
+			if ($publish == '1')
+			{
+				$message = Lang::txt('COM_ANSWERS_ANSWER_ACCEPTED');
+			}
+			else if ($publish == '0')
+			{
+				$message = Lang::txt('COM_ANSWERS_ANSWER_REJECTED');
+			}
+
+			Notify::success($message);
 		}
 
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-			$message
-		);
+		$this->cancelTask();
 	}
 
 	/**
@@ -355,22 +374,28 @@ class Answers extends AdminController
 		// Check for request forgeries
 		Request::checkToken();
 
+		if (!User::authorise('core.edit', $this->_option)
+		 && !User::authorise('core.edit.state', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		// Incoming
 		$answer = Request::getVar('answer', array());
 
 		// Reset some values
-		$model = new Response(intval($answer['id']));
+		$model = Response::oneOrFail(intval($answer['id']));
 
 		if (!$model->reset())
 		{
-			throw new Exception($ar->getError(), 500);
+			Notify::error($ar->getError());
+		}
+		else
+		{
+			Notify::success(Lang::txt('COM_ANSWERS_VOTE_LOG_RESET'));
 		}
 
 		// Redirect
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-			Lang::txt('COM_ANSWERS_VOTE_LOG_RESET')
-		);
+		$this->cancelTask();
 	}
 }
-

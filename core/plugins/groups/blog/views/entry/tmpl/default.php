@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -37,6 +36,14 @@ $base = 'index.php?option=com_groups&cn=' . $this->group->get('cn') . '&active=b
 
 $this->css()
      ->js();
+
+$first = $this->archive->entries(array(
+		'state'      => $this->filters['state'],
+		'authorized' => $this->filters['authorized']
+	))
+	->order('publish_up', 'asc')
+	->limit(1)
+	->row();
 ?>
 <?php if ($this->canpost || $this->authorized == 'manager' || $this->authorized == 'admin') { ?>
 	<ul id="page_options">
@@ -96,10 +103,17 @@ $this->css()
 						<?php echo $this->row->published('time'); ?>
 					</time>
 				</dd>
-			<?php if ($this->row->get('allow_comments')) { ?>
+			<?php if ($this->row->get('allow_comments')) {
+					$comments = $this->row->comments()
+						->whereIn('state', array(
+							Components\Blog\Models\Comment::STATE_PUBLISHED,
+							Components\Blog\Models\Comment::STATE_FLAGGED
+						))
+						->count();
+				?>
 				<dd class="comments">
 					<a href="<?php echo Route::url($this->row->link('comments')); ?>">
-						<?php echo Lang::txt('PLG_GROUPS_BLOG_NUM_COMMENTS', $this->row->comments('count')); ?>
+						<?php echo Lang::txt('PLG_GROUPS_BLOG_NUM_COMMENTS', $comments); ?>
 					</a>
 				</dd>
 			<?php } else { ?>
@@ -111,7 +125,7 @@ $this->css()
 			<?php } ?>
 			<?php if (User::get('id') == $this->row->get('created_by') || $this->authorized == 'manager' || $this->authorized == 'admin') { ?>
 				<dd class="state">
-					<?php echo Lang::txt('PLG_GROUPS_BLOG_STATE_' . strtoupper($this->row->state('text'))); ?>
+					<?php echo $this->row->visibility('text'); ?>
 				</dd>
 				<dd class="entry-options">
 					<a class="icon-edit edit" href="<?php echo Route::url($this->row->link('edit')); ?>" title="<?php echo Lang::txt('PLG_GROUPS_BLOG_EDIT'); ?>">
@@ -125,24 +139,24 @@ $this->css()
 			</dl>
 
 			<div class="entry-content">
-				<?php echo $this->row->content('parsed'); ?>
+				<?php echo $this->row->content; ?>
 				<?php echo $this->row->tags('cloud'); ?>
 			</div>
 
 			<?php
-			if ($name = $this->row->creator()->get('name'))
+			if ($name = $this->row->creator->get('name'))
 			{
 				$name = $this->escape(stripslashes($name));
 			?>
 			<div class="entry-author">
 				<h3><?php echo Lang::txt('PLG_GROUPS_BLOG_ABOUT_AUTHOR'); ?></h3>
 				<p class="entry-author-photo">
-					<img src="<?php echo $this->row->creator('picture'); ?>" alt="" />
+					<img src="<?php echo $this->row->creator->picture(); ?>" alt="" />
 				</p>
 				<div class="entry-author-content">
 					<h4>
-						<?php if ($this->row->creator()->get('public')) { ?>
-							<a href="<?php echo Route::url($this->row->creator()->getLink()); ?>">
+						<?php if (in_array($this->row->creator->get('access'), User::getAuthorisedViewLevels())) { ?>
+							<a href="<?php echo Route::url($this->row->creator->link()); ?>">
 								<?php echo $name; ?>
 							</a>
 						<?php } else { ?>
@@ -150,8 +164,8 @@ $this->css()
 						<?php } ?>
 					</h4>
 					<p class="entry-author-bio">
-						<?php if ($this->row->creator('bio')) { ?>
-							<?php echo $this->row->creator()->getBio('parsed', 300); ?>
+						<?php if ($this->row->creator->get('bio')) { ?>
+							<?php echo $this->row->creator->get('bio'); ?>
 						<?php } else { ?>
 							<em><?php echo Lang::txt('PLG_GROUPS_BLOG_AUTHOR_BIO_BLANK'); ?></em>
 						<?php } ?>
@@ -164,58 +178,36 @@ $this->css()
 		</div>
 	</div><!-- /.subject -->
 	<aside class="aside">
-	<?php
-	$limit = $this->filters['limit'];
-	$this->filters['limit'] = 5;
-	?>
 		<div class="container blog-popular-entries">
 			<h4><?php echo Lang::txt('PLG_GROUPS_BLOG_POPULAR_ENTRIES'); ?></h4>
-		<?php if ($popular = $this->model->entries('popular', $this->filters)) { ?>
-			<ol>
-			<?php foreach ($popular as $row) { ?>
-				<?php
-					if (!$row->isAvailable() && $row->get('created_by') != User::get('id'))
-					{
-						continue;
-					}
-				?>
-				<li>
-					<a href="<?php echo Route::url($row->link()); ?>">
-						<?php echo $this->escape(stripslashes($row->get('title'))); ?>
-					</a>
-				</li>
+			<?php
+				$popular = $this->archive->entries(array(
+						'state'  => $this->filters['state'],
+						'access' => $this->filters['access']
+					))
+					->order('hits', 'desc')
+					->limit(5)
+					->rows();
+				if ($popular->count()) { ?>
+				<ol>
+				<?php foreach ($popular as $row) { ?>
+					<?php
+						if (!$row->isAvailable() && $row->get('created_by') != User::get('id'))
+						{
+							continue;
+						}
+					?>
+					<li>
+						<a href="<?php echo Route::url($row->link()); ?>">
+							<?php echo $this->escape(stripslashes($row->get('title'))); ?>
+						</a>
+					</li>
+				<?php } ?>
+				</ol>
+			<?php } else { ?>
+				<p><?php echo Lang::txt('PLG_GROUPS_BLOG_NO_ENTRIES_FOUND'); ?></p>
 			<?php } ?>
-			</ol>
-		<?php } else { ?>
-			<p><?php echo Lang::txt('PLG_GROUPS_BLOG_NO_ENTRIES_FOUND'); ?></p>
-		<?php } ?>
 		</div><!-- / .blog-popular-entries -->
-
-		<div class="container blog-recent-entries">
-			<h4><?php echo Lang::txt('PLG_GROUPS_BLOG_RECENT_ENTRIES'); ?></h4>
-		<?php if ($recent = $this->model->entries('recent', $this->filters)) { ?>
-			<ol>
-			<?php foreach ($recent as $row) { ?>
-				<?php
-					if (!$row->isAvailable() && $row->get('created_by') != User::get('id'))
-					{
-						continue;
-					}
-				?>
-				<li>
-					<a href="<?php echo Route::url($row->link()); ?>">
-						<?php echo $this->escape(stripslashes($row->get('title'))); ?>
-					</a>
-				</li>
-			<?php } ?>
-			</ol>
-		<?php } else { ?>
-			<p><?php echo Lang::txt('PLG_GROUPS_BLOG_NO_ENTRIES_FOUND'); ?></p>
-		<?php } ?>
-		</div><!-- / .blog-recent-entries -->
-	<?php
-	$this->filters['limit'] = $limit;
-	?>
 	</aside><!-- /.aside -->
 </section>
 
@@ -225,7 +217,19 @@ $this->css()
 			<h3 id="comments" class="below_heading">
 				<?php echo Lang::txt('PLG_GROUPS_BLOG_COMMENTS_HEADER'); ?>
 			</h3>
-			<?php if ($this->row->comments('count') > 0) { ?>
+			<?php
+			$comments = $this->row->comments()
+				->including(['creator', function ($creator){
+					$creator->select('*');
+				}])
+				->whereIn('state', array(
+					Components\Blog\Models\Comment::STATE_PUBLISHED,
+					Components\Blog\Models\Comment::STATE_FLAGGED
+				))
+				->whereEquals('parent', 0)
+				->ordered()
+				->rows();
+			if ($comments->count() > 0) { ?>
 				<?php
 					$this->view('_list', 'comments')
 					     ->set('group', $this->group)
@@ -233,7 +237,7 @@ $this->css()
 					     ->set('cls', 'odd')
 					     ->set('depth', 0)
 					     ->set('option', $this->option)
-					     ->set('comments', $this->row->comments('list'))
+					     ->set('comments', $comments)
 					     ->set('config', $this->config)
 					     ->set('base', $this->row->link())
 					     ->display();
@@ -250,28 +254,27 @@ $this->css()
 
 			<form method="post" action="<?php echo Route::url($this->row->link()); ?>" id="commentform">
 				<p class="comment-member-photo">
-					<?php
-						$jxuser = \Hubzero\User\Profile::getInstance(User::get('id'));
-						$anon = 1;
-						if (!User::isGuest())
-						{
-							$anon = 0;
-						}
-					?>
-					<img src="<?php echo \Hubzero\User\Profile\Helper::getMemberPhoto($jxuser, $anon); ?>" alt="" />
+					<img src="<?php echo User::picture(User::isGuest() ? 1 : 0); ?>" alt="" />
 				</p>
 				<fieldset>
 					<?php
-						$replyto = $this->row->comment(Request::getInt('reply', 0));
-						if ($replyto->exists())
+						$replyto = $this->row->comments()
+							->whereEquals('id', Request::getInt('reply', 0))
+							->whereIn('state', array(
+								Components\Blog\Models\Comment::STATE_PUBLISHED,
+								Components\Blog\Models\Comment::STATE_FLAGGED
+							))
+							->row();
+
+						if ($replyto->get('id'))
 						{
 							$name = Lang::txt('PLG_GROUPS_BLOG_ANONYMOUS');
 							if (!$replyto->get('anonymous'))
 							{
-								$name = $this->escape(stripslashes($replyto->creator('name', $name)));
-								if ($replyto->creator('public'))
+								$name = $this->escape(stripslashes($replyto->creator->get('name', $name)));
+								if (in_array($replyto->creator->get('access'), User::getAuthorisedViewLevels()))
 								{
-									$name = '<a href="' . Route::url($replyto->creator()->getLink()) . '">' . $name . '</a>';
+									$name = '<a href="' . Route::url($replyto->creator->link()) . '">' . $name . '</a>';
 								}
 							}
 					?>
@@ -289,7 +292,7 @@ $this->css()
 
 					<?php if (!User::isGuest()) { ?>
 						<label for="comment_content">
-							Your <?php echo ($replyto->exists()) ? 'reply' : 'comments'; ?>: <span class="required"><?php echo Lang::txt('PLG_GROUPS_BLOG_REQUIRED'); ?></span>
+							Your <?php echo ($replyto->get('id')) ? 'reply' : 'comments'; ?>: <span class="required"><?php echo Lang::txt('PLG_GROUPS_BLOG_REQUIRED'); ?></span>
 							<?php echo $this->editor('comment[content]', '', 40, 15, 'comment_content', array('class' => 'minimal no-footer')); ?>
 						</label>
 
@@ -317,6 +320,8 @@ $this->css()
 					<input type="hidden" name="option" value="<?php echo $this->option; ?>" />
 					<input type="hidden" name="active" value="blog" />
 					<input type="hidden" name="action" value="savecomment" />
+
+					<?php echo Html::input('token'); ?>
 
 					<div class="sidenote">
 						<p>

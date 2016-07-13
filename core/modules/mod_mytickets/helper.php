@@ -33,7 +33,6 @@
 namespace Modules\MyTickets;
 
 use Hubzero\Module\Module;
-use Hubzero\User\Profile;
 use User;
 
 /**
@@ -59,7 +58,7 @@ class Helper extends Module
 				SELECT id, summary, category, open, status, severity, owner, created, login, name,
 					(SELECT COUNT(*) FROM #__support_comments as sc WHERE sc.ticket=st.id AND sc.access=0) as comments
 				FROM #__support_tickets as st
-				WHERE st.login='" . User::get('username') . "' AND st.open=1 AND type=0
+				WHERE st.login=" . $database->quote(User::get('username')) . " AND st.open=1 AND type=0
 				ORDER BY created DESC
 				LIMIT $limit
 			)
@@ -68,7 +67,7 @@ class Helper extends Module
 				SELECT id, summary, category, open, status, severity, owner, created, login, name,
 					(SELECT COUNT(*) FROM #__support_comments as sc WHERE sc.ticket=st.id AND sc.access=0) as comments
 				FROM #__support_tickets as st
-				WHERE st.owner='" . User::get('id') . "' AND st.open=1 AND type=0
+				WHERE st.owner=" . $database->quote(User::get('id')) . " AND st.open=1 AND type=0
 				ORDER BY created DESC
 				LIMIT $limit
 			)"
@@ -101,8 +100,7 @@ class Helper extends Module
 		$this->rows1 = $rows1;
 		$this->rows2 = $rows2;
 
-		$profile = Profile::getInstance(User::get('id'));
-		$xgroups = $profile->getGroups('members');
+		$xgroups = \Hubzero\User\Helper::getGroups(User::get('id'), 'members', 1);
 
 		$groups = '';
 		if ($xgroups)
@@ -110,9 +108,9 @@ class Helper extends Module
 			$g = array();
 			foreach ($xgroups as $xgroup)
 			{
-				$g[] = $xgroup->cn;
+				$g[] = $database->quote($xgroup->cn);
 			}
-			$groups = implode("','", $g);
+			$groups = implode(",", $g);
 		}
 
 		$this->rows3 = null;
@@ -123,7 +121,7 @@ class Helper extends Module
 				"SELECT id, summary, category, open, status, severity, owner, created, login, name,
 					(SELECT COUNT(*) FROM `#__support_comments` as sc WHERE sc.ticket=st.id AND sc.access=0) as comments
 				FROM `#__support_tickets` as st
-				WHERE st.open=1 AND type=0 AND st.group IN ('$groups')
+				WHERE st.open=1 AND type=0 AND st.group IN ($groups)
 				ORDER BY created DESC
 				LIMIT $limit"
 			);

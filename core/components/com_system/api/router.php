@@ -71,7 +71,19 @@ class Router extends Base
 
 		if (isset($segments[0]))
 		{
-			$vars['task'] = $segments[0];
+			if ($segments[0] == 'media')
+			{
+				$vars['controller'] = 'media';
+
+				if (isset($segments[1]))
+				{
+					$vars['task'] = $segments[1];
+				}
+			}
+			else
+			{
+				$vars['task'] = $segments[0];
+			}
 		}
 
 		return $vars;

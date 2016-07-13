@@ -32,7 +32,7 @@
 
 namespace Components\Wishlist\Models;
 
-use Hubzero\User\Profile;
+use Components\Members\Models\Member;
 use Hubzero\Utility\String;
 use Hubzero\Base\ItemList;
 use Components\Wishlist\Tables;
@@ -40,6 +40,7 @@ use User;
 use Lang;
 use Date;
 
+require_once \Component::path('com_members') . DS . 'models' . DS . 'member.php';
 require_once(__DIR__ . DS . 'base.php');
 require_once(__DIR__ . DS . 'attachment.php');
 require_once(__DIR__ . DS . 'comment.php');
@@ -47,7 +48,7 @@ require_once(__DIR__ . DS . 'tags.php');
 require_once(__DIR__ . DS . 'plan.php');
 require_once(__DIR__ . DS . 'vote.php');
 require_once(dirname(__DIR__) . DS . 'tables' . DS . 'wish.php');
-require_once(PATH_CORE . DS . 'components' . DS . 'com_answers' . DS . 'tables' . DS . 'vote.php');
+require_once(dirname(__DIR__) . DS . 'tables' . DS . 'vote.php');
 
 /**
  * Wishlist model class for a wish
@@ -139,14 +140,14 @@ class Wish extends Base
 	private $_plan = null;
 
 	/**
-	 * Hubzero\User\Profile
+	 * Hubzero\User\User
 	 *
 	 * @var object
 	 */
 	private $_proposer = null;
 
 	/**
-	 * Hubzero\User\Profile
+	 * User
 	 *
 	 * @var object
 	 */
@@ -241,20 +242,15 @@ class Wish extends Base
 	 */
 	public function proposer($property=null, $default=null)
 	{
-		if (!($this->_proposer instanceof Profile))
+		if (!($this->_proposer instanceof \Hubzero\User\User))
 		{
-			$this->_proposer = Profile::getInstance($this->get('proposed_by'));
-			if (!$this->_proposer)
-			{
-				$this->_proposer = new Profile();
-			}
+			$this->_proposer = \User::oneOrNew($this->get('proposed_by'));
 		}
 		if ($property)
 		{
-			$property = ($property == 'id') ? 'uidNumber' : $property;
 			if ($property == 'picture')
 			{
-				return $this->_proposer->getPicture($this->get('anonymous'));
+				return $this->_proposer->picture($this->get('anonymous'));
 			}
 			return $this->_proposer->get($property, $default);
 		}
@@ -274,20 +270,15 @@ class Wish extends Base
 	 */
 	public function owner($property=null, $default=null)
 	{
-		if (!($this->_owner instanceof Profile))
+		if (!($this->_owner instanceof \Hubzero\User\User))
 		{
-			$this->_owner = Profile::getInstance($this->get('assigned'));
-			if (!$this->_owner)
-			{
-				$this->_owner = new Profile();
-			}
+			$this->_owner = \User::oneOrNew($this->get('assigned'));
 		}
 		if ($property)
 		{
-			$property = ($property == 'id') ? 'uidNumber' : $property;
 			if ($property == 'picture')
 			{
-				return $this->_owner->getPicture();
+				return $this->_owner->picture();
 			}
 			return $this->_owner->get($property, $default);
 		}
@@ -861,7 +852,7 @@ class Wish extends Base
 			return false;
 		}
 
-		$tbl = new \Components\Answers\Tables\Vote($this->_db);
+		$tbl = new \Components\Wishlist\Tables\Vote($this->_db);
 
 		$vote = strtolower($vote);
 
@@ -947,7 +938,7 @@ class Wish extends Base
 			default:
 				if (!($this->_cache['votes.list'] instanceof ItemList) || $clear)
 				{
-					$tbl = new \Components\Answers\Tables\Vote($this->_db);
+					$tbl = new \Components\Wishlist\Tables\Vote($this->_db);
 
 					$results = $tbl->getResults($filters);
 					if (!$results)
@@ -971,8 +962,6 @@ class Wish extends Base
 	 */
 	public function comments($rtrn='list', $filters=array(), $clear = false)
 	{
-		$tbl = new \Hubzero\Item\Comment($this->_db);
-
 		if (!isset($filters['item_id']))
 		{
 			$filters['item_id'] = $this->get('id');
@@ -995,27 +984,11 @@ class Wish extends Base
 			case 'count':
 				if (!is_numeric($this->_cache['comments.count']) || $clear)
 				{
-					$this->_cache['comments.count'] = 0;
-
-					if (!$this->_cache['comments.list'])
-					{
-						$c = $this->comments('list', $filters);
-					}
-					foreach ($c as $com)
-					{
-						$this->_cache['comments.count']++;
-						if ($com->replies()->total())
-						{
-							foreach ($com->replies() as $rep)
-							{
-								$this->_cache['comments.count']++;
-								if ($rep->replies()->total())
-								{
-									$this->_cache['comments.count'] += $rep->replies()->total();
-								}
-							}
-						}
-					}
+					$this->_cache['comments.count'] = Comment::all()
+						->whereEquals('item_id', $filters['item_id'])
+						->whereEquals('item_type', $filters['item_type'])
+						->whereIn('state', $filters['state'])
+						->total();
 				}
 				return $this->_cache['comments.count'];
 			break;
@@ -1031,19 +1004,15 @@ class Wish extends Base
 					}
 					foreach ($c as $com)
 					{
-						$this->_cache['comments.authors'][] = $com->get('added_by');
-						if ($com->replies()->total())
+						$this->_cache['comments.authors'][] = $com->get('created_by');
+
+						foreach ($com->replies(array('state' => $filters['state'])) as $rep)
 						{
-							foreach ($com->replies() as $rep)
+							$this->_cache['comments.authors'][] = $rep->get('created_by');
+
+							foreach ($rep->replies(array('state' => $filters['state'])) as $res)
 							{
-								$this->_cache['comments.authors'][] = $rep->get('added_by');
-								if ($rep->replies()->total())
-								{
-									foreach ($rep->replies() as $res)
-									{
-										$this->_cache['comments.authors'][] = $res->get('added_by');
-									}
-								}
+								$this->_cache['comments.authors'][] = $res->get('created_by');
 							}
 						}
 					}
@@ -1055,20 +1024,17 @@ class Wish extends Base
 			case 'list':
 			case 'results':
 			default:
-				if (!($this->_cache['comments.list'] instanceof ItemList) || $clear)
+				if (!$this->_cache['comments.list'] || $clear)
 				{
-					if ($results = $tbl->find($filters))
-					{
-						foreach ($results as $key => $result)
-						{
-							$results[$key] = new Comment($result);
-						}
-					}
-					else
-					{
-						$results = array();
-					}
-					$this->_cache['comments.list'] = new ItemList($results);
+					$results = Comment::all()
+						->whereEquals('parent', $filters['parent'])
+						->whereEquals('item_id', $filters['item_id'])
+						->whereEquals('item_type', $filters['item_type'])
+						->whereIn('state', $filters['state'])
+						->ordered()
+						->rows();
+
+					$this->_cache['comments.list'] = $results;
 				}
 				return $this->_cache['comments.list'];
 			break;
@@ -1244,7 +1210,7 @@ class Wish extends Base
 			case 'vote':
 			case 'votes':
 			case 'feedback':
-				$v = new \Components\Answers\Tables\Vote($this->_db);
+				$v = new \Components\Wishlist\Tables\Vote($this->_db);
 				if (!$v->deleteVotes(array('id' => $this->get('id'), 'category' => 'wish')))
 				{
 					$this->setError($v->getError());

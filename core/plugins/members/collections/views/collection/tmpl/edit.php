@@ -33,7 +33,7 @@
 // No direct access
 defined('_HZEXEC_') or die();
 
-$base = $this->member->getLink() . '&active=' . $this->name;
+$base = $this->member->link() . '&active=' . $this->name;
 
 if (!$this->entry->exists())
 {
@@ -73,6 +73,20 @@ $this->css();
 			<?php echo $this->editor('fields[description]', $this->escape(stripslashes($this->entry->description('raw'))), 35, 5, 'field-description', array('class' => 'minimal no-footer')); ?>
 		</label>
 
+		<label>
+			<?php echo Lang::txt('PLG_MEMBERS_COLLECTIONS_FIELD_TAGS'); ?>
+			<?php
+			$tags = ($this->entry->get('id') ? $this->entry->item()->tags('string') : '');
+			$tf = Event::trigger('hubzero.onGetMultiEntry', array(array('tags', 'tags', 'actags', '', $tags)));
+			$tf = implode('', $tf);
+			if ($tf) {
+				echo $tf;
+			} else { ?>
+				<input type="text" name="tags" value="<?php echo $this->escape($tags); ?>" />
+			<?php } ?>
+			<span class="hint"><?php echo Lang::txt('PLG_MEMBERS_COLLECTIONS_FIELD_TAGS_HINT'); ?></span>
+		</label>
+
 		<div class="grid">
 			<div class="col span6">
 				<label for="field-layout"<?php if ($this->task == 'save' && !$this->entry->get('layout')) { echo ' class="fieldWithErrors"'; } ?>>
@@ -97,13 +111,13 @@ $this->css();
 	</fieldset>
 
 	<input type="hidden" name="fields[id]" value="<?php echo $this->escape($this->entry->get('id')); ?>" />
-	<input type="hidden" name="fields[object_id]" value="<?php echo $this->escape($this->member->get('uidNumber')); ?>" />
+	<input type="hidden" name="fields[object_id]" value="<?php echo $this->escape($this->member->get('id')); ?>" />
 	<input type="hidden" name="fields[object_type]" value="member" />
 	<input type="hidden" name="fields[created]" value="<?php echo $this->escape($this->entry->get('created')); ?>" />
 	<input type="hidden" name="fields[created_by]" value="<?php echo $this->escape($this->entry->get('created_by')); ?>" />
 	<input type="hidden" name="fields[state]" value="<?php echo $this->escape($this->entry->get('state')); ?>" />
 
-	<input type="hidden" name="id" value="<?php echo $this->member->get('uidNumber'); ?>" />
+	<input type="hidden" name="id" value="<?php echo $this->member->get('id'); ?>" />
 	<input type="hidden" name="option" value="<?php echo $this->option; ?>" />
 	<input type="hidden" name="active" value="<?php echo $this->name; ?>" />
 	<input type="hidden" name="action" value="savecollection" />

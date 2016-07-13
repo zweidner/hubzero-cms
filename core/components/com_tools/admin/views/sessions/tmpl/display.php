@@ -119,7 +119,6 @@ function submitbutton(pressbutton)
 			<span><?php echo Lang::txt('JSEARCH_FILTER_CLEAR'); ?></span>
 		</a>
 	</fieldset>
-	<div class="clr"></div>
 
 	<table class="adminlist">
 		<thead>

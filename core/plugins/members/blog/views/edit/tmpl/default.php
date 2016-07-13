@@ -48,7 +48,7 @@ $this->css('jquery.datepicker.css', 'system')
 ?>
 <ul id="page_options">
 	<li>
-		<a class="icon-archive archive btn" href="<?php echo Route::url($this->member->getLink() . '&active=blog'); ?>">
+		<a class="icon-archive archive btn" href="<?php echo Route::url($this->member->link() . '&active=blog'); ?>">
 			<?php echo Lang::txt('PLG_MEMBERS_BLOG_ARCHIVE'); ?>
 		</a>
 	</li>
@@ -58,7 +58,7 @@ $this->css('jquery.datepicker.css', 'system')
 	<p class="error"><?php echo $this->getError(); ?></p>
 <?php } ?>
 
-	<form action="<?php echo Route::url($this->member->getLink() . '&active=blog&task=save'); ?>" method="post" id="hubForm" class="full">
+	<form action="<?php echo Route::url($this->member->link() . '&active=blog&task=save'); ?>" method="post" id="hubForm" class="full">
 		<fieldset>
 			<legend><?php echo Lang::txt('PLG_MEMBERS_BLOG_EDIT_DETAILS'); ?></legend>
 
@@ -72,7 +72,7 @@ $this->css('jquery.datepicker.css', 'system')
 
 			<label for="entrycontent">
 				<?php echo Lang::txt('PLG_MEMBERS_BLOG_FIELD_CONTENT'); ?> <span class="required"><?php echo Lang::txt('JOPTION_REQUIRED'); ?></span>
-				<?php echo $this->editor('entry[content]', $this->entry->content('raw'), 50, 30, 'entrycontent'); ?>
+				<?php echo $this->editor('entry[content]', $this->entry->get('content'), 50, 30, 'entrycontent'); ?>
 			</label>
 			<?php if ($this->task == 'save' && !$this->entry->get('content')) { ?>
 				<p class="error"><?php echo Lang::txt('PLG_MEMBERS_BLOG_ERROR_PROVIDE_CONTENT'); ?></p>
@@ -81,7 +81,7 @@ $this->css('jquery.datepicker.css', 'system')
 			<fieldset>
 				<legend><?php echo Lang::txt('PLG_MEMBERS_BLOG_UPLOADED_FILES'); ?></legend>
 				<div class="field-wrap">
-					<iframe width="100%" height="260" name="filer" id="filer" src="<?php echo Request::base(true) . '/index.php?option=com_blog&controller=media&id=' . $this->member->get('uidNumber') . '&scope=member&tmpl=component'; ?>"></iframe>
+					<iframe width="100%" height="260" name="filer" id="filer" src="<?php echo Request::base(true) . '/index.php?option=com_blog&controller=media&id=' . $this->member->get('id') . '&scope=member&tmpl=component'; ?>"></iframe>
 				</div>
 			</fieldset>
 
@@ -105,10 +105,10 @@ $this->css('jquery.datepicker.css', 'system')
 				<div class="col span6 omega">
 					<label for="field-state">
 						<?php echo Lang::txt('PLG_MEMBERS_BLOG_FIELD_PRIVACY'); ?>
-						<select name="entry[state]" id="field-state">
-							<option value="1"<?php if ($this->entry->get('state') == 1) { echo ' selected="selected"'; } ?>><?php echo Lang::txt('PLG_MEMBERS_BLOG_FIELD_STATE_PUBLIC'); ?></option>
-							<option value="2"<?php if ($this->entry->get('state') == 2) { echo ' selected="selected"'; } ?>><?php echo Lang::txt('PLG_MEMBERS_BLOG_FIELD_STATE_REGISTERED'); ?></option>
-							<option value="0"<?php if ($this->entry->get('state') == 0) { echo ' selected="selected"'; } ?>><?php echo Lang::txt('PLG_MEMBERS_BLOG_FIELD_STATE_PRIVATE'); ?></option>
+						<select name="entry[access]" id="field-access">
+							<option value="1"<?php if ($this->entry->get('access') == 1) { echo ' selected="selected"'; } ?>><?php echo Lang::txt('PLG_MEMBERS_BLOG_FIELD_PRIVACY_PUBLIC'); ?></option>
+							<option value="2"<?php if ($this->entry->get('access') == 2) { echo ' selected="selected"'; } ?>><?php echo Lang::txt('PLG_MEMBERS_BLOG_FIELD_PRIVACY_REGISTERED'); ?></option>
+							<option value="5"<?php if ($this->entry->get('access') > 2) { echo ' selected="selected"'; } ?>><?php echo Lang::txt('PLG_MEMBERS_BLOG_FIELD_PRIVACY_PRIVATE'); ?></option>
 						</select>
 					</label>
 				</div>
@@ -140,7 +140,7 @@ $this->css('jquery.datepicker.css', 'system')
 		<input type="hidden" name="entry[created_by]" value="<?php echo $this->escape($this->entry->get('created_by')); ?>" />
 		<input type="hidden" name="entry[scope]" value="member" />
 		<input type="hidden" name="entry[scope_id]" value="<?php echo $this->entry->get('scope_id'); ?>" />
-		<input type="hidden" name="entry[access]" value="0" />
+		<input type="hidden" name="entry[state]" value="<?php echo $this->entry->get('state', 1); ?>" />
 		<input type="hidden" name="option" value="<?php echo $this->option; ?>" />
 		<input type="hidden" name="active" value="blog" />
 		<input type="hidden" name="task" value="view" />

@@ -80,10 +80,10 @@ if ($this->contributors)
 		$link = $name;
 		if ($contributor->id)
 		{
-			$profile = \Hubzero\User\Profile::getInstance($contributor->id);
-			if ($profile && $profile->get('public'))
+			$profile = User::getInstance($contributor->id);
+			if ($profile->get('id') && in_array($profile->get('access'), User::getAuthorisedViewLevels()))
 			{
-				$link = '<a href="' . Route::url($profile->getLink()) . '" rel="contributor" title="' . Lang::txt('COM_RESOURCES_VIEW_MEMBER_PROFILE', $name) . '">' . $name . '</a>';
+				$link = '<a href="' . Route::url($profile->link()) . '" rel="contributor" title="' . Lang::txt('COM_RESOURCES_VIEW_MEMBER_PROFILE', $name) . '">' . $name . '</a>';
 			}
 		}
 

@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -34,148 +33,83 @@
 defined('_HZEXEC_') or die();
 
 $this->css()
-     ->js();
+     ->js()
+     ->js('hubzero', 'system')
+     ->js('browse');
+
+$base = 'index.php?option=' . $this->option . '&task=browse';
+
+$exclude = array();
+if (!empty($this->filters['q']))
+{
+	foreach ($this->filters['q'] as $q)
+	{
+		$exclude[] = strtolower($q['human_field']);
+	}
+}
+
+$fields = Components\Members\Helpers\Filters::getFieldNames($exclude);
 ?>
 <header id="content-header">
 	<h2><?php echo $this->title; ?></h2>
 </header><!-- / #content-header -->
 
 <section class="main section">
-	<form class="section-inner" action="<?php echo Route::url('index.php?option=' . $this->option . '&task=browse'); ?>" method="post">
+	<div class="section-inner">
 		<div class="subject">
-			<div class="container data-entry">
-				<input class="entry-search-submit" type="submit" value="<?php echo Lang::txt('COM_MEMBERS_SEARCH'); ?>" />
-				<fieldset class="entry-search">
-					<legend><?php echo Lang::txt('COM_MEMBERS_SEARCH_LEGEND'); ?></legend>
-					<label for="entry-search-field"><?php echo Lang::txt('COM_MEMBERS_SEARCH_LABEL'); ?></label>
-					<input type="text" name="search" id="entry-search-field" value="<?php echo $this->escape($this->filters['search']); ?>" placeholder="<?php echo Lang::txt('COM_MEMBERS_SEARCH_PLACEHOLDER'); ?>" />
-					<input type="hidden" name="sortby" value="<?php echo $this->escape($this->filters['sortby']); ?>" />
-					<input type="hidden" name="show" value="<?php echo $this->escape($this->filters['show']); ?>" />
-					<input type="hidden" name="option" value="<?php echo $this->option; ?>" />
-					<input type="hidden" name="index" value="<?php echo $this->escape($this->filters['index']); ?>" />
-				</fieldset>
-			</div><!-- / .container -->
+			<form action="<?php echo Route::url($base); ?>" method="get">
+				<div class="container data-entry">
+					<input class="entry-search-submit" type="submit" value="<?php echo Lang::txt('COM_MEMBERS_BROWSE_FILTER'); ?>" />
+					<fieldset class="entry-search">
+						<?php echo $this->autocompleter('tags', 'tags', $this->escape($this->filters['tags']), 'actags'); ?>
+					</fieldset>
+				</div><!-- / .container -->
+			</form>
 
-			<?php
-			$qs = array();
-			foreach ($this->filters as $f=>$v)
-			{
-				$qs[] = ($v != '' && $f != 'index' && $f != 'authorized' && $f != 'start') ? $f . '=' . $v : '';
-			}
-			$qs[] = 'limitstart=0';
-			$qs = implode('&', $qs);
+			<form action="<?php echo Route::url($base); ?>" method="get">
+				<div id="add-filters">
+					<p><?php echo Lang::txt('COM_MEMBERS_BROWSE_FILTER_RESULTS'); ?>:
+						<select name="q[field]" id="filter-field" data-base="<?php echo rtrim(Request::root(), '/'); ?>">
+							<?php foreach ($fields as $c) : ?>
+								<option value="<?php echo $this->escape($c['raw']); ?>"><?php echo $this->escape($c['human']); ?></option>
+							<?php endforeach; ?>
+						</select>
+						<?php echo Components\Members\Helpers\Filters::buildSelectOperators(); ?>
+						<input type="text" name="q[value]" id="filter-value" value="" />
+						<input class="btn btn-secondary" id="filter-submit" type="submit" value="<?php echo Lang::txt('COM_MEMBERS_BROWSE_FILTER_ADD'); ?>" />
+					</p>
+				</div><!-- / .filters -->
+			</form>
 
-			$letters = array('A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z');
-
-			$url  = 'index.php?option=' . $this->option . '&task=browse';
-			$url .= ($qs != '') ? '&' . $qs : '';
-
-			$html  = '<a href="' . Route::url($url) . '"';
-			if ($this->filters['index'] == '')
-			{
-				$html .= ' class="active-index"';
-			}
-			$html .= '>' . Lang::txt('COM_MEMBERS_BROWSE_FILTER_ALL') . '</a> ' . "\n";
-			foreach ($letters as $letter)
-			{
-				$url  = 'index.php?option=' . $this->option . '&task=browse&index=' . strtolower($letter);
-				$url .= ($qs != '') ? '&' . $qs : '';
-
-				$html .= '<a href="' . Route::url($url) . '"';
-				if ($this->filters['index'] == strtolower($letter))
-				{
-					$html .= ' class="active-index"';
-				}
-				$html .= '>' . $letter . '</a> ' . "\n";
-			}
-			?>
-			<div class="container">
-				<nav class="entries-filters">
-					<ul class="entries-menu order-options">
-						<li>
-							<a<?php echo ($this->filters['sortby'] == 'name') ? ' class="active"' : ''; ?> href="<?php echo Route::url('index.php?option=' . $this->option . '&task=browse&index=' . $this->filters['index'] . '&show='.$this->filters['show'] . '&sortby=name'); ?>" title="<?php echo Lang::txt('COM_MEMBERS_BROWSE_SORT_BY_NAME'); ?>">
-								<?php echo Lang::txt('COM_MEMBERS_BROWSE_SORT_NAME'); ?>
-							</a>
-						</li>
-						<li>
-							<a<?php echo ($this->filters['sortby'] == 'organization') ? ' class="active"' : ''; ?> href="<?php echo Route::url('index.php?option=' . $this->option . '&task=browse&index=' . $this->filters['index'] . '&show='.$this->filters['show'] . '&sortby=organization'); ?>" title="<?php echo Lang::txt('COM_MEMBERS_BROWSE_SORT_BY_ORG'); ?>">
-								<?php echo Lang::txt('COM_MEMBERS_BROWSE_SORT_ORG'); ?>
-							</a>
-						</li>
-						<?php if ($this->contribution_counting) { ?>
-						<li>
-							<a<?php echo ($this->filters['sortby'] == 'contributions') ? ' class="active"' : ''; ?> href="<?php echo Route::url('index.php?option=' . $this->option . '&task=browse&index=' . $this->filters['index'] . '&show='.$this->filters['show'] . '&sortby=contributions'); ?>" title="<?php echo Lang::txt('COM_MEMBERS_BROWSE_SORT_BY_CONTRIBUTIONS'); ?>">
-								<?php echo Lang::txt('COM_MEMBERS_BROWSE_SORT_CONTRIBUTIONS'); ?>
-							</a>
-						</li>
-						<?php } ?>
+			<?php if (!empty($this->filters['q']) || (is_array($this->filters['search']) && !empty($this->filters['search'][0]))) : ?>
+				<div id="applied-filters">
+					<p><?php echo Lang::txt('COM_MEMBERS_BROWSE_FILTER_APPLIED'); ?>:</p>
+					<ul class="filters-list">
+						<?php if (!empty($this->filters['q'])) : ?>
+							<?php foreach ($this->filters['q'] as $q) : ?>
+								<li>
+									<a href="<?php echo Route::url($base . '&q[field]=' . $q['field'] . '&q[operator]=' . $q['operator'] . '&q[value]=' . $q['value'] . '&q[delete]'); ?>"
+										class="filters-x">x
+									</a>
+									<i><?php echo $q['human_field'] . ' ' . $q['human_operator']; ?></i>: <?php echo $this->escape($q['human_value']); ?>
+								</li>
+							<?php endforeach; ?>
+						<?php endif; ?>
+						<?php if (is_array($this->filters['search']) && !empty($this->filters['search'][0])) : ?>
+							<li>
+								<a href="<?php echo Route::url($base . '&search='); ?>" class="filters-x">x</a>
+								<i><?php echo Lang::txt('COM_MEMBERS_SEARCH'); ?></i>: <?php echo $this->escape(implode(' ', $this->filters['search'])); ?>
+							</li>
+						<?php endif; ?>
 					</ul>
+				</div>
+			<?php endif; ?>
 
-					<ul class="entries-menu filter-options">
-						<li>
-							<a<?php echo ($this->filters['show'] != 'contributors') ? ' class="active"' : ''; ?> href="<?php echo Route::url('index.php?option=' . $this->option . '&task=browse&index=' . $this->filters['index'] . '&sortby=' . $this->filters['sortby']); ?>" title="<?php echo Lang::txt('COM_MEMBERS_BROWSE_FILTER_BY_ALL'); ?>">
-								<?php echo Lang::txt('COM_MEMBERS_BROWSE_FILTER_ALL'); ?>
-							</a>
-						</li>
-						<?php if ($this->contribution_counting) { ?>
-						<li>
-							<a<?php echo ($this->filters['show'] == 'contributors') ? ' class="active"' : ''; ?> href="<?php echo Route::url('index.php?option=' . $this->option . '&task=browse&index=' . $this->filters['index'] . '&show=contributors&sortby=' . $this->filters['sortby']); ?>" title="<?php echo Lang::txt('COM_MEMBERS_BROWSE_FILTER_BY_CONTRIBUTORS'); ?>">
-								<?php echo Lang::txt('COM_MEMBERS_BROWSE_FILTER_CONTRIBUTORS'); ?>
-							</a>
-						</li>
-						<?php } ?>
-					</ul>
-				</nav>
-
-				<table class="members entries">
-					<caption>
-						<?php
-						$s = ($this->total > 0) ? $this->filters['start']+1 : $this->filters['start'];
-						$e = ($this->total > ($this->filters['start'] + $this->filters['limit'])) ? ($this->filters['start'] + $this->filters['limit']) : $this->total;
-						$e = ($this->filters['limit'] == 0) ? $this->total : $e;
-
-						if ($this->filters['show'] != 'contributors') {
-							$title = 'COM_MEMBERS_BROWSE_ALL_MEMBERS';
-						} else {
-							$title = 'COM_MEMBERS_BROWSE_CONTRIBUTORS';
-						}
-						if ($this->filters['index']) {
-							$title = Lang::txt($title . '_STARTING_WITH', $this->escape(strToUpper($this->filters['index'])));
-						}
-						else
-						{
-							$title = Lang::txt($title);
-						}
-						if ($this->filters['search'] != '')
-						{
-							$title = Lang::txt('COM_MEMBERS_SEARCH_FOR_IN', $this->escape($this->filters['search']), $title);
-						}
-						echo $title;
-						?>
-						<span><?php echo Lang::txt('COM_MEMBERS_BROWSE_NUM_OF_RESULTS', $s, $e, $this->total); ?></span>
-					</caption>
-					<thead>
-						<tr>
-							<th colspan="4">
-								<span class="index-wrap">
-									<span class="index">
-										<?php echo $html; ?>
-									</span>
-								</span>
-							</th>
-						</tr>
-					</thead>
-					<tbody>
+			<form class="container members-container" action="<?php echo Route::url($base); ?>" method="get">
+				<div class="results tiled members">
 					<?php
-					if (count($this->rows) > 0)
+					if ($this->rows->count() > 0)
 					{
-						$areas = array();
-						$activeareas = Event::trigger('members.onMembersContributionsAreas', array($this->authorized));
-						foreach ($activeareas as $area)
-						{
-							$areas = array_merge($areas, $area);
-						}
-
 						$cols = 2;
 
 						$cls = ''; //'even';
@@ -188,7 +122,7 @@ $this->css()
 							{
 								case 1:
 									// Get the groups the visiting user
-									$xgroups = \Hubzero\User\Helper::getGroups(User::get('id'), 'all');
+									$xgroups = User::groups();
 									$usersgroups = array();
 									if (!empty($xgroups))
 									{
@@ -209,6 +143,7 @@ $this->css()
 							}
 							$messaging = true;
 						}
+
 						if (!Plugin::isEnabled('members', 'messages'))
 						{
 							$messaging = false;
@@ -216,75 +151,63 @@ $this->css()
 
 						foreach ($this->rows as $row)
 						{
-							//$cls = ($cls == 'odd') ? 'even' : 'odd';
 							$cls = '';
-							if ($row->public != 1)
+							if ($row->get('access') != 1)
 							{
 								$cls = 'private';
 							}
 
-							if ($row->uidNumber < 0)
+							if ($row->get('id') < 0)
 							{
-								$id = 'n' . -$row->uidNumber;
+								$id = 'n' . -$row->get('id');
 							}
 							else
 							{
-								$id = $row->uidNumber;
+								$id = $row->get('id');
 							}
 
-							if ($row->uidNumber == User::get('id'))
+							if ($row->get('id') == User::get('id'))
 							{
 								$cls .= ($cls) ? ' me' : 'me';
 							}
 
 							// User name
-							$row->name       = stripslashes($row->name);
-							$row->surname    = stripslashes($row->surname);
-							$row->givenName  = stripslashes($row->givenName);
-							$row->middelName = stripslashes($row->middleName);
-
-							if (!$row->surname)
+							if (!$row->get('surname'))
 							{
-								$bits = explode(' ', $row->name);
-								$row->surname = array_pop($bits);
+								$bits = explode(' ', $row->get('name'));
+
+								$row->set('surname', array_pop($bits));
 								if (count($bits) >= 1)
 								{
-									$row->givenName = array_shift($bits);
+									$row->set('givenName', array_shift($bits));
 								}
 								if (count($bits) >= 1)
 								{
-									$row->middleName = implode(' ', $bits);
+									$row->set('middleName', implode(' ', $bits));
 								}
 							}
 
-							$name = ($row->surname) ? stripslashes($row->surname) : '';
-							if ($row->givenName)
+							$name = stripslashes($row->get('surname', ''));
+							if ($row->get('givenName'))
 							{
-								$name .= ($row->surname) ? ', ' : '';
-								$name .= stripslashes($row->givenName);
-								$name .= ($row->middleName) ? ' ' . stripslashes($row->middleName) : '';
+								$name .= ($row->get('surname')) ? ', ' : '';
+								$name .= stripslashes($row->get('givenName'));
+								$name .= ($row->get('middleName')) ? ' ' . stripslashes($row->get('middleName')) : '';
 							}
 							if (!trim($name))
 							{
-								$name = Lang::txt('COM_MEMBERS_UNKNOWN') . ' (' . $row->username . ')';
+								$name = Lang::txt('COM_MEMBERS_UNKNOWN') . ' (' . $row->get('username') . ')';
 							}
-
-							$profile = new \Hubzero\User\Profile();
-							$profile->set('uidNumber', $row->uidNumber);
-							$profile->set('email', $row->email);
-							$profile->set('picture', $row->picture);
-
-							$p = \Hubzero\User\Profile\Helper::getMemberPhoto($profile);
 
 							// User messaging
 							$messageuser = false;
-							if ($messaging && $row->uidNumber > 0 && $row->uidNumber != User::get('id'))
+							if ($messaging && $row->get('id') > 0 && $row->get('uidNumber') != User::get('id'))
 							{
 								switch ($this->config->get('user_messaging'))
 								{
 									case 1:
 										// Get the groups of the profile
-										$pgroups = \Hubzero\User\Helper::getGroups($row->uidNumber, 'all');
+										$pgroups = $row->groups();
 										// Get the groups the user has access to
 										$profilesgroups = array();
 										if (!empty($pgroups))
@@ -317,61 +240,73 @@ $this->css()
 									break;
 								}
 							}
-					?>
-						<tr<?php echo ($cls) ? ' class="'.$cls.'"' : ''; ?>>
-							<td class="entry-img">
-								<img width="50" height="50" src="<?php echo $p; ?>" alt="<?php echo Lang::txt('COM_MEMBERS_BROWSE_AVATAR', $this->escape($name)); ?>" />
-							</td>
-							<td>
-								<a class="entry-title" href="<?php echo Route::url('index.php?option=' . $this->option . '&id=' . $id); ?>">
-									<?php echo $name; ?>
-								</a>
-							<?php if ($row->organization && $this->registration->Organization != REG_HIDE) { ?>
-								<br />
-								<span class="entry-details">
-									<span class="organization"><?php echo $this->escape(stripslashes($row->organization)); ?></span>
-								</span>
-							<?php } ?>
-							</td>
-							<td class="priority-4">
-								<?php if ($this->contribution_counting) { ?>
-								<!-- rcount: <?php echo $row->rcount; ?> -->
-								<span class="activity"><?php echo $row->resource_count . ' Resources, ' . $row->wiki_count . ' Topics'; ?></span>
-								<?php } ?>
-							</td>
-							<td class="message-member">
-							<?php if ($messageuser) { ?>
-								<a class="tooltips" href="<?php echo Route::url('index.php?option=' . $this->option . '&id=' . User::get('id') . '&active=messages&task=new&to[]=' . $row->uidNumber); ?>" title="<?php echo Lang::txt('COM_MEMBERS_BROWSE_SEND_MESSAGE_TO_TITLE', $this->escape($name)); ?>">
-									<?php echo Lang::txt('COM_MEMBERS_BROWSE_SEND_MESSAGE_TO', $this->escape($name)); ?>
-								</a>
-							<?php } ?>
-							</td>
-						</tr>
-					<?php
+							?>
+							<div class="result<?php echo ($cls) ? ' ' . $cls : ''; ?>">
+								<div class="result-body">
+									<div class="result-img">
+										<img src="<?php echo $row->picture(); ?>" alt="<?php echo Lang::txt('COM_MEMBERS_BROWSE_AVATAR', $this->escape($name)); ?>" />
+									</div>
+									<div class="result-title">
+										<a href="<?php echo Route::url('index.php?option=' . $this->option . '&id=' . $id); ?>">
+											<?php echo $name; ?>
+										</a>
+										<?php foreach ($fields as $c) { ?>
+											<?php
+											if (!in_array($c['raw'], array('org', 'organization'))) {
+												continue;
+											}
+											if ($val = $row->get($c['raw'])) { ?>
+												<span class="result-details">
+													<br />
+													<span class="<?php echo $this->escape($c['raw']); ?>"><?php echo $this->escape(Hubzero\Utility\String::truncate(stripslashes($val), 60)); ?></span>
+												</span>
+											<?php } ?>
+										<?php } ?>
+									</div>
+									<div class="result-snippet">
+										<?php foreach ($fields as $c) { ?>
+											<?php
+											if (in_array($c['raw'], array('name', 'org', 'organization'))) {
+												continue;
+											}
+											if ($val = $row->get($c['raw'])) {
+												$val = (is_array($val) ? implode(', ', $val) : $val);
+											?>
+												<div class="result-snippet-<?php echo $this->escape($c['raw']); ?>"><?php echo $this->escape(Hubzero\Utility\String::truncate(strip_tags(stripslashes($val)), 150)); ?></div>
+											<?php } ?>
+										<?php } ?>
+									</div>
+									<?php if ($messageuser) { ?>
+										<div class="result-extras message-member">
+											<a class="btn" href="<?php echo Route::url('index.php?option=' . $this->option . '&id=' . User::get('id') . '&active=messages&task=new&to[]=' . $row->get('id')); ?>" title="<?php echo Lang::txt('COM_MEMBERS_BROWSE_SEND_MESSAGE_TO_TITLE', $this->escape($name)); ?>">
+												<?php echo Lang::txt('COM_MEMBERS_BROWSE_SEND_MESSAGE'); ?>
+											</a>
+										</div>
+									<?php } ?>
+									<?php if (!User::isGuest() && User::get('id') == $row->get('id')) { ?>
+										<div class="result-extras">
+											<span class="you">
+												<?php echo Lang::txt('COM_MEMBERS_BROWSE_YOUR_PROFILE'); ?>
+											</span>
+										</div>
+									<?php } ?>
+								</div>
+							</div>
+							<?php
 						}
 					} else { ?>
-						<tr>
-							<td colspan="4">
-								<p class="warning"><?php echo Lang::txt('COM_MEMBERS_BROWSE_NO_MEMBERS_FOUND'); ?></p>
-							</td>
-						</tr>
+						<div class="results-none">
+							<p><?php echo Lang::txt('COM_MEMBERS_BROWSE_NO_MEMBERS_FOUND'); ?></p>
+						</div>
 					<?php } ?>
-					</tbody>
-				</table>
+				</div>
 				<?php
-					$pageNav = $this->pagination(
-						$this->total,
-						$this->filters['start'],
-						$this->filters['limit']
-					);
-					$pageNav->setAdditionalUrlParam('index', $this->filters['index']);
-					$pageNav->setAdditionalUrlParam('sortby', $this->filters['sortby']);
-					$pageNav->setAdditionalUrlParam('search', $this->filters['search']);
-					$pageNav->setAdditionalUrlParam('show', $this->filters['show']);
-					echo $pageNav->render();
+				$pageNav = $this->rows->pagination;
+				$pageNav->setAdditionalUrlParam('search', $this->filters['search']);
+				echo $pageNav;
 				?>
 				<div class="clearfix"></div>
-			</div><!-- / .container -->
+			</form><!-- / .container -->
 		</div><!-- / .subject -->
 
 		<aside class="aside">
@@ -379,7 +314,6 @@ $this->css()
 				<h3><?php echo Lang::txt('COM_MEMBERS_BROWSE_SITE_MEMBERS'); ?></h3>
 				<p><?php echo Lang::txt('COM_MEMBERS_BROWSE_EXPLANATION'); ?></p>
 				<p><?php echo Lang::txt('COM_MEMBERS_BROWSE_SORTING_EXPLANATION'); ?></p>
-				<p><?php echo Lang::txt('COM_MEMBERS_BROWSE_SEARCH_EXPLANATION'); ?></p>
 			</div><!-- / .container -->
 
 			<div class="container">
@@ -409,5 +343,5 @@ $this->css()
 				</p>
 			</div><!-- / .container -->
 		</aside><!-- / .aside -->
-	</form>
+	</div>
 </section><!-- / .main section -->

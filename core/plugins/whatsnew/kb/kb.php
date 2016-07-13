@@ -92,26 +92,20 @@ class plgWhatsnewKb extends \Hubzero\Plugin\Plugin
 			f.id,
 			f.title,
 			f.fulltxt AS `text`,
-			concat('index.php?option=com_kb&section=', coalesce(concat(s.alias, '/'), ''), f.alias) AS href,
+			concat('index.php?option=com_kb&section=', coalesce(concat(c.path, '/'), ''), f.alias) AS href,
 			'kb' AS section,
-			CASE
-				WHEN s.alias IS NULL THEN c.alias
-				WHEN c.alias IS NULL THEN s.alias
-				ELSE concat(s.alias, ', ', c.alias)
-			END AS subsection";
+			c.alias AS subsection";
 
-		$f_from = " FROM `#__faq` AS f
-			LEFT JOIN `#__faq_categories` AS s
-				ON s.id = f.section
-			LEFT JOIN `#__faq_categories` AS c
+		$f_from = " FROM `#__kb_articles` AS f
+			LEFT JOIN `#__categories` AS c
 				ON c.id = f.category
 			WHERE f.state=1
-				AND s.state = 1
+				AND c.published = 1
 				AND f.created > " . $database->quote($period->cStartDat) . "
 				AND f.created < " . $database->quote($period->cEndDate) . "
 				AND f.access IN (" . implode(',', User::getAuthorisedViewLevels()) . ")";
 
-		$order_by  = " ORDER BY created DESC, title";
+		$order_by  = " ORDER BY f.created DESC, f.title";
 		$order_by .= ($limit != 'all') ? " LIMIT $limitstart,$limit" : "";
 
 		if (!$limit)

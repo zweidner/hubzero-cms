@@ -292,7 +292,7 @@ class Wishlists extends SiteController
 		// Get count of granted wishes
 		$sp_filters = $this->view->filters;
 		$sp_filters['filterby'] = 'granted';
-		$model->set('granted_count', $model->wishes('count', $sp_filters, true)); //$objWish->get_count($model->get('id'), $sp_filters, $this->_admin, User::getRoot());
+		$model->set('granted_count', $model->wishes('count', $sp_filters, true)); //$objWish->get_count($model->get('id'), $sp_filters, $this->_admin, User::getInstance());
 		$model->set('granted_percentage', ($total > 0 && $model->get('granted_count') > 0 ? round(($model->get('granted_count')/$total) * 100, 0) : 0));
 
 		// Some extras
@@ -481,7 +481,7 @@ class Wishlists extends SiteController
 			// check available user funds
 			if ($action == 'addbonus' && $this->banking)
 			{
-				$BTL = new Teller($this->database, User::get('id'));
+				$BTL = new Teller(User::get('id'));
 				$balance = $BTL->summary();
 				$credit  = $BTL->credit_summary();
 				$funds   = $balance - $credit;
@@ -900,7 +900,7 @@ class Wishlists extends SiteController
 		$funds = 0;
 		if ($this->banking)
 		{
-			$BTL = new Teller($this->database, User::get('id'));
+			$BTL = new Teller(User::get('id'));
 			$balance = $BTL->summary();
 			$credit  = $BTL->credit_summary();
 			$funds   = $balance - $credit;
@@ -1099,9 +1099,27 @@ class Wishlists extends SiteController
 		if ($reward && $this->banking)
 		{
 			// put the  amount on hold
-			$BTL = new Teller($this->database, User::get('id'));
+			$BTL = new Teller(User::get('id'));
 			$BTL->hold($reward, Lang::txt('COM_WISHLIST_BANKING_HOLD') . ' #' . $row->get('id') . ' ' . Lang::txt('COM_WISHLIST_FOR') . ' ' . $this->_list_title, 'wish', $row->get('id'));
 		}
+
+		// Log activity
+		Event::trigger('system.logActivity', [
+			'activity' => [
+				'action'      => ($wishid ? 'updated' : 'created'),
+				'scope'       => 'wishlist.wish',
+				'scope_id'    => $row->get('id'),
+				'description' => Lang::txt('COM_WISHLIST_ACTIVITY_WISH_' . ($wishid ? 'UPDATED' : 'CREATED'), '<a href="' . Route::url($row->link('permalink')) . '">' . $row->get('subject') . '</a>'),
+				'details'     => array(
+					'subject'    => $row->get('subject'),
+					'url'      => Route::url($row->link('permalink'))
+				)
+			],
+			'recipients' => array(
+				['wishlist.' . $wishlist->get('category'), $wishlist->get('referenceid')],
+				['user', $row->get('proposed_by')]
+			)
+		]);
 
 		$saved = $wishid ? 2 : 3;
 		App::redirect(
@@ -1496,7 +1514,7 @@ class Wishlists extends SiteController
 	/**
 	 * Assign a point bonus to a wish
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function addbonusTask()
 	{
@@ -1543,7 +1561,7 @@ class Wishlists extends SiteController
 		}
 
 		// check available user funds
-		$BTL = new \Hubzero\Bank\Teller($this->database, User::get('id'));
+		$BTL = new \Hubzero\Bank\Teller(User::get('id'));
 		$balance = $BTL->summary();
 		$credit  = $BTL->credit_summary();
 		$funds   = $balance - $credit;
@@ -1564,7 +1582,7 @@ class Wishlists extends SiteController
 		}
 
 		// put the  amount on hold
-		$BTL = new Teller($this->database, User::get('id'));
+		$BTL = new Teller(User::get('id'));
 		$BTL->hold(
 			$amount,
 			Lang::txt('COM_WISHLIST_BANKING_HOLD') . ' #' . $wish->get('id') . ' ' . Lang::txt('COM_WISHLIST_FOR') . ' ' . $wishlist->get('title'),
@@ -1580,7 +1598,7 @@ class Wishlists extends SiteController
 	/**
 	 * Mark a wish as deleted
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function deletewishTask()
 	{
@@ -1652,6 +1670,24 @@ class Wishlists extends SiteController
 			$this->setError(Lang::txt('COM_WISHLIST_ERROR_WISH_DELETE_FAILED'));
 		}
 
+		// Log activity
+		Event::trigger('system.logActivity', [
+			'activity' => [
+				'action'      => 'deleted',
+				'scope'       => 'wishlist.wish',
+				'scope_id'    => $wish->get('id'),
+				'description' => Lang::txt('COM_WISHLIST_ACTIVITY_WISH_DELETED', '<a href="' . Route::url($wish->link('permalink')) . '">' . $wish->get('subject') . '</a>'),
+				'details'     => array(
+					'subject' => $wish->get('subject'),
+					'url'     => Route::url($wish->link('permalink'))
+				)
+			],
+			'recipients' => array(
+				['wishlist.' . $wishlist->get('category'), $wishlist->get('referenceid')],
+				['user', $wish->get('proposed_by')]
+			)
+		]);
+
 		// go back to the wishlist
 		App::redirect(
 			$wishlist->link(),
@@ -1663,7 +1699,7 @@ class Wishlists extends SiteController
 	/**
 	 * Save a vote for a wish
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function savevoteTask()
 	{
@@ -1772,6 +1808,25 @@ class Wishlists extends SiteController
 			throw new Exception($wishlist->getError(), 500);
 		}
 
+		// Log activity
+		Event::trigger('system.logActivity', [
+			'activity' => [
+				'action'      => 'voted',
+				'scope'       => 'wishlist.wish',
+				'scope_id'    => $wish->get('id'),
+				'description' => Lang::txt('COM_WISHLIST_ACTIVITY_WISH_VOTED', '<a href="' . Route::url($wish->link()) . '">' . $wish->get('subject') . '</a>'),
+				'details'     => array(
+					'subject' => $wish->get('subject'),
+					'url'     => Route::url($wish->link())
+				)
+			],
+			'recipients' => array(
+				['wishlist.' . $wishlist->get('category'), $wishlist->get('referenceid')],
+				['user', $wish->get('proposed_by')],
+				['user', User::get('id')]
+			)
+		]);
+
 		App::redirect(
 			Route::url($wish->link())
 		);
@@ -1780,7 +1835,7 @@ class Wishlists extends SiteController
 	/**
 	 * Save a wish comment
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function savereplyTask()
 	{
@@ -1829,11 +1884,9 @@ class Wishlists extends SiteController
 
 		if ($id && $category)
 		{
-			$row = new Comment();
-			if (!$row->bind($_POST))
-			{
-				throw new Exception($row->getError(), 500);
-			}
+			$fields = Request::getVar('comment', array(), 'post');
+
+			$row = Comment::blank()->set($fields);
 
 			// Perform some text cleaning, etc.
 			$row->set(
@@ -1851,20 +1904,18 @@ class Wishlists extends SiteController
 			}
 
 			$row->set('anonymous', ($row->get('anonymous') ? $row->get('anonymous') : 0));
-			$row->set('added', Date::toSql());
-			$row->set('state', 0);
-			$row->set('category', $category);
-			$row->set('added_by', User::get('id'));
+			$row->set('state', 1);
+			$row->set('item_type', $category);
 
 			// Save the data
-			if (!$row->store(true))
+			if (!$row->save())
 			{
 				throw new Exception($row->getError(), 500);
 			}
 
 			// Build e-mail components
-			$name  = $row->creator('name', Lang::txt('UNKNOWN'));
-			$login = $row->creator('username', Lang::txt('UNKNOWN'));
+			$name  = $row->creator()->get('name', Lang::txt('UNKNOWN'));
+			$login = $row->creator()->get('username', Lang::txt('UNKNOWN'));
 
 			if ($row->get('anonymous'))
 			{
@@ -1943,14 +1994,14 @@ class Wishlists extends SiteController
 			// get comment author if reply is posted to a comment
 			if ($category == 'wishcomment')
 			{
-				$parent = new Comment($id);
+				$parent = Comment::oneOrNew($id);
 
 				// send message to comment author
-				if ($parent->get('added_by') != $row->get('added_by')
-				 && !in_array($parent->get('added_by'), $contacted))
+				if ($parent->get('created_by') != $row->get('created_by')
+				 && !in_array($parent->get('created_by'), $contacted))
 				{
-					$contacted[] = $parent->get('added_by');
-					if (!Event::trigger('xmessage.onSendMessage', array('wishlist_comment_thread', $subject3, $message, $from, array($parent->get('added_by')), $this->_option)))
+					$contacted[] = $parent->get('created_by');
+					if (!Event::trigger('xmessage.onSendMessage', array('wishlist_comment_thread', $subject3, $message, $from, array($parent->get('created_by')), $this->_option)))
 					{
 						$this->setError(Lang::txt('COM_WISHLIST_ERROR_FAILED_MSG_COMMENTOR'));
 					}
@@ -1968,6 +2019,25 @@ class Wishlists extends SiteController
 					$this->setError(Lang::txt('COM_WISHLIST_ERROR_FAILED_MSG_COMMENTOR'));
 				}
 			}
+
+			// Log activity
+			Event::trigger('system.logActivity', [
+				'activity' => [
+					'action'      => 'created',
+					'scope'       => 'wishlist.comment',
+					'scope_id'    => $row->get('id'),
+					'description' => Lang::txt('COM_WISHLIST_ACTIVITY_COMMENT_CREATED', $row->get('id'), '<a href="' . Route::url($objWish->link()) . '">' . $objWish->get('subject') . '</a>'),
+					'details'     => array(
+						'wish'    => $objWish->get('id'),
+						'url'     => Route::url($objWish->link())
+					)
+				],
+				'recipients' => array(
+					['wishlist.' . $category, $id],
+					['user', $objWish->get('proposed_by')],
+					['user', $row->get('created_by')]
+				)
+			]);
 		} // -- end if id & category
 
 		App::redirect(
@@ -1983,18 +2053,18 @@ class Wishlists extends SiteController
 	public function deletereplyTask()
 	{
 		// Incoming
-		$row = new Comment(
+		$row = Comment::oneOrFail(
 			Request::getInt('replyid', 0)
 		);
 
 		// Do we have a reply ID?
-		if (!$row->exists())
+		if (!$row->get('id'))
 		{
 			$this->setError(Lang::txt('COM_WISHLIST_ERROR_REPLY_NOT_FOUND'));
 			return;
 		}
 
-		if ($row->get('added_by') != User::get('id'))
+		if ($row->get('created_by') != User::get('id'))
 		{
 			App::redirect(
 				Request::getVar('HTTP_REFERER', NULL, 'server'),
@@ -2005,12 +2075,39 @@ class Wishlists extends SiteController
 		}
 
 		// Delete the comment
-		$row->set('state', 4);
+		$row->set('state', $row::STATE_DELETED);
 
-		if (!$row->store())
+		if (!$row->save())
 		{
 			throw new Exception($row->getError(), 500);
 		}
+
+		// Log activity
+		$wishlist = Wishlist::getInstance(Request::getInt('listid', 0));
+
+		if (!$wishlist->exists())
+		{
+			throw new Exception(Lang::txt('COM_WISHLIST_ERROR_WISHLIST_NOT_FOUND'), 404);
+		}
+
+		$wish = new Wish(Request::getInt('wishid', 0));
+
+		Event::trigger('system.logActivity', [
+			'activity' => [
+				'action'      => 'deleted',
+				'scope'       => 'wishlist.comment',
+				'scope_id'    => $row->get('id'),
+				'description' => Lang::txt('COM_WISHLIST_ACTIVITY_COMMENT_DELETED', $row->get('id'), '<a href="' . Route::url($wish->link()) . '">' . $wish->get('subject') . '</a>'),
+				'details'     => array(
+					'id'  => $row->get('id'),
+					'url' => Route::url($wish->link())
+				)
+			],
+			'recipients' => array(
+				['wishlist.' . $wishlist->get('category'), $wishlist->get('referenceid')],
+				['user', $row->get('created_by')]
+			)
+		]);
 
 		// Go back to the page
 		App::redirect(
@@ -2021,7 +2118,7 @@ class Wishlists extends SiteController
 	/**
 	 * Reply to a comment
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function replyTask()
 	{
@@ -2051,7 +2148,7 @@ class Wishlists extends SiteController
 	/**
 	 * Vote for a wish
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function rateitemTask()
 	{
@@ -2180,7 +2277,7 @@ class Wishlists extends SiteController
 	public function authorize_admin($listid = 0, $admin = 0)
 	{
 		// Check if they're a site admin
-		if (User::authorize($this->_option, 'manage'))
+		if (User::authorise('core.manage', $this->_option))
 		{
 			$admin = 1;
 		}
@@ -2214,13 +2311,13 @@ class Wishlists extends SiteController
 	/**
 	 * Build a select list of users
 	 *
-	 * @param      unknown $name Parameter description (if any) ...
-	 * @param      array   $ownerids Parameter description (if any) ...
-	 * @param      unknown $active Parameter description (if any) ...
-	 * @param      integer $nouser Parameter description (if any) ...
-	 * @param      string  $javascript Parameter description (if any) ...
-	 * @param      string  $order Parameter description (if any) ...
-	 * @return     array Return description (if any) ...
+	 * @param   string   $name
+	 * @param   array    $ownerids
+	 * @param   string   $active
+	 * @param   integer  $nouser
+	 * @param   string   $javascript
+	 * @param   string   $order
+	 * @return  array
 	 */
 	public function userSelect($name, $ownerids, $active, $nouser=0, $javascript=NULL, $order='a.name')
 	{
@@ -2266,8 +2363,8 @@ class Wishlists extends SiteController
 	/**
 	 * Upload a file
 	 *
-	 * @param      integer $listdir Wish ID
-	 * @return     string
+	 * @param   integer  $listdir  Wish ID
+	 * @return  string
 	 */
 	public function uploadTask($listdir)
 	{
@@ -2348,7 +2445,7 @@ class Wishlists extends SiteController
 	/**
 	 * Download an attachment
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function downloadTask()
 	{
@@ -2397,19 +2494,16 @@ class Wishlists extends SiteController
 			// Should only get here on error
 			throw new Exception(Lang::txt('COM_WISHLIST_SERVER_ERROR'), 500);
 		}
-		else
-		{
-			exit;
-		}
-		return;
+
+		exit;
 	}
 
 	/**
 	 * Convert effort value to a time
 	 *
-	 * @param      float $rawnum Number to convert
-	 * @param      array $due    Array to populate
-	 * @return     array
+	 * @param   float  $rawnum  Number to convert
+	 * @param   array  $due     Array to populate
+	 * @return  array
 	 */
 	public function convertTime($rawnum, $due=array())
 	{

@@ -1,26 +1,48 @@
 <?php
 /**
- * @copyright	Copyright (C) 2005 - 2014 Open Source Matters, Inc. All rights reserved.
- * @license		GNU General Public License version 2 or later; see LICENSE.txt
+ * HUBzero CMS
+ *
+ * Copyright 2005-2015 HUBzero Foundation, LLC.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ *
+ * HUBzero is a registered trademark of Purdue University.
+ *
+ * @package   hubzero-cms
+ * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
+ * @license   http://opensource.org/licenses/MIT MIT
  */
 
-defined('JPATH_BASE') or die;
+// no direct access
+defined('_HZEXEC_') or die();
 
 /**
  * Plugin class for redirect handling.
- *
- * @package		Joomla.Plugin
- * @subpackage	System.redirect
  */
 class plgSystemRedirect extends \Hubzero\Plugin\Plugin
 {
 	/**
 	 * Object Constructor.
 	 *
-	 * @param	object	The object to observe -- event dispatcher.
-	 * @param	object	The configuration object for the plugin.
-	 * @return	void
-	 * @since	1.0
+	 * @param   object  $subject  The object to observe -- event dispatcher.
+	 * @param   object  $config   The configuration object for the plugin.
+	 * @return  void
 	 */
 	public function __construct(&$subject, $config)
 	{
@@ -43,7 +65,7 @@ class plgSystemRedirect extends \Hubzero\Plugin\Plugin
 	{
 		$renderer = new \Hubzero\Error\Renderer\Page(
 			App::get('document'),
-			App::get('template')->template,
+			App::get('template.loader'),
 			App::get('config')->get('debug')
 		);
 
@@ -51,7 +73,7 @@ class plgSystemRedirect extends \Hubzero\Plugin\Plugin
 		if (!App::isSite() || $error->getCode() != 404)
 		{
 			// Render the error page.
-			$renderer->render($error);
+			return $renderer->render($error);
 		}
 
 		// Get the full current URI.
@@ -59,79 +81,62 @@ class plgSystemRedirect extends \Hubzero\Plugin\Plugin
 		$current = $uri->toString(array('scheme', 'host', 'port', 'path', 'query', 'fragment'));
 
 		// Attempt to ignore idiots.
-		if ((strpos($current, 'mosConfig_') !== false) || (strpos($current, '=http://') !== false))
+		if ((strpos($current, 'mosConfig_') !== false)
+		 || (strpos($current, '=http://') !== false))
 		{
 			// Render the error page.
-			$renderer->render($error);
+			return $renderer->render($error);
 		}
 
-		// See if the current url exists in the database as a redirect.
-		$db = App::get('db');
-		$db->setQuery(
-			'SELECT ' . $db->quoteName('new_url') . ', ' . $db->quoteName('published').
-			' FROM ' . $db->quoteName('#__redirect_links') .
-			' WHERE ' . $db->quoteName('old_url') . ' = ' . $db->quote($current),
-			0, 1
-		);
-		$link = $db->loadObject();
-
-		// If no published redirect was found try with the server-relative URL
-		if (!$link || $link->published != 1)
+		if (file_exists(PATH_CORE . DS . 'components' . DS . 'com_redirect' . DS . 'models' . DS . 'link.php'))
 		{
-			$currRel = $uri->toString(array('path', 'query', 'fragment'));
-			$db->setQuery(
-				'SELECT ' . $db->quoteName('new_url') . ', ' . $db->quoteName('published') .
-				' FROM ' . $db->quoteName('#__redirect_links') .
-				' WHERE ' . $db->quoteName('old_url') . ' = ' . $db->quote($currRel),
-				0, 1
-			);
-			$link = $db->loadObject();
-		}
+			include_once(PATH_CORE . DS . 'components' . DS . 'com_redirect' . DS . 'models' . DS . 'link.php');
 
-		// If a redirect exists and is published, permanently redirect.
-		if ($link && $link->published == 1)
-		{
-			App::redirect($link->new_url, null, null, true, false);
-			return;
-		}
+			// See if the current url exists in the database as a redirect.
+			$link = \Components\Redirect\Models\Link::all()
+					->whereEquals('old_url', $current)
+					->row();
 
-		$referer = empty($_SERVER['HTTP_REFERER']) ? '' : $_SERVER['HTTP_REFERER'];
+			// If no published redirect was found try with the server-relative URL
+			if (!$link->id || $link->published != 1)
+			{
+				$currRel = $uri->toString(array('path', 'query', 'fragment'));
 
-		$db->setQuery('SELECT id FROM ' . $db->quoteName('#__redirect_links') . '  WHERE ' . $db->quoteName('old_url') . ' = ' . $db->quote($current));
-		$res = $db->loadResult();
-		if (!$res)
-		{
-			// If not, add the new url to the database.
-			$query = $db->getQuery(true);
-			$query->insert($db->quoteName('#__redirect_links'), false);
-			$columns = array(
-				$db->quoteName('old_url'),
-				$db->quoteName('new_url'),
-				$db->quoteName('referer'),
-				$db->quoteName('comment'),
-				$db->quoteName('hits'),
-				$db->quoteName('published'),
-				$db->quoteName('created_date')
-			);
-			$query->columns($columns);
-			$query->values(
-				$db->Quote($current) . ', ' . $db->Quote('') .
-				' ,' . $db->Quote($referer) . ', ' . $db->Quote('') . ',1,0, ' .
-				$db->Quote(Date::toSql())
-			);
+				$link = \Components\Redirect\Models\Link::all()
+					->whereEquals('old_url', $currRel)
+					->row();
+			}
 
-			$db->setQuery($query);
-			$db->query();
-		}
-		else
-		{
-			// Existing error url, increase hit counter
-			$query = $db->getQuery(true);
-			$query->update($db->quoteName('#__redirect_links'));
-			$query->set($db->quoteName('hits') . ' = ' . $db->quoteName('hits') . ' + 1');
-			$query->where('id = ' . (int)$res);
-			$db->setQuery((string)$query);
-			$db->query();
+			// If a redirect exists and is published, permanently redirect.
+			if ($link->id && $link->published == 1)
+			{
+				App::redirect($link->new_url, null, null, true, false);
+			}
+
+			$referer = empty($_SERVER['HTTP_REFERER']) ? '' : $_SERVER['HTTP_REFERER'];
+
+			$row = \Components\Redirect\Models\Link::all()
+				->whereEquals('old_url', $current)
+				->row();
+
+			if (!$row->get('id'))
+			{
+				$row->set([
+					'old_url'   => $current,
+					'new_url'   => '',
+					'referer'   => $referer,
+					'comment'   => '',
+					'hits'      => 1,
+					'published' => 0,
+					'created_date' => Date::toSql()
+				]);
+			}
+			else
+			{
+				$row->set('hits', intval($row->get('hits')) + 1);
+			}
+
+			$row->save();
 		}
 
 		// Render the error page.

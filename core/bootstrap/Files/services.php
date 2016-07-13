@@ -31,7 +31,7 @@
 
 return array(
 	// Base Services
-	'Hubzero\Events\EventServiceProvider',
-	'Bootstrap\Files\AuthServiceProvider',
-	'Bootstrap\Files\FileServiceProvider',
+	'Bootstrap\Files\Providers\EventServiceProvider',
+	'Bootstrap\Files\Providers\AuthServiceProvider',
+	'Bootstrap\Files\Providers\FileServiceProvider',
 );

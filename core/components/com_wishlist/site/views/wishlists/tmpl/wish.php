@@ -46,10 +46,10 @@ $this->css()
 	$name = Lang::txt('COM_WISHLIST_ANONYMOUS');
 	if (!$this->wish->get('anonymous'))
 	{
-		$name = $this->escape(stripslashes($this->wish->proposer('name', $name)));
-		if ($this->wish->proposer('public'))
+		$name = $this->escape(stripslashes($this->wish->proposer()->get('name', $name)));
+		if (in_array($this->wish->proposer()->get('access'), User::getAuthorisedViewLevels()))
 		{
-			$name = '<a href="' . Route::url($this->wish->proposer()->getLink()) . '">' . $name . '</a>';
+			$name = '<a href="' . Route::url($this->wish->proposer()->link()) . '">' . $name . '</a>';
 		}
 	}
 
@@ -630,14 +630,14 @@ $this->css()
 				<?php echo Lang::txt('COM_WISHLIST_COMMENTS');?> (<?php echo $this->wish->comments('count'); ?>)
 			</h3>
 			<?php
-			if ($this->wish->comments('list')->total() > 0)
+			if ($this->wish->comments()->count() > 0)
 			{
 				$this->view('_list')
 				     ->set('parent', 0)
 				     ->set('cls', 'odd')
 				     ->set('depth', 0)
 				     ->set('option', $this->option)
-				     ->set('comments', $this->wish->comments('list'))
+				     ->set('comments', $this->wish->comments())
 				     ->set('wishlist', $this->wishlist)
 				     ->set('wish', $this->wish)
 				     ->display();
@@ -676,10 +676,7 @@ $this->css()
 						<?php echo Lang::txt('COM_WISHLIST_ACTION_ADD_COMMENT'); ?>
 					</h3>
 					<p class="comment-member-photo">
-						<?php
-							$jxuser = \Hubzero\User\Profile::getInstance(User::get('id'));
-						?>
-						<img src="<?php echo $jxuser->getPicture(); ?>" alt="" />
+						<img src="<?php echo User::picture(); ?>" alt="" />
 					</p>
 					<fieldset>
 						<input type="hidden" name="option" value="<?php echo $this->escape($this->option); ?>" />
@@ -689,16 +686,16 @@ $this->css()
 						<input type="hidden" name="referenceid" value="<?php echo $this->escape($this->wish->get('id')); ?>" />
 						<input type="hidden" name="cat" value="wish" />
 
-						<input type="hidden" name="item_id" value="<?php echo $this->wish->get('id'); ?>" />
-						<input type="hidden" name="item_type" value="wish" />
-						<input type="hidden" name="parent" value="0" />
+						<input type="hidden" name="comment[item_id]" value="<?php echo $this->wish->get('id'); ?>" />
+						<input type="hidden" name="comment[item_type]" value="wish" />
+						<input type="hidden" name="comment[parent]" value="0" />
 
 						<?php echo Html::input('token'); ?>
 
 						<label for="comment<?php echo $this->wish->get('id'); ?>">
 							<?php echo Lang::txt('COM_WISHLIST_ENTER_COMMENTS'); ?>
 							<?php
-							echo $this->editor('content', '', 35, 4, 'comment' . $this->wish->get('id'), array('class' => 'minimal no-footer'));
+							echo $this->editor('comment[content]', '', 35, 4, 'comment' . $this->wish->get('id'), array('class' => 'minimal no-footer'));
 							?>
 						</label>
 
@@ -716,7 +713,7 @@ $this->css()
 						</fieldset>
 
 						<label id="comment-anonymous-label" for="comment-anonymous">
-							<input class="option" type="checkbox" name="anonymous" value="1" id="comment-anonymous" />
+							<input class="option" type="checkbox" name="comment[anonymous]" value="1" id="comment-anonymous" />
 							<?php echo Lang::txt('COM_WISHLIST_POST_COMMENT_ANONYMOUSLY'); ?>
 						</label>
 
@@ -751,7 +748,7 @@ $this->css()
 				<form action="<?php echo Route::url('index.php?option=' . $this->option); ?>" method="post" id="planform" enctype="multipart/form-data">
 					<p class="plan-member-photo">
 						<span class="plan-anchor"></span>
-						<img src="<?php echo \Hubzero\User\Profile\Helper::getMemberPhoto(User::getRoot(), 0); ?>" alt="<?php echo Lang::txt('COM_WISHLIST_MEMBER_PICTURE'); ?>" />
+						<img src="<?php echo User::picture(0); ?>" alt="<?php echo Lang::txt('COM_WISHLIST_MEMBER_PICTURE'); ?>" />
 					</p>
 					<fieldset>
 				<?php if ($this->wish->get('action') == 'editplan') { ?>

@@ -32,7 +32,7 @@
 
 namespace Components\Cron\Site\Controllers;
 
-use Components\Cron\Models\Manager;
+use Components\Cron\Models\Job;
 use Hubzero\Component\SiteController;
 use Request;
 use User;
@@ -41,7 +41,7 @@ use Event;
 use stdClass;
 
 /**
- * Controller class for bulletin boards
+ * Controller class for cron jobs
  */
 class Jobs extends SiteController
 {
@@ -58,12 +58,15 @@ class Jobs extends SiteController
 	}
 
 	/**
-	 * Display a list of latest whiteboard entries
+	 * Run any scheduled cron tasks
 	 *
 	 * @return  void
 	 */
 	public function displayTask()
 	{
+		// If the current user doesn't have access to manage the component,
+		// try to see if their IP address is in the whtielist.
+		// Otherwise, we stop any further code execution.
 		if (!User::authorise('core.manage', $this->_option))
 		{
 			$ip = Request::ip();
@@ -88,21 +91,26 @@ class Jobs extends SiteController
 			}
 		}
 
+		// Forcefully do NOT render the template
+		// (extra processing that's not needed)
 		Request::setVar('no_html', 1);
 		Request::setVar('tmpl', 'component');
 
-		$model = new Manager();
+		$now = Date::toSql();
 
-		$filters = array(
-			'state'     => 1,
-			'available' => true,
-			'next_run'  => Date::toLocal('Y-m-d H:i:s')
-		);
+		// Get the list of jobs that should be run
+		$results = Job::all()
+			->whereEquals('state', 1)
+			->where('next_run', '<=', Date::toLocal('Y-m-d H:i:s'))
+			->whereEquals('publish_up', '0000-00-00 00:00:00', 1)->orWhere('publish_up', '<=', $now, 1)
+			->resetDepth()
+			->whereEquals('publish_down', '0000-00-00 00:00:00', 1)->orWhere('publish_down', '>', $now, 1)
+			->rows();
 
 		$output = new stdClass;
 		$output->jobs = array();
 
-		if ($results = $model->jobs('list', $filters))
+		if ($results)
 		{
 			foreach ($results as $job)
 			{
@@ -120,7 +128,7 @@ class Jobs extends SiteController
 					// Set it as active in case there were multiple plugins called on
 					// the event. This is to ensure ALL processes finished.
 					$job->set('active', 1);
-					$job->store();
+					$job->save();
 
 					foreach ($results as $result)
 					{
@@ -134,12 +142,14 @@ class Jobs extends SiteController
 				$job->mark('end_run');
 				$job->set('last_run', Date::toLocal('Y-m-d H:i:s')); //Date::toSql());
 				$job->set('next_run', $job->nextRun());
-				$job->store();
+				$job->save();
 
 				$output->jobs[] = $job->toArray();
 			}
 		}
 
+		// Output any data from the jobs that ran
+		// Largely used for debugging/monitoring purposes
 		$this->view
 			->set('no_html', Request::getInt('no_html', 0))
 			->set('output', $output)

@@ -43,18 +43,18 @@ class plgCoursesReviews extends \Hubzero\Plugin\Plugin
 	/**
 	 * Affects constructor behavior. If true, language files will be loaded automatically.
 	 *
-	 * @var    boolean
+	 * @var  boolean
 	 */
 	protected $_autoloadLanguage = true;
 
 	/**
 	 * Return data on a resource view (this will be some form of HTML)
 	 *
-	 * @param      object  $resource Current resource
-	 * @param      string  $option    Name of the component
-	 * @param      array   $areas     Active area(s)
-	 * @param      string  $rtrn      Data to be returned
-	 * @return     array
+	 * @param   object  $resource  Current resource
+	 * @param   string  $option    Name of the component
+	 * @param   array   $areas     Active area(s)
+	 * @param   string  $rtrn      Data to be returned
+	 * @return  array
 	 */
 	public function onCourseView($course, $active=null)
 	{
@@ -66,21 +66,22 @@ class plgCoursesReviews extends \Hubzero\Plugin\Plugin
 		$this->option     = Request::getCmd('option', 'com_courses');
 		$this->controller = Request::getWord('controller', 'course');
 
-		$database = App::get('db');
-		$tbl = new \Hubzero\Item\Comment($database);
+		$tbl = new \Components\Courses\Models\Comment();
 
 		// Build the HTML meant for the tab's metadata overview
-		$view = $this->view('default', 'metadata');
-		$view->set('option', $this->option)
-		     ->set('controller', $this->controller)
-		     ->set('course', $course)
-		     ->set('tbl', $tbl);
+		$view = $this->view('default', 'metadata')
+			->set('option', $this->option)
+			->set('controller', $this->controller)
+			->set('course', $course)
+			->set('tbl', $tbl);
 
 		$response->set('metadata', $view->loadTemplate());
 
 		// Check if our area is in the array of areas we want to return results for
 		if ($response->get('name') == $active)
 		{
+			$database = App::get('db');
+
 			$this->view = $this->view('default', 'view');
 			$this->view->database = $this->database = $database;
 			$this->view->option   = $this->option;
@@ -94,7 +95,6 @@ class plgCoursesReviews extends \Hubzero\Plugin\Plugin
 			$this->_authorize();
 
 			$this->view->params   = $this->params;
-
 			$this->view->task     = $this->task    = Request::getVar('action', '');
 
 			switch ($this->task)
@@ -125,9 +125,9 @@ class plgCoursesReviews extends \Hubzero\Plugin\Plugin
 	/**
 	 * Set permissions
 	 *
-	 * @param      string  $assetType Type of asset to set permissions for (component, section, category, thread, post)
-	 * @param      integer $assetId   Specific object to check permissions for
-	 * @return     void
+	 * @param   string   $assetType  Type of asset to set permissions for (component, section, category, thread, post)
+	 * @param   integer  $assetId    Specific object to check permissions for
+	 * @return  void
 	 */
 	protected function _authorize($assetType='comment', $assetId=null)
 	{
@@ -220,24 +220,25 @@ class plgCoursesReviews extends \Hubzero\Plugin\Plugin
 	/**
 	 * Method to add a message to the component message que
 	 *
-	 * @param   string $message The message to add
+	 * @param   string  $message  The message to add
 	 * @return  void
 	 */
 	public function redirect($url, $msg='', $msgType='')
 	{
 		$url = ($url != '') ? $url : Request::getVar('REQUEST_URI', Route::url($this->obj->link() . '&active=reviews'), 'server');
 
-		parent::redirect($url, $msg, $msgType);
+		App::redirect($url, $msg, $msgType);
 	}
 
 	/**
 	 * Redirect to login page
 	 *
-	 * @return    void
+	 * @return  void
 	 */
 	protected function _login()
 	{
 		$return = base64_encode(Request::getVar('REQUEST_URI', Route::url($this->obj->link() . '&active=reviews', false, true), 'server'));
+
 		App::redirect(
 			Route::url('index.php?option=com_users&view=login&return=' . $return, false),
 			Lang::txt('PLG_COURSES_REVIEWS_LOGIN_NOTICE'),
@@ -248,7 +249,7 @@ class plgCoursesReviews extends \Hubzero\Plugin\Plugin
 	/**
 	 * Vote on a comment
 	 *
-	 * @return    void
+	 * @return  void
 	 */
 	protected function _vote()
 	{
@@ -261,33 +262,21 @@ class plgCoursesReviews extends \Hubzero\Plugin\Plugin
 
 		$no_html = Request::getInt('no_html', 0);
 
-		// Get comments on this article
-		$v = new \Hubzero\Item\Vote($this->database);
-		$v->created_by = User::get('id');
-		$v->item_type  = 'comment';
-
+		// Record the vote
 		if ($item_id = Request::getInt('voteup', 0))
 		{
-			$v->vote   = 1;
+			$how = 1;
 		}
 		else if ($item_id = Request::getInt('votedown', 0))
 		{
-			$v->vote   = -1;
+			$how = -1;
 		}
-		$v->item_id    = $item_id;
 
-		// Check content
-		if (!$v->check())
+		$item = \Components\Courses\Models\Comment::oneOrFail($item_id);
+
+		if (!$item->vote($how, User::get('id')))
 		{
-			$this->setError($v->getError());
-		}
-		else
-		{
-			// Store new content
-			if (!$v->store())
-			{
-				$this->setError($v->getError());
-			}
+			$this->setError($item->getError());
 		}
 
 		if ($this->getError() && !$no_html)
@@ -300,23 +289,10 @@ class plgCoursesReviews extends \Hubzero\Plugin\Plugin
 			return;
 		}
 
-		$this->view->setLayout('vote');
+		$item->set('vote', $how);
 
-		$this->view->item = new \Hubzero\Item\Comment($this->database);
-		$this->view->item->load($v->item_id);
-		if ($v->vote == 1)
-		{
-			$this->view->item->positive++;
-		}
-		else
-		{
-			$this->view->item->negative++;
-		}
-		if (!$this->view->item->store())
-		{
-			$this->setError($this->view->item->getError());
-		}
-		$this->view->item->vote = $v->vote;
+		$this->view->setLayout('vote');
+		$this->view->set('item', $item);
 
 		if (!$no_html)
 		{
@@ -328,13 +304,7 @@ class plgCoursesReviews extends \Hubzero\Plugin\Plugin
 			return;
 		}
 
-		if ($this->getError())
-		{
-			foreach ($this->getErrors() as $error)
-			{
-				$this->view->setError($error);
-			}
-		}
+		$this->view->setErrors($this->getErrors());
 
 		// Ugly brute force method of cleaning output
 		ob_clean();
@@ -345,40 +315,32 @@ class plgCoursesReviews extends \Hubzero\Plugin\Plugin
 	/**
 	 * Show a list of comments
 	 *
-	 * @return    void
+	 * @return  void
 	 */
 	protected function _view()
 	{
 		// Get comments on this article
-		$comments = $this->view->tbl->find(array(
-			'item_type' => $this->obj_type,
-			'item_id'   => $this->obj->get('id'),
-			'parent'    => 0,
-			'state'     => 1,
-			'limit'     => $this->params->get('comments_limit', 25)
-		));
-		if ($comments)
-		{
-			foreach ($comments as $k => $comment)
-			{
-				$comments[$k] = new \Components\Courses\Models\Comment($comment);
-			}
-		}
-		$this->view->comments = new \Hubzero\Base\ItemList($comments);
+		$comments = $this->view->tbl
+			->whereEquals('item_type', $this->obj_type)
+			->whereEquals('item_id', $this->obj->get('id'))
+			->whereEquals('parent', 0)
+			->whereIn('state', array(
+				Components\Courses\Models\Comment::STATE_PUBLISHED,
+				Components\Courses\Models\Comment::STATE_FLAGGED
+			))
+			->limit($this->params->get('display_limit', 25))
+			->ordered()
+			->rows();
 
-		if ($this->getError())
-		{
-			foreach ($this->getErrors() as $error)
-			{
-				$this->view->setError($error);
-			}
-		}
+		$this->view->set('comments', $comments);
+
+		$this->view->setErrors($this->getErrors());
 	}
 
 	/**
 	 * Save an entry
 	 *
-	 * @return    void
+	 * @return  void
 	 */
 	protected function _save()
 	{
@@ -395,48 +357,27 @@ class plgCoursesReviews extends \Hubzero\Plugin\Plugin
 		$comment = Request::getVar('comment', array(), 'post', 'none', 2);
 
 		// Instantiate a new comment object and pass it the data
-		$row = new \Hubzero\Item\Comment($this->database);
-		if (!$row->bind($comment))
-		{
-			App::redirect(
-				$this->url,
-				$row->getError(),
-				'error'
-			);
-			return;
-		}
+		$row = \Components\Courses\Models\Comment::blank()->set($comment);
+
 		$row->setUploadDir($this->params->get('comments_uploadpath', '/site/comments'));
 
-		if ($row->id && !$this->params->get('access-edit-comment'))
+		if ($row->get('id') && !$this->params->get('access-edit-comment'))
 		{
 			App::redirect(
 				$this->url,
 				Lang::txt('PLG_COURSES_REVIEWS_NOTAUTH'),
 				'warning'
 			);
-			return;
-		}
-
-		// Check content
-		if (!$row->check())
-		{
-			App::redirect(
-				$this->url,
-				$row->getError(),
-				'error'
-			);
-			return;
 		}
 
 		// Store new content
-		if (!$row->store())
+		if (!$row->save())
 		{
 			App::redirect(
 				$this->url,
 				$row->getError(),
 				'error'
 			);
-			return;
 		}
 
 		App::redirect(
@@ -450,7 +391,7 @@ class plgCoursesReviews extends \Hubzero\Plugin\Plugin
 	 * Mark a comment as deleted
 	 * NOTE: Does not actually delete data. Simply marks record.
 	 *
-	 * @return    void
+	 * @return  void
 	 */
 	protected function _delete()
 	{
@@ -467,18 +408,18 @@ class plgCoursesReviews extends \Hubzero\Plugin\Plugin
 			return $this->_redirect();
 		}
 
-		// Initiate a blog comment object
-		$comment = new \Hubzero\Item\Comment($this->database);
-		$comment->load($id);
+		// Initiate a comment object
+		$comment = \Components\Courses\Models\Comment::oneOrFail($id);
 
-		if (User::get('id') != $comment->created_by && !$this->params->get('access-delete-comment'))
+		if (User::get('id') != $comment->get('created_by') && !$this->params->get('access-delete-comment'))
 		{
 			App::redirect($this->url);
-			return;
 		}
 
+		$comment->set('state', $comment::STATE_DELETED);
+
 		// Delete the entry itself
-		if (!$comment->setState($id, 2))
+		if (!$comment->save())
 		{
 			$this->setError($comment->getError());
 		}

@@ -25,25 +25,20 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
 
 defined('_HZEXEC_') or die();
 
-$cid  = Request::getVar('cid', array(0), '', 'array');
-$edit = Request::getVar('edit', true );
-\Hubzero\Utility\Arr::toInteger($cid, array(0));
-
 $canDo = \Components\Poll\Helpers\Permissions::getActions('component');
 
-$text = ($edit ? Lang::txt('JACTION_EDIT') : Lang::txt('JACTION_CREATE'));
+$text = ($this->poll->id ? Lang::txt('JACTION_EDIT') : Lang::txt('JACTION_CREATE'));
 
 Toolbar::title(Lang::txt('COM_POLL') . ': ' . $text, 'poll.png');
 if ($this->poll->id)
 {
-	Toolbar::preview('index.php?option=' . $this->option . '&task=preview&cid=' . $cid[0]);
+	Toolbar::preview('index.php?option=' . $this->option . '&task=preview&id=' . $this->poll->id);
 	Toolbar::spacer();
 }
 if ($canDo->get('core.edit'))
@@ -52,7 +47,7 @@ if ($canDo->get('core.edit'))
 	Toolbar::apply();
 	Toolbar::spacer();
 }
-if ($edit)
+if ($this->poll->id)
 {
 	// for existing items the button is renamed `close`
 	Toolbar::cancel('cancel', 'COM_POLL_CLOSE');
@@ -68,10 +63,12 @@ Toolbar::help('poll');
 <script type="text/javascript">
 	function submitbutton(pressbutton) {
 		var form = document.adminForm;
+
 		if (pressbutton == 'cancel') {
 			submitform( pressbutton );
 			return;
 		}
+
 		// do field validation
 		if (form.title.value == "") {
 			alert( "<?php echo Lang::txt('COM_POLL_ERROR_MISSING_TITLE', true); ?>" );
@@ -85,58 +82,75 @@ Toolbar::help('poll');
 	}
 </script>
 <form action="<?php echo Route::url('index.php?option=' . $this->option); ?>" method="post" name="adminForm" id="item-form">
-	<div class="col width-50 fltlft">
-		<fieldset class="adminform">
-			<legend><span><?php echo Lang::txt('JDETAILS'); ?></span></legend>
+	<div class="grid">
+		<div class="col span6">
+			<fieldset class="adminform">
+				<legend><span><?php echo Lang::txt('JDETAILS'); ?></span></legend>
 
-			<div class="input-wrap">
-				<label for="field-title"><?php echo Lang::txt('COM_POLL_FIELD_TITLE'); ?>:</label><br />
-				<input class="inputbox" type="text" name="title" id="field-title" value="<?php echo $this->escape($this->poll->title); ?>" />
-			</div>
-			<div class="input-wrap">
-				<label for="field-alias"><?php echo Lang::txt('COM_POLL_FIELD_ALIAS'); ?>:</label><br />
-				<input class="inputbox" type="text" name="alias" id="field-alias" value="<?php echo $this->escape($this->poll->alias); ?>" />
-			</div>
-			<div class="input-wrap" data-hint="<?php echo Lang::txt( 'COM_POLL_FIELD_LAG_HINT'); ?>">
-				<label for="field-lag"><?php echo Lang::txt('COM_POLL_FIELD_LAG'); ?>:</label><br />
-				<input class="inputbox" type="text" name="lag" id="field-lag" value="<?php echo $this->escape($this->poll->lag); ?>" />
-				<span class="hint"><?php echo Lang::txt('COM_POLL_FIELD_LAG_HINT'); ?></span>
-			</div>
-			<div class="input-wrap">
-				<label><?php echo Lang::txt('COM_POLL_FIELD_PUBLISHED'); ?>:</label><br />
-				<?php echo Html::select('booleanlist', 'published', 'class="inputbox"', $this->poll->published); ?>
-			</div>
-			<div class="input-wrap">
-				<label><?php echo Lang::txt('COM_POLL_FIELD_OPEN'); ?>:</label><br />
-				<?php echo Html::select('booleanlist', 'open', 'class="inputbox"', $this->poll->open); ?>
-			</div>
-		</fieldset>
-		<p class="warning"><?php echo Lang::txt('COM_POLL_WARNING'); ?></p>
-	</div>
-	<div class="col width-50 fltrt">
-		<fieldset class="adminform">
-			<legend><span><?php echo Lang::txt('COM_POLL_FIELDSET_OPTIONS'); ?></span></legend>
+				<div class="input-wrap">
+					<label for="field-title"><?php echo Lang::txt('COM_POLL_FIELD_TITLE'); ?>:</label><br />
+					<input class="inputbox" type="text" name="fields[title]" id="field-title" value="<?php echo $this->escape($this->poll->get('title')); ?>" />
+				</div>
+				<div class="input-wrap">
+					<label for="field-alias"><?php echo Lang::txt('COM_POLL_FIELD_ALIAS'); ?>:</label><br />
+					<input class="inputbox" type="text" name="fields[alias]" id="field-alias" value="<?php echo $this->escape($this->poll->get('alias')); ?>" />
+				</div>
+				<div class="input-wrap" data-hint="<?php echo Lang::txt( 'COM_POLL_FIELD_LAG_HINT'); ?>">
+					<label for="field-lag"><?php echo Lang::txt('COM_POLL_FIELD_LAG'); ?>:</label><br />
+					<input class="inputbox" type="text" name="fields[lag]" id="field-lag" value="<?php echo $this->escape($this->poll->get('lag')); ?>" />
+					<span class="hint"><?php echo Lang::txt('COM_POLL_FIELD_LAG_HINT'); ?></span>
+				</div>
+				<div class="input-wrap">
+					<label for="field-state"><?php echo Lang::txt('COM_POLL_FIELD_PUBLISHED'); ?>:</label>
+					<select name="fields[state]" id="field-state">
+						<option value="0"<?php if ($this->poll->get('state') == 0) { echo ' selected="selected"'; } ?>><?php echo Lang::txt('JUNPUBLISHED'); ?></option>
+						<option value="1"<?php if ($this->poll->get('state') == 1) { echo ' selected="selected"'; } ?>><?php echo Lang::txt('JPUBLISHED'); ?></option>
+						<option value="2"<?php if ($this->poll->get('state') == 2) { echo ' selected="selected"'; } ?>><?php echo Lang::txt('JTRASHED'); ?></option>
+					</select>
+				</div>
+				<div class="input-wrap">
+					<label for="field-access"><?php echo Lang::txt('COM_POLL_FIELD_ACCESS_LEVEL'); ?>:</label>
+					<select name="fields[access]" id="field-access">
+						<?php echo Html::select('options', Html::access('assetgroups'), 'value', 'text', $this->poll->get('access')); ?>
+					</select>
+				</div>
+				<div class="input-wrap">
+					<label><?php echo Lang::txt('COM_POLL_FIELD_OPEN'); ?>:</label><br />
+					<?php echo Html::select('booleanlist', 'fields[open]', 'class="inputbox"', $this->poll->get('open')); ?>
+				</div>
+			</fieldset>
+			<p class="warning"><?php echo Lang::txt('COM_POLL_WARNING'); ?></p>
+		</div>
+		<div class="col span6">
+			<fieldset class="adminform">
+				<legend><span><?php echo Lang::txt('COM_POLL_FIELDSET_OPTIONS'); ?></span></legend>
 
-			<?php for ($i=0, $n=count($this->options); $i < $n; $i++) { ?>
-				<div class="input-wrap">
-					<label for="polloption<?php echo $this->options[$i]->id; ?>"><?php echo Lang::txt('COM_POLL_FIELD_OPTION'); ?> <?php echo ($i+1); ?></label><br />
-					<input class="inputbox" type="text" name="polloption[<?php echo $this->options[$i]->id; ?>]" id="polloption<?php echo $this->options[$i]->id; ?>" value="<?php echo $this->escape(str_replace('&#039;', "'", $this->options[$i]->text)); ?>" />
-				</div>
-			<?php } ?>
-			<?php for (; $i < 12; $i++) { ?>
-				<div class="input-wrap">
-					<label for="polloption<?php echo $i + 1; ?>"><?php echo Lang::txt('COM_POLL_FIELD_OPTION'); ?> <?php echo $i + 1; ?></label><br />
-					<input class="inputbox" type="text" name="polloption[]" id="polloption<?php echo $i + 1; ?>" value="" />
-				</div>
-			<?php } ?>
-		</fieldset>
+				<?php
+				$i = 0;
+				$n = $this->options->count();
+				foreach ($this->options as $option) { ?>
+					<div class="input-wrap">
+						<label for="polloption<?php echo $option->id; ?>"><?php echo Lang::txt('COM_POLL_FIELD_OPTION'); ?> <?php echo ($i+1); ?></label><br />
+						<input class="inputbox" type="text" name="polloption[<?php echo $option->id; ?>]" id="polloption<?php echo $option->id; ?>" value="<?php echo $this->escape(str_replace('&#039;', "'", $option->text)); ?>" />
+					</div>
+				<?php
+					$i++;
+				} ?>
+				<?php for (; $i < 12; $i++) { ?>
+					<div class="input-wrap">
+						<label for="polloption<?php echo $i + 1; ?>"><?php echo Lang::txt('COM_POLL_FIELD_OPTION'); ?> <?php echo $i + 1; ?></label><br />
+						<input class="inputbox" type="text" name="polloption[]" id="polloption<?php echo $i + 1; ?>" value="" />
+					</div>
+				<?php } ?>
+			</fieldset>
+		</div>
 	</div>
-	<div class="clr"></div>
+
+	<input type="hidden" name="fields[id]" value="<?php echo $this->poll->get('id'); ?>" />
 
 	<input type="hidden" name="task" value="" />
 	<input type="hidden" name="option" value="<?php echo $this->option; ?>" />
-	<input type="hidden" name="id" value="<?php echo $this->poll->id; ?>" />
-	<input type="hidden" name="cid[]" value="<?php echo $this->poll->id; ?>" />
+	<input type="hidden" name="id" value="<?php echo $this->poll->get('id'); ?>" />
 	<input type="hidden" name="textfieldcheck" value="<?php echo $n; ?>" />
 
 	<?php echo Html::input('token'); ?>

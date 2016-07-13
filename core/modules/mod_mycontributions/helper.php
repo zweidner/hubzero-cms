@@ -44,7 +44,7 @@ class Helper extends Module
 	/**
 	 * Get a list of contributions
 	 *
-	 * @return     array
+	 * @return  array
 	 */
 	private function _getContributions()
 	{
@@ -101,33 +101,40 @@ class Helper extends Module
 					if ($show_questions)
 					{
 						// Get open questions
-						require_once(Component::path('com_answers') . DS . 'tables' . DS . 'question.php');
-						require_once(Component::path('com_answers') . DS . 'tables' . DS . 'response.php');
-						$aq = new \Components\Answers\Tables\Question($database);
+						require_once(Component::path('com_answers') . DS . 'models' . DS . 'question.php');
 
-						$filters = array(
-							'limit'    => $limit,
-							'start'    => 0,
-							'filterby' => 'open',
-							'sortby'   => 'date',
-							'mine'     => 0,
-							'tag'      => 'tool' . $rows[$i]->toolname
-						);
+						$results = \Components\Answers\Models\Question::all()
+							->including(['responses', function ($response)
+								{
+									$response
+										->select('id')
+										->select('question_id')
+										->where('state', '!=', 2);
+								}])
+							->whereEquals('state', 0)
+							->select('#__answers_questions.*')
+							->join('#__tags_object', '#__tags_object.objectid', '#__answers_questions.id')
+							->join('#__tags', '#__tags.id', '#__tags_object.tagid')
+							->whereEquals('#__tags_object.tbl', 'answers')
+							->whereIn('#__tags.tag', ['tool' . $rows[$i]->toolname])
+							->limit($limit)
+							->ordered()
+							->rows();
 
-						$results = $aq->getResults($filters);
 						$unanswered = 0;
+
 						if ($results)
 						{
 							foreach ($results as $r)
 							{
-								if ($r->rcount == 0)
+								if ($r->responses->count() == 0)
 								{
 									$unanswered++;
 								}
 							}
 						}
 
-						$rows[$i]->q = count($results);
+						$rows[$i]->q = $results->count();
 						$rows[$i]->q_new = $unanswered;
 					}
 
@@ -149,7 +156,7 @@ class Helper extends Module
 						{
 							$controller = new \Components\Wishlist\Site\Controllers\Wishlists();
 							$filters = $controller->getFilters(1);
-							$wishes = $objWish->get_wishes($listid, $filters, 1, User::getRoot());
+							$wishes = $objWish->get_wishes($listid, $filters, 1, User::getInstance());
 							$unranked = 0;
 							if ($wishes)
 							{
@@ -254,15 +261,10 @@ class Helper extends Module
 	/**
 	 * Display module contents
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function display()
 	{
-		// Get the user's profile
-		$xprofile = \Hubzero\User\Profile::getInstance(User::get('id'));
-
-		$administrator = in_array('middleware', $xprofile->get('admin'));
-
 		// show tool contributions separately?
 		$this->show_tools = intval($this->params->get('show_tools', 1));
 

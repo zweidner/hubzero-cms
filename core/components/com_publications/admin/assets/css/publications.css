@@ -13,8 +13,7 @@
 	.yes,
 	.enabled,
 	.writeable,
-	.public,
-	a.public {
+	.public, a.public {
 		color: green;
 	}
 	.no,
@@ -39,6 +38,13 @@
 		clear: both;
 		margin: 0;
 		padding: 0;
+	}
+
+	.checkedout {
+		display: inline-block;
+		width: 1em;
+		overflow: hidden;
+		white-space: nowrap;
 	}
 
 	.draft,
@@ -100,9 +106,7 @@
 	.unpublished {
 		color: #999;
 	}
-	.pending,
-	.new,
-	.wip {
+	.pending, .new, .wip {
 		color: red;
 	}
 	.preserving {
@@ -195,7 +199,8 @@
 	.v-status span {
 		padding-left: 2em;
 	}
-	.v-status span, .status span {
+	.v-status span,
+	.status span {
 		width: auto;
 	}
 	.status a span {
@@ -221,6 +226,7 @@
 	.noassoc:hover {
 		border: none;
 	}
+
 	.key {
 		margin: 0;
 		padding: 0;
@@ -261,7 +267,8 @@
 		margin: 0.5em;
 		padding-left: 0;
 	}
-	#author-list li, .content-list li {
+	#author-list li,
+	.content-list li {
 		border: 1px solid #ddd;
 		background: #efefef;
 		margin: 0 0 3px 0;
@@ -278,7 +285,7 @@
 		float: right;
 		font-weight: bold;
 		color: #999;
-	}
+		}
 	fieldset.adminform fieldset legend {
 		padding-left: 1.5em !important;
 		background-color: #E2E2E2;
@@ -298,9 +305,7 @@
 		background: #f4eefa;
 		font-size: 85%;
 	}
-	/*.adminform label {
-		font-style: italic;
-	}*/
+
 	.editing label {
 		background: #E2E2E2;
 		width: 100%;
@@ -318,7 +323,8 @@
 		border-top: 4px solid #CCC;
 		border-bottom: 4px solid #CCC;
 	}
-	.allowed, .disallowed {
+	.allowed,
+	.disallowed {
 		display: block;
 		margin-top: 1em;
 	}
@@ -358,9 +364,7 @@
 	.archival-package {
 		text-align: center;
 	}
-	.narrow {
-		width: 5%;
-	}
+
 	.tip {
 		font-size: 85%;
 		color: #999;
@@ -392,8 +396,7 @@
 		height: 15px;
 		width: 100px;
 	}
-	.editform input,
-	.editform textarea {
+	.editform input, .editform textarea {
 		width: 100%;
 	}
 	.editform input.short {
@@ -422,7 +425,7 @@
 		color: orange;
 	}
 	.editform span.inactive,
-	#adminForm span.inactive  {
+	#adminForm span.inactive {
 		font-weight: bold;
 		color: red;
 	}

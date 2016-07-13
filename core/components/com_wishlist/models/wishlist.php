@@ -32,7 +32,6 @@
 
 namespace Components\Wishlist\Models;
 
-use Hubzero\User\Profile;
 use Hubzero\Base\ItemList;
 use Components\Wishlist\Tables;
 use Lang;
@@ -377,7 +376,7 @@ class Wishlist extends Base
 			case 'count':
 				if (!is_numeric($this->_cache['wishes.count']) || $clear)
 				{
-					$this->_cache['wishes.count'] = (int) $tbl->get_count($this->get('id'), $filters, $this->get('admin'), User::getRoot());
+					$this->_cache['wishes.count'] = (int) $tbl->get_count($this->get('id'), $filters, $this->get('admin'), User::getInstance());
 				}
 				return $this->_cache['wishes.count'];
 			break;
@@ -387,7 +386,7 @@ class Wishlist extends Base
 			default:
 				if (!($this->_cache['wishes.list'] instanceof ItemList) || $clear)
 				{
-					if ($results = $tbl->get_wishes($this->get('id'), $filters, $this->get('admin'), User::getRoot()))
+					if ($results = $tbl->get_wishes($this->get('id'), $filters, $this->get('admin'), User::getInstance()))
 					{
 						foreach ($results as $key => $result)
 						{

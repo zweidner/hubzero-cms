@@ -56,38 +56,33 @@ if ($canDo->get('core.delete'))
 
 		<input type="submit" name="filter_submit" id="filter_submit" value="<?php echo Lang::txt('COM_RESOURCES_GO'); ?>" />
 	</fieldset>
-	<div class="clr"></div>
 
 	<table class="adminlist">
 		<thead>
 			<tr>
-				<th scope="col"><input type="checkbox" name="toggle" value="" onclick="checkAll(<?php echo count($this->rows); ?>);" /></th>
-				<th scope="col" class="priority-4"><?php echo $this->grid('sort', 'COM_RESOURCES_COL_ID', 'id', @$this->filters['sort_Dir'], @$this->filters['sort'] ); ?></th>
-				<th scope="col" class="priority-3"><?php echo $this->grid('sort', 'COM_RESOURCES_COL_ALIAS', 'name', @$this->filters['sort_Dir'], @$this->filters['sort'] ); ?></th>
-				<th scope="col"><?php echo $this->grid('sort', 'COM_RESOURCES_COL_TITLE', 'title', @$this->filters['sort_Dir'], @$this->filters['sort'] ); ?></th>
-				<th scope="col" class="priority-2"><?php echo $this->grid('sort', 'COM_RESOURCES_COL_ORDER', 'ordering', @$this->filters['sort_Dir'], @$this->filters['sort'] ); ?></th>
+				<th scope="col"><input type="checkbox" name="toggle" value="" onclick="checkAll(<?php echo $this->rows->count(); ?>);" /></th>
+				<th scope="col" class="priority-4"><?php echo Html::grid('sort', 'COM_RESOURCES_COL_ID', 'id', @$this->filters['sort_Dir'], @$this->filters['sort'] ); ?></th>
+				<th scope="col" class="priority-3"><?php echo Html::grid('sort', 'COM_RESOURCES_COL_ALIAS', 'name', @$this->filters['sort_Dir'], @$this->filters['sort'] ); ?></th>
+				<th scope="col"><?php echo Html::grid('sort', 'COM_RESOURCES_COL_TITLE', 'title', @$this->filters['sort_Dir'], @$this->filters['sort'] ); ?></th>
+				<th scope="col" class="priority-2"><?php echo Html::grid('sort', 'COM_RESOURCES_COL_ORDER', 'ordering', @$this->filters['sort_Dir'], @$this->filters['sort'] ); ?></th>
 			</tr>
 		</thead>
 		<tfoot>
 			<tr>
 				<td colspan="5"><?php
-				// initiate paging
-				$pageNav = $this->pagination(
-					$this->total,
-					$this->filters['start'],
-					$this->filters['limit']
-				);
+				$pageNav = $this->rows->pagination;
 				echo $pageNav->render();
 				?></td>
 			</tr>
 		</tfoot>
 		<tbody>
-<?php
-$k = 0;
-for ($i=0, $n=count( $this->rows ); $i < $n; $i++)
-{
-	$row = &$this->rows[$i];
-?>
+		<?php
+		$k = 0;
+		$i = 0;
+		$n = $this->rows->count();
+		foreach ($this->rows as $row)
+		{
+			?>
 			<tr class="<?php echo "row$k"; ?>">
 				<td>
 					<?php if ($canDo->get('core.edit')) { ?>
@@ -121,18 +116,39 @@ for ($i=0, $n=count( $this->rows ); $i < $n; $i++)
 				</td>
 				<td class="priority-2 order">
 					<span>
-						<?php echo $pageNav->orderUpIcon($i, isset($this->rows[$i-1]->ordering)); ?>
+						<?php
+						//echo $pageNav->orderUpIcon($i, is_object($prv));
+						if ($i > 0)
+						{
+							echo Html::grid('orderUp', $i, 'orderup', '', 'JLIB_HTML_MOVE_UP', true, 'cb');
+						}
+						else
+						{
+							echo '&#160;';
+						}
+						?>
 					</span>
 					<span>
-						<?php echo $pageNav->orderDownIcon($i, $n, isset($this->rows[$i+1]->ordering)); ?>
+						<?php
+						//echo $pageNav->orderDownIcon($i, $n, is_object($nxt));
+						if ($i < ($n - 1))
+						{
+							echo Html::grid('orderDown', $i, 'orderdown', '', 'JLIB_HTML_MOVE_DOWN', true, 'cb');
+						}
+						else
+						{
+							echo '&#160;';
+						}
+						?>
 					</span>
 					<input type="hidden" name="order[]" value="<?php echo $this->escape($row->ordering); ?>" />
 				</td>
 			</tr>
-<?php
-	$k = 1 - $k;
-}
-?>
+			<?php
+			$k = 1 - $k;
+			$i++;
+		}
+		?>
 		</tbody>
 	</table>
 
@@ -140,8 +156,8 @@ for ($i=0, $n=count( $this->rows ); $i < $n; $i++)
 	<input type="hidden" name="controller" value="<?php echo $this->controller; ?>" />
 	<input type="hidden" name="task" value="" autocomplete="off" />
 	<input type="hidden" name="boxchecked" value="0" />
-	<input type="hidden" name="filter_order" value="<?php echo $this->filters['sort']; ?>" />
-	<input type="hidden" name="filter_order_Dir" value="<?php echo $this->filters['sort_Dir']; ?>" />
+	<input type="hidden" name="filter_order" value="<?php echo $this->escape($this->filters['sort']); ?>" />
+	<input type="hidden" name="filter_order_Dir" value="<?php echo $this->escape($this->filters['sort_Dir']); ?>" />
 
 	<?php echo Html::input('token'); ?>
 </form>

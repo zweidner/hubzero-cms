@@ -35,6 +35,12 @@ namespace Components\Publications\Admin\Controllers;
 use Hubzero\Component\AdminController;
 use Components\Publications\Tables;
 use stdClass;
+use Document;
+use Request;
+use Config;
+use Route;
+use Lang;
+use App;
 
 /**
  * Manage publication categories (former resource types)
@@ -44,39 +50,40 @@ class Categories extends AdminController
 	/**
 	 * List types
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function displayTask()
 	{
 		// Incoming
-		$this->view->filters = array();
-		$this->view->filters['limit']    = Request::getState(
-			$this->_option . '.categories.limit',
-			'limit',
-			Config::get('list_limit'),
-			'int'
+		$this->view->filters = array(
+			'limit' => Request::getState(
+				$this->_option . '.categories.limit',
+				'limit',
+				Config::get('list_limit'),
+				'int'
+			),
+			'start' => Request::getState(
+				$this->_option . '.categories.limitstart',
+				'limitstart',
+				0,
+				'int'
+			),
+			'search' => Request::getState(
+				$this->_option . '.categories.search',
+				'search',
+				''
+			),
+			'sort' => Request::getState(
+				$this->_option . '.categories.sort',
+				'filter_order',
+				'id'
+			),
+			'sort_Dir' => Request::getState(
+				$this->_option . '.categories.sortdir',
+				'filter_order_Dir',
+				'ASC'
+			)
 		);
-		$this->view->filters['start']    = Request::getState(
-			$this->_option . '.categories.limitstart',
-			'limitstart',
-			0,
-			'int'
-		);
-		$this->view->filters['search']     = trim(Request::getState(
-			$this->_option . '.categories.search',
-			'search',
-			''
-		));
-		$this->view->filters['sort']     = trim(Request::getState(
-			$this->_option . '.categories.sort',
-			'filter_order',
-			'id'
-		));
-		$this->view->filters['sort_Dir'] = trim(Request::getState(
-			$this->_option . '.categories.sortdir',
-			'filter_order_Dir',
-			'ASC'
-		));
 
 		$this->view->filters['state'] = 'all';
 
@@ -102,42 +109,35 @@ class Categories extends AdminController
 	/**
 	 * Add a new type
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function addTask()
 	{
-		$this->view->setLayout('edit');
 		$this->editTask();
 	}
 
 	/**
 	 * Edit a type
 	 *
-	 * @return     void
+	 * @param   object  $row
+	 * @return  void
 	 */
 	public function editTask($row=null)
 	{
-		if ($row)
-		{
-			$this->view->row = $row;
-		}
-		else
+		Request::setVar('hidemainmenu', 1);
+
+		if (!is_object($row))
 		{
 			// Incoming (expecting an array)
 			$id = Request::getVar('id', array(0));
-			if (is_array($id))
-			{
-				$id = $id[0];
-			}
-			else
-			{
-				$id = 0;
-			}
+			$id = is_array($id) ? $id[0] : $id;
 
 			// Load the object
-			$this->view->row = new \Components\Publications\Tables\Category($this->database);
-			$this->view->row->load($id);
+			$row = new \Components\Publications\Tables\Category($this->database);
+			$row->load($id);
 		}
+
+		$this->view->row = $row;
 
 		// Set any errors
 		if ($this->getError())
@@ -151,18 +151,16 @@ class Categories extends AdminController
 		$objMT = new \Components\Publications\Tables\MasterType($this->database);
 		$this->view->types = $objMT->getTypes('alias', 1);
 
-		// Push some styles to the template
-		Document::addStyleSheet('components' . DS . $this->_option . DS
-			. 'assets' . DS . 'css' . DS . 'publications.css');
-
 		// Output the HTML
-		$this->view->display();
+		$this->view
+			->setLayout('edit')
+			->display();
 	}
 
 	/**
 	 * Save a publication and fall through to edit view
 	 *
-	 * @return void
+	 * @return  void
 	 */
 	public function applyTask()
 	{
@@ -172,7 +170,8 @@ class Categories extends AdminController
 	/**
 	 * Save a type
 	 *
-	 * @return     void
+	 * @param   boolean  $redirect
+	 * @return  void
 	 */
 	public function saveTask($redirect = false)
 	{
@@ -181,15 +180,13 @@ class Categories extends AdminController
 
 		$prop = Request::getVar('prop', array(), 'post');
 
-		$url = 'index.php?option=' . $this->_option . '&controller='
-			. $this->_controller . '&task=edit&id[]=' . $prop['id'];
+		$url = 'index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=edit&id=' . $prop['id'];
 
 		// Initiate extended database class
 		$row = new \Components\Publications\Tables\Category($this->database);
 		if (!$row->bind($prop))
 		{
-			$this->addComponentMessage($row->getError(), 'error');
-			App::redirect($url);
+			App::redirect($url, $row->getError(), 'error');
 			return;
 		}
 
@@ -208,7 +205,7 @@ class Categories extends AdminController
 					$element->default  = (isset($val['default'])) ? $val['default'] : '';
 					$element->name     = (isset($val['name']) && trim($val['name']) != '') ? $val['name'] : $this->_normalize(trim($val['title']));
 					$element->label    = $val['title'];
-					$element->type     = (isset($val['type']) && trim($val['type']) != '')     ? $val['type']     : 'text';
+					$element->type     = (isset($val['type']) && trim($val['type']) != '') ? $val['type'] : 'text';
 					$element->required = (isset($val['required'])) ? $val['required'] : '0';
 					foreach ($val as $key => $v)
 					{
@@ -235,8 +232,7 @@ class Categories extends AdminController
 				}
 			}
 
-			include_once(PATH_CORE . DS . 'components' . DS . 'com_publications'
-				. DS . 'models' . DS . 'elements.php');
+			include_once(PATH_CORE . DS . 'components' . DS . 'com_publications' . DS . 'models' . DS . 'elements.php');
 			$re = new \Components\Publications\Models\Elements($elements);
 			$row->customFields = $re->toString();
 		}
@@ -282,14 +278,14 @@ class Categories extends AdminController
 				Lang::txt('COM_PUBLICATIONS_CATEGORY_SAVED')
 			);
 		}
-		return;
 	}
 
 	/**
 	 * Change status
 	 * Redirects to list
 	 *
-	 * @return     void
+	 * @param   integer  $dir
+	 * @return  void
 	 */
 	public function changestatusTask($dir = 0)
 	{
@@ -307,15 +303,16 @@ class Categories extends AdminController
 			if (intval($id))
 			{
 				// Load row
-				$row->load( $id );
+				$row->load($id);
 				$row->state = $row->state == 1 ? 0 : 1;
 
 				// Save
 				if (!$row->store())
 				{
-					$this->addComponentMessage($row->getError(), 'error');
 					App::redirect(
-						Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false)
+						Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
+						$row->getError(),
+						'error'
 					);
 					return;
 				}
@@ -330,21 +327,11 @@ class Categories extends AdminController
 	}
 
 	/**
-	 * Cancel a task (redirects to default task)
-	 *
-	 * @return	void
-	 */
-	public function cancelTask()
-	{
-		App::redirect(Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false));
-	}
-
-	/**
 	 * Strip any non-alphanumeric characters and make lowercase
 	 *
-	 * @param      string  $txt    String to normalize
-	 * @param      boolean $dashes Allow dashes and underscores
-	 * @return     string
+	 * @param   string   $txt     String to normalize
+	 * @param   boolean  $dashes  Allow dashes and underscores
+	 * @return  string
 	 */
 	private function _normalize($txt, $dashes=false)
 	{
@@ -359,7 +346,7 @@ class Categories extends AdminController
 	/**
 	 * Retrieve an element's options (typically called via AJAX)
 	 *
-	 * @return	void
+	 * @return  void
 	 */
 	public function elementTask()
 	{

@@ -33,6 +33,11 @@
 // No direct access
 defined('_HZEXEC_') or die();
 
+use Components\Blog\Models\Entry;
+use Hubzero\User\Group;
+
+require_once PATH_CORE . DS . 'components' . DS . 'com_blog' . DS . 'models' . DS . 'entry.php';
+
 /**
  * Search blog entries
  */
@@ -53,19 +58,6 @@ class plgSearchBlogs extends \Hubzero\Plugin\Plugin
 	 */
 	public static function onSearch($request, &$results, $authz)
 	{
-		if ($authz->is_guest())
-		{
-			$authorization = 'state = 1';
-		}
-		else if ($authz->is_super_admin())
-		{
-			$authorization = '1 = 1';
-		}
-		else
-		{
-			$authorization = 'state IN (1,2)';
-		}
-
 		$now = Date::toSql();
 
 		$terms = $request->get_term_ar();
@@ -81,6 +73,7 @@ class plgSearchBlogs extends \Hubzero\Plugin\Plugin
 		}
 		$addtl_where[] = "(be.publish_up <= '$now')";
 		$addtl_where[] = "(be.publish_down = '0000-00-00 00:00:00' OR (be.publish_down != '0000-00-00 00:00:00' AND be.publish_down > '$now'))";
+		$addtl_where[] = '(be.access IN (0,' . implode(',', User::getAuthorisedViewLevels()) . '))';
 
 		$rows = new \Components\Search\Models\Basic\Result\Sql(
 			"SELECT
@@ -103,7 +96,7 @@ class plgSearchBlogs extends \Hubzero\Plugin\Plugin
 			INNER JOIN `#__users` u ON u.id = be.created_by
 			LEFT JOIN `#__xgroups` AS g ON g.gidNumber=be.scope_id AND be.scope='group'
 			WHERE
-				$authorization AND
+				be.state=1 AND
 				$weight > 0" .
 				($addtl_where ? ' AND ' . join(' AND ', $addtl_where) : '')
 		);
@@ -142,5 +135,140 @@ class plgSearchBlogs extends \Hubzero\Plugin\Plugin
 
 		$results->add($rows);
 	}
-}
 
+/************************************************
+ *
+ * HubSearch Required Methods
+ * @author Kevin Wojkovich <kevinw@purdue.edu>
+ *
+ ***********************************************/
+
+	/****************************
+	Query-time / General Methods
+	****************************/
+
+	/**
+	 * onGetTypes - Announces the available hubtype
+	 * 
+	 * @param mixed $type 
+	 * @access public
+	 * @return void
+	 */
+	public function onGetTypes($type = null)
+	{
+		// The name of the hubtype
+		$hubtype = 'blog-entry';
+
+		if (isset($type) && $type == $hubtype)
+		{
+			return $hubtype;
+		}
+		elseif (!isset($type))
+		{
+			return $hubtype;
+		}
+	}
+
+	public function onGetModel($type = '')
+	{
+		if ($type == 'blog-entry')
+		{
+			return new Entry;
+		}
+	}
+	/*********************
+		Index-time methods
+	*********************/
+	/**
+	 * onProcessFields - Set SearchDocument fields which have conditional processing
+	 *
+	 * @param mixed $type 
+	 * @param mixed $row
+	 * @access public
+	 * @return void
+	 */
+	public function onProcessFields($type, $row)
+	{
+		if ($type == 'blog-entry')
+		{
+			// Determine the author of the Entry
+			$user = User::getInstance($row->created_by);
+			$authorArr = array();
+			array_push($authorArr, $user->name);
+
+			// Instantiate new $fields object
+			$fields = new stdClass;
+
+			// Calculate Permissions
+			// Public condition
+			if ($row->state == 1 && $row->access == 1)
+			{
+				$fields->access_level = 'public';
+			}
+			// Registered condition
+			elseif ($row->state == 1 && $row->access == 2)
+			{
+				$fields->access_level = 'registered';
+			}
+			// Default private
+			else
+			{
+				$fields->access_level = 'private';
+			}
+
+			if ($row->scope != 'group')
+			{
+				$fields->owner_type = 'user';
+				$fields->owner = $row->created_by;
+			}
+			else
+			{
+				$fields->owner_type = 'group';
+				$fields->owner = $row->scope_id;
+			}
+
+			// Build out path
+			$year = Date::of(strtotime($row->publish_up))->toLocal('Y');
+			$month = Date::of(strtotime($row->publish_up))->toLocal('m');
+			$alias = $row->alias;
+
+			if ($row->scope == 'site')
+			{
+				$path = '/blog/' . $year . '/' . $month . '/' . $alias;
+			}
+			elseif ($row->scope == 'member')
+			{
+				$path = '/members/'. $row->scope_id  . '/blog/' . $year . '/' . $month . '/' . $alias;
+			}
+			elseif ($row->scope == 'group')
+			{
+				$group = Group::getInstance($row->scope_id);
+				$cn = $group->get('cn');
+				$path = '/groups/'. $cn . '/blog/' . $year . '/' . $month . '/' . $alias;
+			}
+
+			$fields->url = $path;
+			$fields->author = $authorArr;
+			$fields->tags = $row->tags('array');
+
+			$fields->title = $row->title;
+			$fields->alias = $row->alias;
+
+			// Monkeying around to adapt for console application
+			$content = $row->get('content');
+			$content = html_entity_decode($content);
+			$content = strip_tags($content);
+			$fields->fulltext = $content;
+
+			// Format the date for SOLR
+			$date = Date::of($row->publish_up)->format('Y-m-d');
+			$date .= 'T';
+			$date .= Date::of($row->publish_up)->format('h:m:s') . 'Z';
+			$fields->date = $date;
+
+			$fields->description = html_entity_decode($row->description);
+
+			return $fields;
+		}
+	}
+}

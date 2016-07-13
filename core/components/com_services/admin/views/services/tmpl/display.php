@@ -93,12 +93,12 @@ function submitbutton(pressbutton)
 			</tr>
 		</tfoot>
 		<tbody>
-<?php
-	$k = 0;
-	$i = 0;
-	foreach ($this->rows as $row)
-	{
-?>
+		<?php
+		$k = 0;
+		$i = 0;
+		foreach ($this->rows as $row)
+		{
+			?>
 			<tr class="<?php echo "row$k"; ?>">
 				<td>
 					<?php if ($canDo->get('core.edit')) { ?>
@@ -128,11 +128,11 @@ function submitbutton(pressbutton)
 					</span>
 				</td>
 			</tr>
-<?php
-		$k = 1 - $k;
-		$i++;
-	}
-?>
+			<?php
+			$k = 1 - $k;
+			$i++;
+		}
+		?>
 		</tbody>
 	</table>
 

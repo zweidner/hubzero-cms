@@ -4,184 +4,144 @@
  *
  * Copyright 2005-2015 HUBzero Foundation, LLC.
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  *
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
- * @copyright Copyright 2005-2014 Open Source Matters, Inc.
- * @license   http://www.gnu.org/licenses/gpl-2.0.html GPLv2
+ * @license   http://opensource.org/licenses/MIT MIT
  */
 
 namespace Components\Redirect\Models;
 
-use User;
+use Hubzero\Database\Relational;
 use Lang;
 use Date;
 
-jimport('joomla.application.component.modeladmin');
-
 /**
- * Redirect link model.
+ * Model class for a redirect entry
  */
-class Link extends \JModelAdmin
+class Link extends Relational
 {
 	/**
-	 * The prefix to use with controller messages.
+	 * The table namespace
+	 *
+	 * @var string
+	 */
+	protected $namespace = 'redirect';
+
+	/**
+	 * Default order by for model
+	 *
+	 * @var string
+	 */
+	public $orderBy = 'created_date';
+
+	/**
+	 * Default order direction for select queries
 	 *
 	 * @var  string
 	 */
-	protected $text_prefix = 'COM_REDIRECT';
+	public $orderDir = 'desc';
 
 	/**
-	 * Method to test whether a record can be deleted.
+	 * Fields and their validation criteria
 	 *
-	 * @param   object   $record  A record object.
-	 * @return  boolean  True if allowed to delete the record. Defaults to the permission set in the component.
+	 * @var  array
 	 */
-	protected function canDelete($record)
-	{
-		if ($record->published != -2)
-		{
-			return false;
-		}
-		return User::authorise('core.delete', 'com_redirect');
-	}
+	protected $rules = array(
+		'old_url' => 'notempty'
+	);
 
 	/**
-	 * Method to test whether a record can have its state edited.
+	 * Automatically fillable fields
 	 *
-	 * @param   object   $record  A record object.
-	 * @return  boolean  True if allowed to change the state of the record. Defaults to the permission set in the component.
+	 * @var  array
 	 */
-	protected function canEditState($record)
-	{
-		// Check the component since there are no categories or other assets.
-		return User::authorise('core.edit.state', 'com_redirect');
-	}
-
+	public $always = array(
+		'created_date',
+		'modified_date'
+	);
 
 	/**
-	 * Returns a reference to the a Table object, always creating it.
+	 * Sets up additional custom rules
 	 *
-	 * @param   string  $type    The table type to instantiate
-	 * @param   string  $prefix  A prefix for the table class name. Optional.
-	 * @param   array   $config  Configuration array for model. Optional.
-	 * @return  object  A database object
-	*/
-	public function getTable($type = 'Link', $prefix = 'RedirectTable', $config = array())
-	{
-		include_once(dirname(__DIR__) . DS . 'tables' . DS . 'link.php');
-		$db = \App::get('db');
-		return new \Components\Redirect\Tables\Link($db); //\JTable::getInstance($type, $prefix, $config);
-	}
-
-	/**
-	 * Method to get the record form.
-	 *
-	 * @param   array    $data      Data for the form.
-	 * @param   boolean  $loadData  True if the form is to load its own data (default case), false if not.
-	 * @return  object   A JForm object on success, false on failure
+	 * @return  void
 	 */
-	public function getForm($data = array(), $loadData = true)
+	public function setup()
 	{
-		// Get the form.
-		$form = $this->loadForm('com_redirect.link', 'link', array('control' => 'jform', 'load_data' => $loadData));
-		if (empty($form))
+		$this->addRule('old_url', function($data)
 		{
-			return false;
-		}
+			$row = Link::blank();
 
-		// Modify the form based on access controls.
-		if ($this->canEditState((object) $data) != true)
-		{
-			// Disable fields for display.
-			$form->setFieldAttribute('published', 'disabled', 'true');
-
-			// Disable fields while saving.
-			// The controller has already verified this is a record you can edit.
-			$form->setFieldAttribute('published', 'filter', 'unset');
-		}
-
-		return $form;
-	}
-
-	/**
-	 * Method to get the data that should be injected in the form.
-	 *
-	 * @return  mixed  The data for the form.
-	 */
-	protected function loadFormData()
-	{
-		// Check the session for previously entered form data.
-		$data = User::getState('com_redirect.edit.link.data', array());
-
-		if (empty($data))
-		{
-			$data = $this->getItem();
-		}
-
-		return $data;
-	}
-
-	/**
-	 * Method to activate links.
-	 *
-	 * @param   array    An array of link ids.
-	 * @param   string   The new URL to set for the redirect.
-	 * @param   string   A comment for the redirect links.
-	 * @return  boolean  Returns true on success, false on failure.
-	 */
-	public function activate(&$pks, $url, $comment = null)
-	{
-		// Initialise variables.
-		$db   = $this->getDbo();
-
-		// Sanitize the ids.
-		$pks = (array) $pks;
-		\Hubzero\Utility\Arr::toInteger($pks);
-
-		// Populate default comment if necessary.
-		$comment = (!empty($comment)) ? $comment : Lang::txt('COM_REDIRECT_REDIRECTED_ON', Date::toSql());
-
-		// Access checks.
-		if (!User::authorise('core.edit', 'com_redirect'))
-		{
-			$pks = array();
-			$this->setError(Lang::txt('JLIB_APPLICATION_ERROR_EDIT_NOT_PERMITTED'));
-			return false;
-		}
-
-		if (!empty($pks))
-		{
-			// Update the link rows.
-			$db->setQuery(
-				'UPDATE ' . $db->quoteName('#__redirect_links') .
-				' SET ' . $db->quoteName('new_url') . ' = ' . $db->Quote($url) . ', ' . $db->quoteName('published') . ' = 1, ' . $db->quoteName('comment') . ' = ' . $db->Quote($comment) .
-				' WHERE ' . $db->quoteName('id') . ' IN (' . implode(',', $pks) . ')'
-			);
-			$db->query();
-
-			// Check for a database error.
-			if ($error = $this->_db->getErrorMsg())
+			if (isset($data['id']))
 			{
-				$this->setError($error);
-				return false;
+				$row->whereEquals('old_url', $data['old_url'])
+					->where('id', '!=', $data['id'])
+					->row();
 			}
+
+			return !$row->id ? false : Lang::txt('COM_REDIRECT_ERROR_DUPLICATE_OLD_URL');
+		});
+	}
+
+	/**
+	 * Generates automatic owned by field value
+	 *
+	 * @param   array   $data  the data being saved
+	 * @return  string
+	 */
+	public function automaticCreatedDate($data)
+	{
+		if (!isset($data['created_date']))
+		{
+			$data['created_date'] = null;
 		}
-		return true;
+
+		$created_date = $data['created_date'];
+
+		if (!$created_date || $created_date == '0000-00-00 00:00:00')
+		{
+			$created_date = Date::of('now')->toSql();
+		}
+
+		return $created_date;
+	}
+
+	/**
+	 * Generates automatic owned by field value
+	 *
+	 * @param   array   $data  the data being saved
+	 * @return  string
+	 */
+	public function automaticModifiedDate($data)
+	{
+		if (!isset($data['modified_date']) || !$data['modified_date'])
+		{
+			$data['modified_date'] = '0000-00-00 00:00:00';
+		}
+		if (isset($data['id']) && $data['id'])
+		{
+			$data['modified_date'] = Date::of('now')->toSql();
+		}
+		return $data['modified_date'];
 	}
 }
+

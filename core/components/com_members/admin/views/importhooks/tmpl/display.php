@@ -33,9 +33,9 @@
 // No direct access
 defined('_HZEXEC_') or die();
 
-$canDo = \Components\Members\Helpers\Permissions::getActions('component');
+$canDo = \Components\Members\Helpers\Admin::getActions('component');
 
-Toolbar::title(Lang::txt('COM_MEMBERS') . ': ' . Lang::txt('COM_MEMBERS_IMPORTHOOK_TITLE_HOOKS'), 'import.png');
+Toolbar::title(Lang::txt('COM_MEMBERS') . ': ' . Lang::txt('COM_MEMBERS_IMPORTHOOK_TITLE_HOOKS'), 'import');
 
 if ($canDo->get('core.admin'))
 {
@@ -52,7 +52,7 @@ Toolbar::help('import');
 <nav role="navigation" class="sub sub-navigation">
 	<ul>
 		<li>
-			<a<?php if ($this->controller == 'import') { echo ' class="active"'; } ?> href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=import'); ?>"><?php echo Lang::txt('COM_MEMBERS_IMPORT_TITLE_IMPORTS'); ?></a>
+			<a<?php if ($this->controller == 'imports') { echo ' class="active"'; } ?> href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=imports'); ?>"><?php echo Lang::txt('COM_MEMBERS_IMPORT_TITLE_IMPORTS'); ?></a>
 		</li>
 		<li>
 			<a<?php if ($this->controller == 'importhooks') { echo ' class="active"'; } ?> href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=importhooks'); ?>"><?php echo Lang::txt('COM_MEMBERS_IMPORT_HOOKS'); ?></a>
@@ -89,11 +89,7 @@ function submitbutton(pressbutton)
 					<td colspan="4">
 						<?php
 						// Initiate paging
-						echo $this->pagination(
-							$this->total,
-							$this->filters['start'],
-							$this->filters['limit']
-						);
+						echo $this->hooks->pagination;
 						?>
 					</td>
 				</tr>

@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Christopher Smoak <csmoak@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -33,13 +32,21 @@
 namespace Components\Members\Api\Controllers;
 
 use Hubzero\Component\ApiController;
+use Components\Members\Models\Member;
+use Components\Members\Models\Profile\Field;
+use Components\Members\Helpers\Filters;
 use Component;
 use Exception;
 use stdClass;
 use Request;
 use Route;
 use Lang;
+use User;
 use App;
+
+include_once(dirname(dirname(__DIR__)) . DS . 'models' . DS . 'member.php');
+include_once(dirname(dirname(__DIR__)) . DS . 'models' . DS . 'profile' . DS . 'field.php');
+include_once(dirname(dirname(__DIR__)) . DS . 'helpers' . DS . 'filters.php');
 
 /**
  * Members API controller class
@@ -92,42 +99,78 @@ class Profilesv1_0 extends ApiController
 	 */
 	public function listTask()
 	{
-		include_once(dirname(dirname(__DIR__)) . DS . 'tables' . DS . 'profile.php');
-
 		$filters = array(
 			'limit'      => Request::getInt('limit', 25),
 			'start'      => Request::getInt('limitstart', 0),
 			'search'     => Request::getVar('search', ''),
 			'sortby'     => Request::getWord('sort', 'name'),
 			'sort_Dir'   => strtoupper(Request::getWord('sortDir', 'DESC')),
-			'authorized' => false,
-			'emailConfirmed' => true,
-			'public'     => 1,
-			'show'       => 'members'
+			'activation' => 1,
+			'access'     => User::getAuthorisedViewLevels()
 		);
-		if ($filters['sortby'] == 'id')
+
+		// Build query
+		$entries = Member::all()
+			->whereEquals('block', 0)
+			->whereEquals('activation', 1)
+			->where('approved', '>', 0);
+
+		if ($filters['search'])
 		{
-			$filters['sortby'] = 'uidNumber';
+			$entries->whereLike('name', strtolower((string)$filters['search']), 1)
+				->orWhereLike('username', strtolower((string)$filters['search']), 1)
+				->orWhereLike('email', strtolower((string)$filters['search']), 1)
+				->resetDepth();
 		}
 
-		$database = App::get('db');
-		$c = new \Components\Members\Tables\Profile($database);
+		if (!empty($filters['access']))
+		{
+			$entries->whereIn('access', $filters['access']);
+		}
+
+		switch ($filters['sortby'])
+		{
+			case 'organization':
+				$filters['sort'] = 'surname';
+				$filters['sort_Dir'] = 'asc';
+			break;
+
+			case 'id':
+				$filters['sort'] = 'id';
+				$filters['sort_Dir'] = 'asc';
+			break;
+
+			case 'name':
+			default:
+				$filters['sort'] = 'surname';
+				$filters['sort_Dir'] = 'asc';
+			break;
+		}
+
+		$rows = $entries
+			->order($filters['sort'], $filters['sort_Dir'])
+			->paginated('limitstart', 'limit')
+			->rows();
 
 		$response = new stdClass;
 		$response->members = array();
-		$response->total = $c->getCount($filters, false);
+		$response->total   = $rows->pagination->total;
 
 		if ($response->total)
 		{
 			$base = rtrim(Request::base(), '/');
 
-			foreach ($c->getRecords($filters, false) as $i => $entry)
+			foreach ($rows as $entry)
 			{
 				$obj = new stdClass;
-				$obj->id        = $entry->uidNumber;
-				$obj->name      = $entry->name;
-				$obj->organization = $entry->organization;
-				$obj->uri       = str_replace('/api', '', $base . '/' . ltrim(Route::url('index.php?option=' . $this->_option . '&id=' . $entry->uidNumber), '/'));
+				$obj->id           = $entry->get('id');
+				$obj->username     = $entry->get('username');
+				$obj->name         = $entry->get('name');
+				$obj->givenName    = $entry->get('givenName');
+				$obj->middleName   = $entry->get('middleName');
+				$obj->surname      = $entry->get('surname');
+				$obj->organization = $entry->get('organization');
+				$obj->uri          = str_replace('/api', '', $base . '/' . ltrim(Route::url('index.php?option=' . $this->_option . '&id=' . $entry->get('id')), '/'));
 
 				$response->members[] = $obj;
 			}
@@ -164,85 +207,75 @@ class Profilesv1_0 extends ApiController
 		}
 
 		// Incoming
-		$user = User::getRoot();
+		$user = User::getInstance();
 		$user->set('id', 0);
 		$user->set('groups', array($newUsertype));
 		$user->set('registerDate', Date::toSql());
 
-		/*$user->set('name', Request::getVar('name', '', 'post'));
+		$user->set('name', Request::getVar('name', '', 'post'));
 		if (!$user->get('name'))
 		{
-			return $this->error(500, Lang::txt('No name provided.'));
+			App::abort(500, Lang::txt('No name provided.'));
 		}
 
 		$user->set('username', Request::getVar('username', '', 'post'));
 		if (!$user->get('username'))
 		{
-			return $this->error(500, Lang::txt('No username provided.'));
+			App::abort(500, Lang::txt('No username provided.'));
 		}
 		if (!\Hubzero\Utility\Validate::username($user->get('username')))
 		{
-			return $this->error(500, Lang::txt('Username not valid.'));
+			App::abort(500, Lang::txt('Username not valid.'));
 		}
 
 		$user->set('email', Request::getVar('email', '', 'post'));
 		if (!$user->get('email'))
 		{
-			return $this->error(500, Lang::txt('No email provided.'));
+			App::abort(500, Lang::txt('No email provided.'));
 		}
 		if (!\Hubzero\Utility\Validate::email($user->get('email')))
 		{
-			return $this->error(500, Lang::txt('Email not valid.'));
+			App::abort(500, Lang::txt('Email not valid.'));
 		}
 
+		$name = explode(' ', $user->get('name'));
+		$surname    = $user->get('name');
+		$givenName  = '';
+		$middleName = '';
+		if (count($name) > 1)
+		{
+			$surname    = array_pop($name);
+			$givenName  = array_shift($name);
+			$middleName = implode(' ', $name);
+		}
+
+		// Set the new info
+		$user->set('givenName', $givenName);
+		$user->set('middleName', $middleName);
+		$user->set('surname', $surname);
+		$user->set('activation', -rand(1, pow(2, 31)-1));
+		$user->set('access', 1);
 		$user->set('password', $password);
-		$user->set('password_clear', $password);
-		$user->save();
+		//$user->set('password_clear', $password);
+
+		$result = $user->save();
+
 		$user->set('password_clear', '');
-
-		// Attempt to get the new user
-		$profile = \Hubzero\User\Profile::getInstance($user->get('id'));
-		$result  = is_object($profile);
-
-		// Did we successfully create an account?
-		if ($result)
-		{
-			$name = explode(' ', $user->get('name'));
-			$surname    = $user->get('name');
-			$givenName  = '';
-			$middleName = '';
-			if (count($name) > 1)
-			{
-				$surname    = array_pop($name);
-				$givenName  = array_shift($name);
-				$middleName = implode(' ', $name);
-			}
-
-			// Set the new info
-			$profile->set('givenName', $givenName);
-			$profile->set('middleName', $middleName);
-			$profile->set('surname', $surname);
-			$profile->set('name', $user->get('name'));
-			$profile->set('emailConfirmed', -rand(1, pow(2, 31)-1));
-			$profile->set('public', 0);
-			$profile->set('password', '');
-
-			$result = $profile->store();
-		}
+		$user->set('password', '');
 
 		if ($result)
 		{
-			$result = \Hubzero\User\Password::changePassword($profile->get('uidNumber'), $password);
+			$result = \Hubzero\User\Password::changePassword($user->get('id'), $password);
 
 			// Set password back here in case anything else down the line is looking for it
-			$profile->set('password', $password);
-			$profile->store();
+			$user->set('password', $password);
+			$user->save();
 		}
 
 		// Did we successfully create/update an account?
 		if (!$result)
 		{
-			return $this->error(500, Lang::txt('Account creation failed.'));
+			App::abort(500, Lang::txt('Account creation failed.'));
 		}
 
 		if ($groups = Request::getVar('groups', array(), 'post'))
@@ -250,16 +283,17 @@ class Profilesv1_0 extends ApiController
 			foreach ($groups as $id)
 			{
 				$group = \Hubzero\User\Group::getInstance($id);
+
 				if ($group)
 				{
-					if (!in_array($user->get('id'), $group->get('members'))
+					if (!in_array($user->get('id'), $group->get('members')))
 					{
 						$group->add('members', array($user->get('id')));
 						$group->update();
 					}
 				}
 			}
-		}*/
+		}
 
 		// Create a response object
 		$response = new stdClass;
@@ -268,7 +302,7 @@ class Profilesv1_0 extends ApiController
 		$response->email    = $user->get('email');
 		$response->username = $user->get('username');
 
-		$this->seend($response);
+		$this->send($response);
 	}
 
 	/**
@@ -288,9 +322,10 @@ class Profilesv1_0 extends ApiController
 	public function readTask()
 	{
 		$userid = Request::getInt('id', 0);
-		$result = \Hubzero\User\Profile::getInstance($userid);
 
-		if ($result === false)
+		$result = Member::oneOrFail($userid);
+
+		if (!$result || !$result->get('id'))
 		{
 			throw new Exception(Lang::txt('COM_MEMBERS_ERROR_USER_NOT_FOUND'), 404);
 		}
@@ -299,30 +334,47 @@ class Profilesv1_0 extends ApiController
 		$base = rtrim(Request::base(), '/');
 
 		$profile = array(
-			'id'                => $result->get('uidNumber'),
+			'id'                => $result->get('id'),
 			'username'          => $result->get('username'),
 			'name'              => $result->get('name'),
 			'first_name'        => $result->get('givenName'),
 			'middle_name'       => $result->get('middleName'),
 			'last_name'         => $result->get('surname'),
-			'bio'               => $result->getBio('clean'),
 			'email'             => $result->get('email'),
-			'phone'             => $result->get('phone'),
-			'webpage'           => $result->get('url'),
-			'gender'            => $result->get('gender'),
-			'organization'      => $result->get('organization'),
-			'organization_type' => $result->get('orgtype'),
-			'country_resident'  => $result->get('countryresident'),
-			'country_origin'    => $result->get('countryorigin'),
 			'member_since'      => $result->get('registerDate'),
-			'orcid'             => $result->get('orcid'),
 			'picture'   => array(
-				'thumb' => \Hubzero\User\Profile\Helper::getMemberPhoto($result, 0, true),
-				'full'  => \Hubzero\User\Profile\Helper::getMemberPhoto($result, 0, false)
+				'thumb' => $result->picture(0, true),
+				'full'  => $result->picture(0, false)
 			),
 			'interests' => array(),
-			'url'       => str_replace('/api', '', $base . '/' . ltrim(Route::url($result->getLink()), '/'))
+			'url'       => str_replace('/api', '', $base . '/' . ltrim(Route::url($result->link()), '/'))
 		);
+
+		// Get custom fields
+		$attribs = Field::all()
+			->ordered()
+			->rows();
+
+		foreach ($attribs as $attrib)
+		{
+			$key = $attrib->get('name');
+
+			if ($attrib->get('type') == 'tags')
+			{
+				$val = $result->tags('string');
+			}
+			else
+			{
+				$val = $result->get($key);
+			}
+
+			if (is_array($val))
+			{
+				$val = implode(';', $val);
+			}
+
+			$profile[$key] = $val;
+		}
 
 		require_once(dirname(dirname(__DIR__)) . DS . 'models' . DS . 'tags.php');
 		$cloud = new \Components\Members\Models\Tags($userid);
@@ -371,14 +423,14 @@ class Profilesv1_0 extends ApiController
 		$this->requiresAuthentication();
 
 		$userid = Request::getInt('id', 0);
-		$result = \Hubzero\User\Profile::getInstance($userid);
+		$result = User::getInstance($userid);
 
-		if ($result === false)
+		if (!$result || !$result->get('id'))
 		{
 			throw new Exception(Lang::txt('COM_MEMBERS_ERROR_USER_NOT_FOUND'), 404);
 		}
 
-		$groups = \Hubzero\User\Helper::getGroups($result->get('uidNumber'), 'members', 0);
+		$groups = $result->groups('members');
 
 		$g = array();
 		foreach ($groups as $k => $group)
@@ -423,7 +475,9 @@ class Profilesv1_0 extends ApiController
 		}
 
 		// Get the password rules
-		$password_rules = \Hubzero\Password\Rule::getRules();
+		$password_rules = \Hubzero\Password\Rule::all()
+					->whereEquals('enabled', 1)
+					->rows();
 
 		$pw_rules = array();
 
@@ -442,7 +496,7 @@ class Profilesv1_0 extends ApiController
 		// Validate the password
 		if (!empty($pw))
 		{
-			$msg = \Hubzero\Password\Rule::validate($pw, $password_rules, $userid);
+			$msg = \Hubzero\Password\Rule::verify($pw, $password_rules, $userid);
 		}
 		else
 		{
@@ -495,26 +549,29 @@ class Profilesv1_0 extends ApiController
 	 *
 	 * @apiMethod GET
 	 * @apiUri    /members/organizations
-	 *
-	 * @apiParameter {
-	 * 		"name":        "orgID",
-	 * 		"description": "The row ID of an organization",
-	 * 		"type":        "integer",
-	 * 		"required":    false,
-	 * 		"default":     null
-	 * }
-	 * @return  void
+	 * @return    void
 	 */
 	public function organizationsTask()
 	{
-		include_once(dirname(dirname(__DIR__)) . DS . 'tables' . DS . 'organization.php');
-		$database = App::get('db');
+		$organizations = array();
 
-		$filters = array();
+		$field = Field::all()
+			->whereEquals('name', 'organization')
+			->row();
 
-		$obj = new \Components\Members\Tables\Organization($database);
+		if ($field->get('id'))
+		{
+			$options = $field->options()->ordered()->rows();
 
-		$organizations = $obj->find('all', $filters);
+			foreach ($options as $option)
+			{
+				$organization = new stdClass;
+				$organization->id = $option->get('id');
+				$organization->organization = $option->get('label');
+
+				$organizations[] = $organization;
+			}
+		}
 
 		// Encode sessions for return
 		$object = new stdClass();
@@ -535,5 +592,67 @@ class Profilesv1_0 extends ApiController
 		$sql = "SELECT r.*, tv.id as revisionid FROM `#__resources` as r, `#__tool_version` as tv WHERE tv.toolname=r.alias and tv.instance=" . $database->quote($appname);
 		$database->setQuery($sql);
 		return $database->loadObject();
+	}
+
+	/**
+	 * Retrieves option values for a profile field
+	 *
+	 * @apiMethod GET
+	 * @apiUri    /members/fieldValues
+	 * @apiParameter {
+	 * 		"name":        "field",
+	 * 		"description": "Profile field of interest",
+	 * 		"type":        "string",
+	 * 		"required":    true,
+	 * 		"default":     ""
+	 * }
+	 * @return  void
+	 */
+	public function fieldValuesTask()
+	{
+		$name = Request::getVar('field', '');
+
+		$field = Field::all()
+			->whereEquals('name', $name)
+			->row();
+
+		if (!$field->get('id'))
+		{
+			App::abort(404, 'Field not found');
+		}
+
+		// Create object with values
+		$response = new stdClass();
+		$response->type = $field->get('type');
+
+		$values = array();
+
+		if ($field->get('type') == 'country')
+		{
+			$countries = \Hubzero\Geocode\Geocode::countries();
+
+			foreach ($countries as $option)
+			{
+				// Create a new option object based on the <option /> element.
+				$tmp = new stdClass;
+				$tmp->value = (string) $option->code;
+				$tmp->label = trim((string) $option->name);
+
+				// Add the option object to the result set.
+				$values[] = $tmp;
+			}
+		}
+		else
+		{
+			foreach ($field->options()->ordered()->rows() as $option)
+			{
+				$values[] = $option->toObject();
+			}
+		}
+
+		$response->values = $values;
+
+		// Return object
+		$this->send($response);
 	}
 }

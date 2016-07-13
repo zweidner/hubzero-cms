@@ -32,9 +32,9 @@
 // No direct access
 defined('_HZEXEC_') or die();
 
-$canDo = \Components\Answers\Helpers\Permissions::getActions('question');
+$canDo = Components\Answers\Helpers\Permissions::getActions('question');
 
-Toolbar::title(Lang::txt('COM_ANSWERS_TITLE') . ': ' . Lang::txt('COM_ANSWERS_QUESTIONS'), 'answers.png');
+Toolbar::title(Lang::txt('COM_ANSWERS_TITLE') . ': ' . Lang::txt('COM_ANSWERS_QUESTIONS'), 'answers');
 if ($canDo->get('core.admin'))
 {
 	Toolbar::preferences($this->option, '550');
@@ -65,71 +65,74 @@ function submitbutton(pressbutton)
 }
 </script>
 
-<form action="<?php echo Route::url('index.php?option=' . $this->option); ?>" method="post" name="adminForm" id="adminForm">
+<form action="<?php echo Route::url('index.php?option=' . $this->option . '&controller=' . $this->controller); ?>" method="post" name="adminForm" id="adminForm">
 	<fieldset id="filter-bar">
-		<div class="col width-50 fltlft">
-			<label for="filter_search"><?php echo Lang::txt('JSEARCH_FILTER'); ?>:</label>
-			<input type="text" name="q" id="filter_search" value="<?php echo $this->escape($this->filters['q']); ?>" placeholder="<?php echo Lang::txt('COM_ANSWERS_FILTER_SEARCH_PLACEHOLDER'); ?>" />
+		<div class="grid">
+			<div class="col span6">
+				<label for="filter_search"><?php echo Lang::txt('JSEARCH_FILTER'); ?>:</label>
+				<input type="text" name="search" id="filter_search" value="<?php echo $this->escape($this->filters['search']); ?>" placeholder="<?php echo Lang::txt('COM_ANSWERS_FILTER_SEARCH_PLACEHOLDER'); ?>" />
 
-			<input type="submit" value="<?php echo Lang::txt('COM_ANSWERS_GO'); ?>" />
-			<button type="button" onclick="$('#filter_search').val('');this.form.submit();"><?php echo Lang::txt('JSEARCH_FILTER_CLEAR'); ?></button>
-		</div>
-		<div class="col width-50 fltrt">
-			<label for="filterby"><?php echo Lang::txt('COM_ANSWERS_FILTER_BY'); ?></label>
-			<select name="filterby" id="filterby" onchange="document.adminForm.submit();">
-				<option value="open"<?php if ($this->filters['filterby'] == 'open') { echo ' selected="selected"'; } ?>><?php echo Lang::txt('COM_ANSWERS_FILTER_BY_OPEN'); ?></option>
-				<option value="closed"<?php if ($this->filters['filterby'] == 'closed') { echo ' selected="selected"'; } ?>><?php echo Lang::txt('COM_ANSWERS_FILTER_BY_CLOSED'); ?></option>
-				<option value="all"<?php if ($this->filters['filterby'] == 'all') { echo ' selected="selected"'; } ?>><?php echo Lang::txt('COM_ANSWERS_FILTER_BY_ALL'); ?></option>
-			</select>
+				<input type="submit" value="<?php echo Lang::txt('COM_ANSWERS_GO'); ?>" />
+				<button type="button" onclick="$('#filter_search').val('');this.form.submit();"><?php echo Lang::txt('JSEARCH_FILTER_CLEAR'); ?></button>
+			</div>
+			<div class="col span6 rtl">
+				<label for="filter-state"><?php echo Lang::txt('COM_ANSWERS_FILTER_BY'); ?></label>
+				<select name="state" id="filter-state" onchange="document.adminForm.submit();">
+					<option value="0"<?php if ($this->filters['state'] == 0) { echo ' selected="selected"'; } ?>><?php echo Lang::txt('COM_ANSWERS_FILTER_BY_OPEN'); ?></option>
+					<option value="1"<?php if ($this->filters['state'] == 1) { echo ' selected="selected"'; } ?>><?php echo Lang::txt('COM_ANSWERS_FILTER_BY_CLOSED'); ?></option>
+					<option value="-1"<?php if ($this->filters['state'] == -1) { echo ' selected="selected"'; } ?>><?php echo Lang::txt('COM_ANSWERS_FILTER_BY_ALL'); ?></option>
+				</select>
+			</div>
 		</div>
 	</fieldset>
-	<div class="clr"></div>
 
 	<table class="adminlist">
 		<thead>
 			<tr>
-				<th scope="col"><input type="checkbox" name="toggle" value="" onclick="checkAll(<?php echo count( $this->results );?>);" /></th>
-				<th scope="col" class="priority-4"><?php echo $this->grid('sort', 'COM_ANSWERS_COL_ID', 'id', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
-				<th scope="col"><?php echo $this->grid('sort', 'COM_ANSWERS_COL_SUBJECT', 'subject', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
-				<th scope="col" class="priority-2"><?php echo $this->grid('sort', 'COM_ANSWERS_COL_STATE', 'state', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
-				<th scope="col" class="priority-4"><?php echo $this->grid('sort', 'COM_ANSWERS_COL_CREATED', 'created', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
-				<th scope="col" class="priority-3"><?php echo $this->grid('sort', 'COM_ANSWERS_COL_CREATOR', 'created_by', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
-				<th scope="col" class="priority-1"><?php echo $this->grid('sort', 'COM_ANSWERS_COL_ANSWERS', 'rcount', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col"><input type="checkbox" name="toggle" value="" onclick="checkAll(<?php echo $this->rows->count(); ?>);" /></th>
+				<th scope="col" class="priority-4"><?php echo Html::grid('sort', 'COM_ANSWERS_COL_ID', 'id', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col"><?php echo Html::grid('sort', 'COM_ANSWERS_COL_SUBJECT', 'subject', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col" class="priority-2"><?php echo Html::grid('sort', 'COM_ANSWERS_COL_STATE', 'state', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col" class="priority-4"><?php echo Html::grid('sort', 'COM_ANSWERS_COL_CREATED', 'created', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col" class="priority-3"><?php echo Html::grid('sort', 'COM_ANSWERS_COL_CREATOR', 'created_by', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col" class="priority-1"><?php echo Lang::txt('COM_ANSWERS_COL_ANSWERS'); ?></th>
 			</tr>
 		</thead>
 		<tfoot>
 			<tr>
 				<td colspan="7"><?php
 				// Initiate paging
-				echo $this->pagination(
-					$this->total,
-					$this->filters['start'],
-					$this->filters['limit']
-				);
+				echo $this->rows->pagination;
 				?></td>
 			</tr>
 		</tfoot>
 		<tbody>
-<?php
-$k = 0;
-for ($i=0, $n=count($this->results); $i < $n; $i++)
-{
-	$row =& $this->results[$i];
+		<?php
+		$k = 0;
+		$i = 0;
+		foreach ($this->rows as $row)
+		{
+			switch ($row->get('state'))
+			{
+				case 2:
+					$task = 'open';
+					$alt = Lang::txt('COM_ANSWERS_STATE_TRASHED');
+					$cls = 'trashed';
+				break;
+				case 1:
+					$task = 'open';
+					$alt = Lang::txt('COM_ANSWERS_STATE_CLOSED');
+					$cls = 'unpublished';
+				break;
+				case 0:
+					$task = 'close';
+					$alt = Lang::txt('COM_ANSWERS_STATE_OPEN');
+					$cls = 'published';
+				break;
+			}
 
-	switch ($row->get('state'))
-	{
-		case '1':
-			$task = 'open';
-			$alt = Lang::txt('COM_ANSWERS_STATE_CLOSED');
-			$cls = 'unpublished';
-		break;
-		case '0':
-			$task = 'close';
-			$alt = Lang::txt('COM_ANSWERS_STATE_OPEN');
-			$cls = 'published';
-		break;
-	}
-?>
+			$comments = $row->responses->count();
+			?>
 			<tr class="<?php echo "row$k"; ?>">
 				<td>
 					<input type="checkbox" name="id[]" id="cb<?php echo $i; ?>" value="<?php echo $row->get('id'); ?>" onclick="isChecked(this.checked, this);" />
@@ -140,11 +143,11 @@ for ($i=0, $n=count($this->results); $i < $n; $i++)
 				<td>
 					<?php if ($canDo->get('core.edit')) { ?>
 						<a href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=' . $this->controller . '&task=edit&id=' . $row->get('id')); ?>">
-							<span><?php echo $this->escape($row->subject('clean')); ?></span>
+							<span><?php echo $this->escape(strip_tags($row->get('subject'))); ?></span>
 						</a>
 					<?php } else { ?>
 						<span>
-							<span><?php echo $this->escape($row->subject('clean')); ?></span>
+							<span><?php echo $this->escape(strip_tags($row->get('subject'))); ?></span>
 						</span>
 					<?php } ?>
 				</td>
@@ -163,17 +166,17 @@ for ($i=0, $n=count($this->results); $i < $n; $i++)
 					<time datetime="<?php echo $row->created(); ?>"><?php echo $row->created('date'); ?></time>
 				</td>
 				<td class="priority-3">
-					<a class="glyph user" href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=members&task=edit&id=' . $row->creator('id')); ?>">
-						<?php echo $this->escape(stripslashes($row->creator('name'))); ?>
+					<a class="glyph user" href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=members&task=edit&id=' . $row->get('created_by')); ?>">
+						<?php echo $this->escape(stripslashes($row->creator->get('name'))); ?>
 					</a>
 					<?php if ($row->get('anonymous')) { ?>
 						<br /><span>(<?php echo Lang::txt('COM_ANSWERS_FIELD_ANONYMOUS'); ?>)</span>
 					<?php } ?>
 				</td>
 				<td class="priority-1">
-					<?php if ($row->get('rcount', 0) > 0) { //if ($row->comments('count', array('filterby' => 'all', 'replies' => false)) > 0) { ?>
+					<?php if ($comments > 0) { ?>
 						<a class="glyph comment" href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=answers&qid=' . $row->get('id')); ?>">
-							<span><?php echo Lang::txt('COM_ANSWERS_NUM_RESPONSES', $row->get('rcount', 0)); //$row->comments('count')); ?></span>
+							<span><?php echo Lang::txt('COM_ANSWERS_NUM_RESPONSES', $comments); ?></span>
 						</a>
 					<?php } else { ?>
 						<a class="glyph comment" href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=answers&qid=' . $row->get('id')); ?>">
@@ -182,10 +185,11 @@ for ($i=0, $n=count($this->results); $i < $n; $i++)
 					<?php } ?>
 				</td>
 			</tr>
-<?php
-	$k = 1 - $k;
-}
-?>
+			<?php
+			$k = 1 - $k;
+			$i++;
+		}
+		?>
 		</tbody>
 	</table>
 

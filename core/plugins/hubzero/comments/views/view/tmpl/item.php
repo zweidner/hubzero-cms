@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -35,10 +34,6 @@ defined('_HZEXEC_') or die();
 
 	$cls = isset($this->cls) ? $this->cls : 'odd';
 
-	if (!($this->comment instanceof \Plugins\Hubzero\Comments\Models\Comment))
-	{
-		$this->comment = new \Plugins\Hubzero\Comments\Models\Comment($this->comment);
-	}
 	$this->comment->set('option', $this->option);
 	$this->comment->set('item_id', $this->obj_id);
 	$this->comment->set('item_type', $this->obj_type);
@@ -63,7 +58,7 @@ defined('_HZEXEC_') or die();
 ?>
 		<li class="comment <?php echo $cls; ?>" id="c<?php echo $this->comment->get('id'); ?>">
 			<p class="comment-member-photo">
-				<img src="<?php echo $this->comment->creator()->getPicture($this->comment->get('anonymous')); ?>" alt="" />
+				<img src="<?php echo $this->comment->creator->picture($this->comment->get('anonymous')); ?>" alt="" />
 			</p>
 			<div class="comment-content">
 				<?php
@@ -81,12 +76,12 @@ defined('_HZEXEC_') or die();
 				<p class="comment-title">
 					<strong>
 						<?php if (!$this->comment->get('anonymous')) { ?>
-							<?php if ($this->comment->creator('public')) { ?>
-								<a href="<?php echo Route::url($this->comment->creator()->getLink()); ?>"><!--
-									--><?php echo $this->escape(stripslashes($this->comment->creator('name'))); ?><!--
+							<?php if (in_array($this->comment->creator->get('access'), User::getAuthorisedViewLevels())) { ?>
+								<a href="<?php echo Route::url($this->comment->creator->link()); ?>"><!--
+									--><?php echo $this->escape(stripslashes($this->comment->creator->get('name'))); ?><!--
 								--></a>
 							<?php } else { ?>
-								<?php echo $this->escape(stripslashes($this->comment->creator('name'))); ?>
+								<?php echo $this->escape(stripslashes($this->comment->creator->get('name'))); ?>
 							<?php } ?>
 						<?php } else { ?>
 							<?php echo Lang::txt('PLG_HUBZERO_COMMENTS_ANONYMOUS'); ?>
@@ -108,15 +103,15 @@ defined('_HZEXEC_') or die();
 					}
 					else
 					{
-						echo $this->comment->content('parsed');
+						echo $this->comment->content;
 					}
 					?>
 				</div><!-- / .comment-body -->
 
-				<?php if (!$this->comment->isReported() && $this->comment->attachments()->total()) { ?>
+				<?php //if (!$this->comment->isReported() && $this->comment->files()->count()) { ?>
 					<div class="comment-attachments">
 						<?php
-						foreach ($this->comment->attachments() as $attachment)
+						foreach ($this->comment->files()->rows() as $attachment)
 						{
 							if (!trim($attachment->get('description')))
 							{
@@ -143,7 +138,7 @@ defined('_HZEXEC_') or die();
 						}
 						?>
 					</div><!-- / .comment-attachments -->
-				<?php } ?>
+				<?php //} ?>
 
 				<?php if (!$this->comment->isReported()) { ?>
 					<p class="comment-options">
@@ -216,11 +211,20 @@ defined('_HZEXEC_') or die();
 			<?php
 			if ($this->depth < $this->params->get('comments_depth', 3))
 			{
-				if ($this->comment->replies()->total())
+				$replies = $this->comment->replies()
+					->whereIn('state', array(
+						Plugins\Hubzero\Comments\Models\Comment::STATE_PUBLISHED,
+						Plugins\Hubzero\Comments\Models\Comment::STATE_FLAGGED
+					))
+					->whereIn('access', User::getAuthorisedViewLevels())
+					->ordered()
+					->rows();
+
+				if ($replies->count())
 				{
 					$this->view('list')
 					     ->set('option', $this->option)
-					     ->set('comments', $this->comment->replies())
+					     ->set('comments', $replies)
 					     ->set('obj_type', $this->obj_type)
 					     ->set('obj_id', $this->obj_id)
 					     ->set('obj', $this->obj)

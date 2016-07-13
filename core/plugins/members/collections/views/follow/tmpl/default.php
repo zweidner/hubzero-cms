@@ -33,7 +33,7 @@
 // No direct access
 defined('_HZEXEC_') or die();
 
-$base = $this->member->getLink() . '&active=' . $this->name;
+$base = $this->member->link() . '&active=' . $this->name;
 
 $this->css();
 ?>
@@ -138,10 +138,10 @@ if ($this->rows->total() > 0)
 			<?php } ?>
 				</div><!-- / .meta -->
 
-			<?php if ($row->original() || $item->get('created_by') != $this->member->get('uidNumber')) { ?>
+			<?php if ($row->original() || $item->get('created_by') != $this->member->get('id')) { ?>
 				<div class="convo attribution clearfix">
 					<a href="<?php echo Route::url('index.php?option=com_members&id=' . $item->get('created_by')); ?>" title="<?php echo $this->escape(stripslashes($item->creator()->get('name'))); ?>" class="img-link">
-						<img src="<?php echo \Hubzero\User\Profile\Helper::getMemberPhoto($item->creator(), 0); ?>" alt="Profile picture of <?php echo $this->escape(stripslashes($item->creator()->get('name'))); ?>" />
+						<img src="<?php echo $item->creator()->picture(0); ?>" alt="Profile picture of <?php echo $this->escape(stripslashes($item->creator()->get('name'))); ?>" />
 					</a>
 					<p>
 						<a href="<?php echo Route::url('index.php?option=com_members&id=' . $item->get('created_by')); ?>">
@@ -156,10 +156,10 @@ if ($this->rows->total() > 0)
 					</p>
 				</div><!-- / .attribution -->
 			<?php } ?>
-			<?php if (!$row->original()) {//if ($item->get('created_by') != $this->member->get('uidNumber')) { ?>
+			<?php if (!$row->original()) {//if ($item->get('created_by') != $this->member->get('id')) { ?>
 				<div class="convo attribution reposted clearfix">
 					<a href="<?php echo Route::url('index.php?option=com_members&id=' . $row->get('created_by')); ?>" title="<?php echo $this->escape(stripslashes($row->creator()->get('name'))); ?>" class="img-link">
-						<img src="<?php echo \Hubzero\User\Profile\Helper::getMemberPhoto($this->member, 0); ?>" alt="Profile picture of <?php echo $this->escape(stripslashes($row->creator()->get('name'))); ?>" />
+						<img src="<?php echo $this->member->picture(0); ?>" alt="Profile picture of <?php echo $this->escape(stripslashes($row->creator()->get('name'))); ?>" />
 					</a>
 					<p>
 						<a href="<?php echo Route::url('index.php?option=com_members&id=' . $row->get('created_by')); ?>">

@@ -41,22 +41,22 @@ class Router extends Base
 	/**
 	 * Turn querystring parameters into an SEF route
 	 *
-	 * @param  array &$query Querystring
+	 * @param   array  &$query  Querystring
+	 * @return  array
 	 */
-	function build(&$query)
+	public function build(&$query)
 	{
 		$segments = array();
 
 		if (!empty($query['controller']))
 		{
-			if ($query['controller'] == 'orders')
+			/*if ($query['controller'] == 'orders')
 			{
 				$segments[] = $query['controller'];
-			}
+			}*/
+			$segments[] = $query['controller'];
 			unset($query['controller']);
 		}
-
-		//var_dump($query); die;
 
 		return $segments;
 	}
@@ -64,8 +64,8 @@ class Router extends Base
 	/**
 	 * Parse a SEF route
 	 *
-	 * @param  array $segments Exploded route
-	 * @return array
+	 * @param   array  $segments  Exploded route
+	 * @return  array
 	 */
 	public function parse(&$segments)
 	{
@@ -90,7 +90,6 @@ class Router extends Base
 			}
 		}
 
-		//print_r($vars);
 		return $vars;
 	}
 }

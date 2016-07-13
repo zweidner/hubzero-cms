@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -113,7 +112,7 @@ $this->css('introduction.css', 'system')
 		</div><!-- / .col span9 omega -->
 	</div><!-- / .grid -->
 
-	<?php if ($this->contribution_counting)
+	<?php /*if ($this->contribution_counting)
 	{
 	?>
 	<div class="grid">
@@ -123,30 +122,19 @@ $this->css('introduction.css', 'system')
 		<div class="col span9 omega">
 			<div class="grid">
 <?php
-	$db = App::get('db');
-	$c = new \Components\Members\Tables\Profile($db);
+	$rows = \Components\Members\Models\Member::all()
+		->whereEquals('block', 0)
+		->whereEquals('activation', 1)
+		->where('approved', '>', 0)
+		->order('contributions', 'desc')
+		->limit(4)
+		->rows();
 
-	$filters = array(
-		'limit'  => 4,
-		'start'  => 0,
-		'show'   => 'contributors',
-		'sortby' => 'contributions',
-		'contributions' => 1,
-		'public' => 1,
-		'authorized' => false
-	);
-
-	if ($rows = $c->getRecords($filters, false))
+	if ($rows->count())
 	{
 		$i = 0;
-		foreach ($rows as $row)
+		foreach ($rows as $contributor)
 		{
-			$contributor = \Hubzero\User\Profile::getInstance($row->uidNumber);
-			if (!$contributor || !$contributor->get('uidNumber'))
-			{
-				continue;
-			}
-
 			if ($i == 2)
 			{
 				$i = 0;
@@ -163,13 +151,13 @@ $this->css('introduction.css', 'system')
 		<div class="col span-half <?php echo $cls; ?>">
 			<div class="contributor">
 				<p class="contributor-photo">
-					<a href="<?php echo Route::url($contributor->getLink()); ?>">
-						<img src="<?php echo $contributor->getPicture(); ?>" alt="<?php echo Lang::txt('COM_MEMBERS_TOP_CONTRIBUTOR_PICTURE', $this->escape(stripslashes($contributor->get('name')))); ?>" />
+					<a href="<?php echo Route::url($contributor->link()); ?>">
+						<img src="<?php echo $contributor->picture(); ?>" alt="<?php echo Lang::txt('COM_MEMBERS_TOP_CONTRIBUTOR_PICTURE', $this->escape(stripslashes($contributor->get('name')))); ?>" />
 					</a>
 				</p>
 				<div class="contributor-content">
 					<h4 class="contributor-name">
-						<a href="<?php echo Route::url($contributor->getLink()); ?>">
+						<a href="<?php echo Route::url($contributor->link()); ?>">
 							<?php echo $this->escape(stripslashes($contributor->get('name'))); ?>
 						</a>
 					</h4>
@@ -181,8 +169,8 @@ $this->css('introduction.css', 'system')
 					<div class="clearfix"></div>
 				</div>
 				<p class="course-instructor-bio">
-					<?php if ($contributor->get('bio')) { ?>
-						<?php echo $contributor->getBio('clean', 200); ?>
+					<?php if ($bio = $contributor->get('bio')) { ?>
+						<?php echo Hubzero\Utility\String::truncate(strip_tags($bio), 200); ?>
 					<?php } else { ?>
 						<em><?php echo Lang::txt('COM_MEMBERS_TOP_CONTRIBUTOR_NO_BIO'); ?></em>
 					<?php } ?>
@@ -207,5 +195,5 @@ $this->css('introduction.css', 'system')
 			</div>
 		</div><!-- / .col span9 omega -->
 	</div><!-- / .grid -->
-<?php } // div class grid ?>
+<?php }*/ // div class grid ?>
 </section><!-- / .section -->

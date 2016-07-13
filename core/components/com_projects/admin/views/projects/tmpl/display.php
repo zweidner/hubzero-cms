@@ -35,8 +35,17 @@ defined('_HZEXEC_') or die();
 $this->css();
 
 Toolbar::title( Lang::txt( 'Projects' ), 'user.png' );
+
+// Only display if enabled
+if ($this->config->get('custom_profile') == 'custom')
+{
+	Toolbar::custom('customizeDescription', 'menus', 'menus', 'COM_PROJECTS_CUSTOM_DESCRIPTION', false);
+}
+
+Toolbar::spacer();
 Toolbar::preferences('com_projects', '550');
 Toolbar::editList();
+
 
 Html::behavior('tooltip');
 
@@ -86,12 +95,12 @@ function submitbutton(pressbutton)
 		<thead>
 			<tr>
 				<th><input type="checkbox" name="toggle" value="" onclick="checkAll(<?php echo count( $this->rows );?>);" /></th>
-				<th class="priority-5" scope="col"><?php echo $this->grid('sort', 'ID', 'id', @$this->filters['sortdir'], @$this->filters['sortby'] ); ?></th>
+				<th class="priority-5" scope="col"><?php echo Html::grid('sort', 'ID', 'id', @$this->filters['sortdir'], @$this->filters['sortby'] ); ?></th>
 				<th class="priority-5" scope="col"> </th>
-				<th scope="col"><?php echo $this->grid('sort', 'Title', 'title', @$this->filters['sortdir'], @$this->filters['sortby'] ); ?></th>
-				<th class="priority-3" scope="col" colspan="2"><?php echo $this->grid('sort', 'Owner', 'owner', @$this->filters['sortdir'], @$this->filters['sortby'] ); ?></th>
-				<th scope="col"><?php echo $this->grid('sort', 'Status', 'status', @$this->filters['sortdir'], @$this->filters['sortby'] ); ?></th>
-				<th class="priority-4" scope="col"><?php echo $this->grid('sort', 'Privacy', 'privacy', @$this->filters['sortdir'], @$this->filters['sortby'] ); ?></th>
+				<th scope="col"><?php echo Html::grid('sort', 'Title', 'title', @$this->filters['sortdir'], @$this->filters['sortby'] ); ?></th>
+				<th class="priority-3" scope="col" colspan="2"><?php echo Html::grid('sort', 'Owner', 'owner', @$this->filters['sortdir'], @$this->filters['sortby'] ); ?></th>
+				<th scope="col"><?php echo Html::grid('sort', 'Status', 'status', @$this->filters['sortdir'], @$this->filters['sortby'] ); ?></th>
+				<th class="priority-4" scope="col"><?php echo Html::grid('sort', 'Privacy', 'privacy', @$this->filters['sortdir'], @$this->filters['sortby'] ); ?></th>
 				<th class="priority-4"><?php echo Lang::txt('COM_PROJECTS_QUOTA'); ?></th>
 			</tr>
 		</thead>

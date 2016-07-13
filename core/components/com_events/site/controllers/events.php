@@ -980,15 +980,12 @@ class Events extends SiteController
 		$register = array();
 		if (!User::isGuest())
 		{
-			$profile = new \Hubzero\User\Profile();
-			$profile->load(User::get('id'));
-
-			$register['firstname']   = $profile->get('givenName');
-			$register['lastname']    = $profile->get('surname');
-			$register['affiliation'] = $profile->get('organization');
-			$register['email']       = $profile->get('email');
-			$register['telephone']   = $profile->get('phone');
-			$register['website']     = $profile->get('url');
+			$register['firstname']   = User::get('givenName');
+			$register['lastname']    = User::get('surname');
+			$register['affiliation'] = User::get('organization');
+			$register['email']       = User::get('email');
+			$register['telephone']   = User::get('phone');
+			$register['website']     = User::get('url');
 		}
 
 		// Is the registration open?
@@ -1687,7 +1684,7 @@ class Events extends SiteController
 		));
 		$eview->option = $this->_option;
 		$eview->sitename = Config::get('sitename');
-		$eview->user = User::getRoot();
+		$eview->user = User::getInstance();
 		$eview->event = $event;
 		$message = $eview->loadTemplate();
 		$message = str_replace("\n", "\r\n", $message);
@@ -1945,7 +1942,7 @@ class Events extends SiteController
 		}
 		$eview->option = $this->_option;
 		$eview->sitename = Config::get('sitename');
-		$eview->user = User::getRoot();
+		$eview->user = User::getInstance();
 		$eview->row = $row;
 		$message = $eview->loadTemplate();
 		$message = str_replace("\n", "\r\n", $message);

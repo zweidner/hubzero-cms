@@ -40,11 +40,11 @@ use Components\Resources\Tables\Contributor;
 use Components\Resources\Helpers\Tags;
 use Components\Resources\Helpers\Utilities;
 use Components\Resources\Helpers\Html;
-use Components\Resources\Helpers\Helper;
 use Hubzero\Component\AdminController;
 use Request;
 use Config;
 use Route;
+use Event;
 use Lang;
 use App;
 
@@ -735,21 +735,13 @@ class Items extends AdminController
 			// Build <select> of groups
 			$this->view->lists['groups'] = Html::selectGroup($groups, $this->view->row->group_owner);
 
-			include_once(PATH_CORE . DS . 'components' . DS . 'com_members' . DS . 'tables' . DS . 'profile.php');
-			include_once(PATH_CORE . DS . 'components' . DS . 'com_members' . DS . 'tables' . DS . 'association.php');
-
-			// Get all contributors
-			$mp = new \Components\Members\Tables\Profile($this->database);
-			$members = null; //$mp->getRecords(array('sortby'=>'surname DESC','limit'=>'all','search'=>'','show'=>''), true);
-
 			// Get all contributors linked to this resource
 			$authnames = array();
 			if ($this->view->row->id)
 			{
-				$ma = new \Components\Members\Tables\Association($this->database);
-				$sql = "SELECT n.uidNumber AS id, a.authorid, a.name, n.givenName, n.middleName, n.surname, a.role, a.organization
-						FROM " . $ma->getTableName() . " AS a
-						LEFT JOIN " . $mp->getTableName() . " AS n ON n.uidNumber=a.authorid
+				$sql = "SELECT n.id, a.authorid, a.name, n.givenName, n.middleName, n.surname, a.role, a.organization
+						FROM `#__author_assoc` AS a
+						LEFT JOIN `#__users` AS n ON n.id=a.authorid
 						WHERE a.subtable='resources'
 						AND a.subid=" . $this->view->row->id . "
 						ORDER BY a.ordering";
@@ -1089,6 +1081,30 @@ class Items extends AdminController
 			if ($row->published == 1 && $old->published == 3)
 			{
 				$this->_emailContributors($row, $this->database);
+
+				// Log activity
+				$recipients = array(
+					['resource', $row->get('id')],
+					['user', $row->get('created_by')]
+				);
+				foreach ($row->authors()->where('authorid', '>', 0)->rows() as $author)
+				{
+					$recipients[] = ['user', $author->get('authorid')];
+				}
+
+				Event::trigger('system.logActivity', [
+					'activity' => [
+						'action'      => 'published',
+						'scope'       => 'resource',
+						'scope_id'    => $row->title,
+						'description' => Lang::txt('COM_RESOURCES_ACTIVITY_ENTRY_PUBLISHED', '<a href="' . Route::url('index.php?option=com_resources&id=' . $row->id) . '">' . $row->title . '</a>'),
+						'details'     => array(
+							'title' => $row->title,
+							'url'   => Route::url('index.php?option=com_resources&id=' . $row->id)
+						)
+					],
+					'recipients' => $recipients
+				]);
 			}
 		}
 
@@ -1103,7 +1119,7 @@ class Items extends AdminController
 	 * Sends a message to all contributors on a resource
 	 *
 	 * @param      object $row      Resource
-	 * @param      object $database JDatabase
+	 * @param      object $database Database
 	 * @return     void
 	 */
 	private function _emailContributors($row, $database)
@@ -1704,7 +1720,7 @@ class Items extends AdminController
 	/**
 	 * Gets the full name of a user from their ID #
 	 *
-	 * @return     string
+	 * @return  string
 	 */
 	public function authorTask()
 	{
@@ -1713,10 +1729,9 @@ class Items extends AdminController
 		$rid = Request::getInt('rid', 0);
 
 		// Get the member's info
-		$profile = new \Hubzero\User\Profile();
-		$profile->load($this->view->id);
+		$profile = User::getInstance($this->view->id);
 
-		if (!is_object($profile) || !$profile->get('uidNumber'))
+		if (!is_object($profile) || !$profile->get('id'))
 		{
 			$this->database->setQuery("SELECT id FROM `#__users` WHERE `name`=" . $this->database->Quote($this->view->id));
 			if ($id = $this->database->loadResult())
@@ -1725,7 +1740,7 @@ class Items extends AdminController
 			}
 		}
 
-		if (is_object($profile) && $profile->get('uidNumber'))
+		if (is_object($profile) && $profile->get('id'))
 		{
 			if (!$profile->get('name'))
 			{
@@ -1738,7 +1753,7 @@ class Items extends AdminController
 				$this->view->name  = $profile->get('name');
 			}
 			$this->view->org = $profile->get('organization');
-			$this->view->id  = $profile->get('uidNumber');
+			$this->view->id  = $profile->get('id');
 		}
 		else
 		{

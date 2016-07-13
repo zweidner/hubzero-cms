@@ -178,7 +178,7 @@ class UsersModelUser extends JModelAdmin
 		$pk   = (!empty($data['id'])) ? $data['id'] : (int) $this->getState('user.id');
 		$user = User::getInstance($pk);
 
-		$my = User::getRoot();
+		$my = User::getInstance();
 
 		if ($data['block'] && $pk == $my->id && !$my->block)
 		{
@@ -283,7 +283,7 @@ class UsersModelUser extends JModelAdmin
 					else
 					{
 						// Trigger the onUserAfterDelete event.
-						Event::trigger('user.onUserAfterDelete', array($user_to_delete->getProperties(), true, $this->getError()));
+						Event::trigger('user.onUserAfterDelete', array($user_to_delete->getAttributes(), true, $this->getError()));
 					}
 				}
 				else

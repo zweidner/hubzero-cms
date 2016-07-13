@@ -32,8 +32,8 @@
 
 namespace Components\Collections\Models;
 
+use Components\Members\Models\Member;
 use Components\Collections\Tables;
-use Hubzero\User\Profile;
 use Hubzero\Item\Comment;
 use Hubzero\Base\ItemList;
 use Hubzero\Utility\String;
@@ -43,6 +43,7 @@ use Date;
 use User;
 use Lang;
 
+require_once \Component::path('com_members') . DS . 'models' . DS . 'member.php';
 require_once(dirname(__DIR__) . DS . 'tables' . DS . 'item.php');
 require_once(__DIR__ . DS . 'asset.php');
 require_once(__DIR__ . DS . 'tags.php');
@@ -247,13 +248,9 @@ class Item extends Base
 	 */
 	public function modifier($property=null, $default=null)
 	{
-		if (!($this->_modifier instanceof Profile))
+		if (!($this->_modifier instanceof Member))
 		{
-			$this->_modifier = Profile::getInstance($this->get('modified_by'));
-			if (!$this->_modifier)
-			{
-				$this->_modifier = new Profile();
-			}
+			$this->_modifier = Member::oneOrNew($this->get('modified_by'));
 		}
 		if ($property)
 		{
@@ -291,8 +288,14 @@ class Item extends Base
 			case 'count':
 				if ($this->_cache['comments.count'] === null)
 				{
-					$tbl = new Comment($this->_db);
-					$this->_cache['comments.count'] = $tbl->count($filters);
+					$total = Comment::all()
+						->whereEquals('item_type', $filters['item_type'])
+						->whereEquals('item_id', $this->get('id'))
+						->whereIn('state', $filters['state'])
+						->ordered()
+						->total();
+
+					$this->_cache['comments.count'] = $total;
 				}
 				return $this->_cache['comments.count'];
 			break;
@@ -302,12 +305,12 @@ class Item extends Base
 			default:
 				if (!is_array($this->_cache['comments.list']))
 				{
-					$tbl = new Comment($this->_db);
-
-					if (!($results = $tbl->getComments('collection', $this->get('id'))))
-					{
-						$results = array();
-					}
+					$results = Comment::all()
+						->whereEquals('item_type', $filters['item_type'])
+						->whereEquals('item_id', $this->get('id'))
+						->whereIn('state', $filters['state'])
+						->ordered()
+						->rows();
 
 					$this->_cache['comments.list'] = $results;
 				}

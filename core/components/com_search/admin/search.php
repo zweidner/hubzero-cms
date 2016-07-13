@@ -37,13 +37,30 @@ if (!\User::authorise('core.manage', 'com_search'))
 	return \App::abort(404, \Lang::txt('JERROR_ALERTNOAUTHOR'));
 }
 
-$controllerName = \Request::getCmd('controller', \Request::getCmd('view', 'basic'));
+// Get the preferred search mechanism
+$controllerName = \Component::params('com_search')->get('engine');
+
+// Prevent HUBgraph from being configured
+if (strtolower($controllerName) == 'hubgraph')
+{
+	$controllerName = 'basic';
+}
+elseif (strtolower($controllerName) != 'basic')
+{
+	$controllerName = 'search';
+}
+
 if (!file_exists(__DIR__ . DS . 'controllers' . DS . $controllerName . '.php'))
 {
-	\App::abort(404);
+	\App::abort(404, \Lang::txt('Controller not found'));
 }
 require_once(__DIR__ . DS . 'controllers' . DS . $controllerName . '.php');
 $controllerName = __NAMESPACE__ . '\\Controllers\\' . ucfirst($controllerName);
+
+require_once(dirname(__DIR__) . DS . 'helpers' . DS . 'search.php');
+require_once(dirname(__DIR__) . DS . 'models' . DS . 'noindex.php');
+require_once(dirname(__DIR__) . DS . 'models' . DS . 'hubtype.php');
+require_once(dirname(__DIR__) . DS . 'models' . DS . 'indexqueue.php');
 
 // Instantiate controller
 $controller = new $controllerName();

@@ -73,13 +73,11 @@ class plgUserXusers extends \Hubzero\Plugin\Plugin
 	*/
 	public function onLoginUser($user, $options = array())
 	{
-		jimport('joomla.user.helper');
+		$xuser = User::getInstance(); // get user from session (might be tmp_user, can't fetch from db)
 
-		$xuser = User::getRoot(); // get user from session (might be tmp_user, can't fetch from db)
-
-		if ($xuser->get('guest'))
+		if ($xuser->isGuest())
 		{
-			// joomla user plugin hasn't run or something went very badly
+			// user plugin hasn't run or something went very badly
 
 			$plugins = Plugin::byType('user');
 			$xuser_order = false;
@@ -169,41 +167,40 @@ class plgUserXusers extends \Hubzero\Plugin\Plugin
 		}
 
 		// update tracking data with changes related to login
-		jimport('joomla.utilities.utility');
 
 		$hash = App::hash(App::get('client')->name . ':tracker');
 
-		$key = \App::hash('');
-		$crypt = new \Hubzero\Encryption\Encrypter(
-			new \Hubzero\Encryption\Cipher\Simple,
-			new \Hubzero\Encryption\Key('simple', $key, $key)
+		$key = App::hash('');
+		$crypt = new Hubzero\Encryption\Encrypter(
+			new Hubzero\Encryption\Cipher\Simple,
+			new Hubzero\Encryption\Key('simple', $key, $key)
 		);
 
 		$tracker = array();
-		$tracker['user_id'] = $session->get('tracker.user_id');
+		$tracker['user_id']  = $session->get('tracker.user_id');
 		$tracker['username'] = $session->get('tracker.username');
-		$tracker['sid']  = $session->getId();
-		$tracker['rsid'] = $session->get('tracker.rsid', $tracker['sid']);
-		$tracker['ssid'] = $session->get('tracker.ssid', $tracker['sid']);
+		$tracker['sid']      = $session->getId();
+		$tracker['rsid']     = $session->get('tracker.rsid', $tracker['sid']);
+		$tracker['ssid']     = $session->get('tracker.ssid', $tracker['sid']);
 		$cookie = $crypt->encrypt(serialize($tracker));
 		$lifetime = time() + 365*24*60*60;
 
 		// Determine whether cookie should be 'secure' or not
 		$secure   = false;
-		$forceSsl = \Config::get('force_ssl', false);
+		$forceSsl = Config::get('force_ssl', false);
 
-		if (\App::isAdmin() && $forceSsl >= 1)
+		if (App::isAdmin() && $forceSsl >= 1)
 		{
 			$secure = true;
 		}
-		else if (\App::isSite() && $forceSsl == 2)
+		else if (App::isSite() && $forceSsl == 2)
 		{
 			$secure = true;
 		}
 
 		setcookie($hash, $cookie, $lifetime, '/', '', $secure, true);
 
-		/* Mark registration as incomplete so it gets checked on next page load */
+		// Mark registration as incomplete so it gets checked on next page load
 
 		$username = $xuser->get('username');
 
@@ -231,8 +228,8 @@ class plgUserXusers extends \Hubzero\Plugin\Plugin
 				}
 			}
 		}
-		else {
-
+		else
+		{
 			if ($username[0] == '-')
 			{
 				$username = trim($username, '-');
@@ -394,15 +391,15 @@ class plgUserXusers extends \Hubzero\Plugin\Plugin
 			$xprofile->set('gidNumber', $params->get('gidNumber', '100'));
 			$xprofile->set('gid', $params->get('gid', 'users'));
 			$xprofile->set('uidNumber', $user['id']);
-			$xprofile->set('homeDirectory', $hubHomeDir . DS . $user['username']);
-			$xprofile->set('loginShell', '/bin/bash');
-			$xprofile->set('ftpShell', '/usr/lib/sftp-server');
+			$xprofile->set('homeDirectory', isset($user['homeDirectory']) ? $user['homeDirectory'] : $hubHomeDir . DS . $user['username']);
+			$xprofile->set('loginShell', isset($user['loginShell']) ? $user['loginShell'] : '/bin/bash');
+			$xprofile->set('ftpShell', isset($user['ftpShell']) ? $user['ftpShell'] : '/usr/lib/sftp-server');
 			$xprofile->set('name', $user['name']);
 			$xprofile->set('email', $user['email']);
-			$xprofile->set('emailConfirmed', '3');
 			$xprofile->set('username', $user['username']);
 			$xprofile->set('regIP', $_SERVER['REMOTE_ADDR']);
-			$xprofile->set('emailConfirmed', -rand(1, pow(2, 31)-1));
+			//$xprofile->set('emailConfirmed', '3');
+			$xprofile->set('emailConfirmed', isset($user['activation']) ? $user['activation'] : -rand(1, pow(2, 31)-1));
 			$xprofile->set('public', $params->get('privacy', 0));
 
 			if (isset($_SERVER['REMOTE_HOST']))
@@ -570,7 +567,7 @@ class plgUserXusers extends \Hubzero\Plugin\Plugin
 
 		if ($success)
 		{
-			\Event::trigger('members.onMemberAfterSave', array($user, $isnew, $success, $msg));
+			Event::trigger('members.onMemberAfterSave', array($user, $isnew, $success, $msg));
 		}
 	}
 
@@ -621,7 +618,7 @@ class plgUserXusers extends \Hubzero\Plugin\Plugin
 
 		if ($success)
 		{
-			\Event::trigger('members.onMemberAfterDelete', array($user, $success, $msg));
+			Event::trigger('members.onMemberAfterDelete', array($user, $success, $msg));
 		}
 
 		return true;
@@ -663,7 +660,7 @@ class plgUserXusers extends \Hubzero\Plugin\Plugin
 			if (substr($user->get('email'), -8) == '@invalid')
 			{
 				// Delete the user
-				$user->delete();
+				$user->destroy();
 			}
 		}
 

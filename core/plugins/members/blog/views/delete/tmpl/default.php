@@ -33,7 +33,7 @@
 // No direct access
 defined('_HZEXEC_') or die();
 
-$base = $this->member->getLink() . '&active=blog';
+$base = $this->member->link() . '&active=blog';
 
 $this->css()
      ->js();
@@ -75,6 +75,8 @@ $this->css()
 		<input type="hidden" name="task" value="view" />
 		<input type="hidden" name="action" value="delete" />
 		<input type="hidden" name="entry" value="<?php echo $this->entry->get('id'); ?>" />
+
+		<?php echo Html::input('token'); ?>
 
 		<p class="submit">
 			<input class="btn btn-danger" type="submit" value="<?php echo Lang::txt('PLG_MEMBERS_BLOG_DELETE'); ?>" />

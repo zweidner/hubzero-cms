@@ -4,34 +4,35 @@
  *
  * Copyright 2005-2015 HUBzero Foundation, LLC.
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  *
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
- * @copyright Copyright 2005-2014 Open Source Matters, Inc.
- * @license   http://www.gnu.org/licenses/gpl-2.0.html GPLv2
+ * @license   http://opensource.org/licenses/MIT MIT
  */
 
 namespace Components\Redirect\Admin\Controllers;
 
 use Components\Redirect\Helpers\Redirect as Helper;
-use Components\Redirect\Models\Links as Records;
-use Components\Redirect\Models\Link as Record;
-use Components\Redirect\Tables\Link;
+use Components\Redirect\Models\Link;
 use Hubzero\Component\AdminController;
 use Exception;
 use Request;
@@ -41,9 +42,7 @@ use Lang;
 use App;
 
 require_once(dirname(dirname(__DIR__)) . DS . 'helpers' . DS . 'redirect.php');
-require_once(dirname(dirname(__DIR__)) . DS . 'models' . DS . 'links.php');
 require_once(dirname(dirname(__DIR__)) . DS . 'models' . DS . 'link.php');
-require_once(dirname(dirname(__DIR__)) . DS . 'tables' . DS . 'link.php');
 
 /**
  * Redirect link list controller class.
@@ -80,22 +79,57 @@ class Links extends AdminController
 	 */
 	public function displayTask()
 	{
-		$model = new Records;
+		$filters = array(
+			'search' => urldecode(Request::getState(
+				$this->_option . '.' . $this->_controller . '.search',
+				'search',
+				''
+			)),
+			'state' => Request::getState(
+				$this->_option . '.' . $this->_controller . '.state',
+				'state',
+				'*'
+			),
+			// Get sorting variables
+			'sort' => Request::getState(
+				$this->_option . '.' . $this->_controller . '.sort',
+				'filter_order',
+				'created_date'
+			),
+			'sort_Dir' => Request::getState(
+				$this->_option . '.' . $this->_controller . '.sortdir',
+				'filter_order_Dir',
+				'desc'
+			)
+		);
 
-		$this->view->enabled     = Helper::isEnabled();
-		$this->view->items       = $model->getItems();
-		$this->view->pagination  = $model->getPagination();
-		$this->view->state       = $model->getState();
+		$entries = Link::all();
 
-		// Check for errors.
-		if (count($errors = $model->getErrors()))
+		if ($filters['state'] != '*')
 		{
-			throw new Exception(implode("\n", $errors), 500);
+			$entries->whereEquals('published', (int)$filters['state']);
 		}
 
+		if ($filters['search'])
+		{
+			$filters['search'] = strtolower((string)$filters['search']);
+
+			$entries->whereLike('old_url', $filters['search'], 1)
+					->orWhereLike('new_url', $filters['search'], 1)
+					->orWhereLike('comment', $filters['search'], 1)
+					->orWhereLike('referer', $filters['search'], 1)
+					->resetDepth();
+		}
+
+		// Get records
+		$rows = $entries
+			->ordered('filter_order', 'filter_order_Dir')
+			->paginated();
+
 		$this->view
-			->set('model', $model)
-			->setLayout('default')
+			->set('rows', $rows)
+			->set('filters', $filters)
+			->set('enabled', Helper::isEnabled())
 			->display();
 	}
 
@@ -107,66 +141,13 @@ class Links extends AdminController
 	public function addTask()
 	{
 		// Access check.
-		if (!(User::authorise('core.create', $this->_option))) // || count(User::getAuthorisedCategories($this->_option, 'core.create'))))
+		if (!(User::authorise('core.create', $this->_option)))
 		{
-			// Set the internal error and also the redirect error.
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . $this->getRedirectToListAppend(), false),
-				Lang::txt('JLIB_APPLICATION_ERROR_CREATE_RECORD_NOT_PERMITTED'),
-				'error'
-			);
-			return;
+			Notify::warning(Lang::txt('JLIB_APPLICATION_ERROR_CREATE_RECORD_NOT_PERMITTED'));
+			return $this->cancelTask();
 		}
 
 		$this->editTask();
-	}
-
-	/**
-	 * Gets the URL arguments to append to a list redirect.
-	 *
-	 * @return  string  The arguments to append to the redirect URL.
-	 */
-	protected function getRedirectToListAppend()
-	{
-		$append = '';
-
-		// Setup redirect info.
-		if ($tmpl = Request::getCmd('tmpl'))
-		{
-			$append .= '&tmpl=' . $tmpl;
-		}
-
-		return $append;
-	}
-
-	/**
-	 * Gets the URL arguments to append to an item redirect.
-	 *
-	 * @param   integer  $recordId  The primary key id for the item.
-	 * @param   string   $urlVar    The name of the URL variable for the id.
-	 * @return  string   The arguments to append to the redirect URL.
-	 */
-	protected function getRedirectToItemAppend($recordId = null, $urlVar = 'id')
-	{
-		$append = '';
-
-		// Setup redirect info.
-		if ($tmpl = Request::getCmd('tmpl'))
-		{
-			$append .= '&tmpl=' . $tmpl;
-		}
-
-		if ($layout = Request::getCmd('layout', 'edit'))
-		{
-			$append .= '&layout=' . $layout;
-		}
-
-		if ($recordId)
-		{
-			$append .= '&' . $urlVar . '=' . $recordId;
-		}
-
-		return $append;
 	}
 
 	/**
@@ -174,38 +155,32 @@ class Links extends AdminController
 	 *
 	 * @return  void
 	 */
-	public function editTask()
+	public function editTask($row=null)
 	{
-		$cid = Request::getVar('cid', array(), 'post', 'array');
-		$recordId = (int) (count($cid) ? $cid[0] : Request::getInt('id'));
-
 		// Access check.
 		if (!User::authorise('core.edit', $this->_option))
 		{
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . $this->getRedirectToListAppend(), false),
-				Lang::txt('JLIB_APPLICATION_ERROR_EDIT_NOT_PERMITTED'),
-				'error'
-			);
-			return;
+			Notify::warning(Lang::txt('JLIB_APPLICATION_ERROR_EDIT_NOT_PERMITTED'));
+			return $this->cancelTask();
 		}
 
-		$link = new Link($this->database);
-		$link->load($recordId);
-
-		if ($data = User::getState($this->_option . '.edit.link.data'))
+		if (!is_object($row))
 		{
-			$link->bind($data);
-		}
+			// Incoming
+			$id = Request::getVar('id', array(0));
+			if (is_array($id) && !empty($id))
+			{
+				$id = $id[0];
+			}
 
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
+			// Load the article
+			$row = Link::oneOrNew($id);
 		}
 
 		$this->view
-			->set('row', $link)
+			->set('row', $row)
 			->setLayout('edit')
+			->setError($this->getErrors())
 			->display();
 	}
 
@@ -217,111 +192,44 @@ class Links extends AdminController
 	public function saveTask()
 	{
 		// Check for request forgeries.
-		Request::checkToken() or exit(Lang::txt('JINVALID_TOKEN'));
+		Request::checkToken();
+
+		// Access check.
+		if (!User::authorise('core.edit', $this->_option) && !User::authorise('core.create', $this->_option))
+		{
+			Notify::warning(Lang::txt('JLIB_APPLICATION_ERROR_SAVE_NOT_PERMITTED'));
+			return $this->cancelTask();
+		}
 
 		// Initialise variables.
-		$data    = Request::getVar('fields', array(), 'post', 'array');
-		$context = "$this->_option.edit.link";
-		$model   = new Link($this->database);
-
-		// Determine the name of the primary key for the data.
-		$urlVar = $model->getKeyName();
-		$recordId = Request::getInt($urlVar);
-
-		// Populate the row id from the session.
-		$data[$urlVar] = $recordId;
+		$fields = Request::getVar('fields', array(), 'post', 'array');
 
 		// The save2copy task needs to be handled slightly differently.
 		if ($this->_task == 'save2copy')
 		{
 			// Reset the ID and then treat the request as for Apply.
-			$data[$urlVar] = 0;
+			$fields['id'] = 0;
 			$this->_task = 'apply';
 		}
 
-		// Access check.
-		//if (!$this->allowSave($data, $key))
-		if (!User::authorise('core.edit', $this->_option) && !User::authorise('core.create', $this->_option))
-		{
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . $this->getRedirectToListAppend(), false),
-				Lang::txt('JLIB_APPLICATION_ERROR_SAVE_NOT_PERMITTED'),
-				'error'
-			);
-			return;
-		}
-
-		$model->bind($data);
-
-		// Check for validation errors.
-		if (!$model->check())
-		{
-			// Push up to three validation messages out to the user.
-			foreach ($model->getErrors() as $error)
-			{
-				Notify::warning(($error instanceof Exception ? $error->getMessage() : $error));
-			}
-
-			// Save the data in the session.
-			User::setState($context . '.data', $data);
-
-			// Redirect back to the edit screen.
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . $this->getRedirectToItemAppend($recordId, $urlVar), false)
-			);
-			return;
-		}
+		$row = Entry::oneOrNew($fields['id'])->set($fields);
 
 		// Attempt to save the data.
-		if (!$model->store())
+		if (!$row->save())
 		{
-			// Save the data in the session.
-			User::setState($context . '.data', $data);
-
-			// Redirect back to the edit screen.
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . $this->getRedirectToItemAppend($recordId, $urlVar), false),
-				Lang::txt('JLIB_APPLICATION_ERROR_SAVE_FAILED', $model->getError()),
-				'error'
-			);
-			return;
+			Notify::error($row->getError());
+			return $this->editTask($row);
 		}
 
-		$msg = Lang::txt('COM_REDIRECT_SAVE_SUCCESS');
+		Notify::success(Lang::txt('COM_REDIRECT_SAVE_SUCCESS'));
 
-		// Redirect the user and adjust session state based on the chosen task.
-		switch ($this->_task)
+		if ($this->_task == 'apply')
 		{
-			case 'apply':
-				// Redirect back to the edit screen.
-				App::redirect(
-					Route::url('index.php?option=' . $this->_option . '&task=edit' . $this->getRedirectToItemAppend($recordId, $urlVar), false),
-					$msg
-				);
-			break;
-
-			case 'save2new':
-				// Clear the record id and data from the session.
-				User::setState($context . '.data', null);
-
-				// Redirect back to the edit screen.
-				App::redirect(
-					Route::url('index.php?option=' . $this->_option . '&task=edit' . $this->getRedirectToItemAppend(null, $urlVar), false),
-					$msg
-				);
-			break;
-
-			default:
-				// Clear the record id and data from the session.
-				User::setState($context . '.data', null);
-
-				// Redirect to the list screen.
-				App::redirect(
-					Route::url('index.php?option=' . $this->_option . $this->getRedirectToListAppend(), false),
-					$msg
-				);
-			break;
+			return $this->editTask($row);
 		}
+
+		// Redirect the user
+		$this->cancelTask();
 	}
 
 	/**
@@ -332,38 +240,51 @@ class Links extends AdminController
 	public function activateTask()
 	{
 		// Check for request forgeries.
-		Request::checkToken() or exit(Lang::txt('JINVALID_TOKEN'));
+		Request::checkToken();
+
+		// Access check.
+		if (!User::authorise('core.edit', $this->_option))
+		{
+			Notify::warning(Lang::txt('JLIB_APPLICATION_ERROR_EDIT_NOT_PERMITTED'));
+			return $this->cancelTask();
+		}
 
 		// Initialise variables.
-		$ids     = Request::getVar('cid', array(), '', 'array');
+		$ids     = Request::getVar('id', array(), '', 'array');
 		$newUrl  = Request::getString('new_url');
 		$comment = Request::getString('comment');
 
 		if (empty($ids))
 		{
-			throw new Exception(Lang::txt('COM_REDIRECT_NO_ITEM_SELECTED'), 500);
+			Notify::error(Lang::txt('COM_REDIRECT_NO_ITEM_SELECTED'));
 		}
-		else
-		{
-			// Get the model.
-			$model = new Record(); //$this->getModel();
 
-			\Hubzero\Utility\Arr::toInteger($ids);
+		$updated = 0;
+
+		// Loop through all the IDs
+		foreach ($ids as $id)
+		{
+			$entry = Link::oneOrFail(intval($id));
+			$entry->set('new_url', $newUrl);
+			$entry->set('comment', $comment);
+			$entry->set('published', 1);
 
 			// Remove the items.
-			if (!$model->activate($ids, $newUrl, $comment))
+			if (!$entry->save())
 			{
-				throw new Exception($model->getError(), 500);
+				Notify::error($entry->getError());
+				continue;
 			}
-			else
-			{
-				Notify::success(Lang::txts('COM_REDIRECT_N_LINKS_UPDATED', count($ids)));
-			}
+
+			$updated++;
 		}
 
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option)
-		);
+		if ($updated)
+		{
+			Notify::success(Lang::txt('COM_REDIRECT_N_LINKS_UPDATED', $updated));
+		}
+
+		$this->cancelTask();
 	}
 
 	/**
@@ -374,10 +295,17 @@ class Links extends AdminController
 	public function publishTask()
 	{
 		// Check for request forgeries
-		Request::checkToken() or die(Lang::txt('JINVALID_TOKEN'));
+		Request::checkToken();
+
+		// Access check.
+		if (!User::authorise('core.edit', $this->_option))
+		{
+			Notify::warning(Lang::txt('JLIB_APPLICATION_ERROR_EDIT_NOT_PERMITTED'));
+			return $this->cancelTask();
+		}
 
 		// Get items to publish from the request.
-		$cid = Request::getVar('cid', array(), '', 'array');
+		$ids = Request::getVar('id', array(), '', 'array');
 		$data = array(
 			'publish'   => 1,
 			'unpublish' => 0,
@@ -388,59 +316,93 @@ class Links extends AdminController
 
 		$value = \Hubzero\Utility\Arr::getValue($data, $this->_task, 0, 'int');
 
-		if (empty($cid))
+		if (empty($ids))
 		{
-			throw new Exception(Lang::txt('COM_REDIRECT_NO_ITEM_SELECTED'), 500);
+			Notify::error(Lang::txt('COM_REDIRECT_NO_ITEM_SELECTED'));
+		}
+
+		$updated = 0;
+
+		// Loop through all the IDs
+		foreach ($ids as $id)
+		{
+			$entry = Link::oneOrFail(intval($id));
+			$entry->set('published', $value);
+
+			// Remove the items.
+			if (!$entry->save())
+			{
+				Notify::error($entry->getError());
+				continue;
+			}
+
+			$updated++;
+		}
+
+		if ($value == 1)
+		{
+			$ntext = 'COM_REDIRECT_N_ITEMS_PUBLISHED';
+		}
+		elseif ($value == 0)
+		{
+			$ntext = 'COM_REDIRECT_N_ITEMS_UNPUBLISHED';
+		}
+		elseif ($value == 2)
+		{
+			$ntext = 'COM_REDIRECT_N_ITEMS_ARCHIVED';
 		}
 		else
 		{
-			// Get the model.
-			$model = new Record();
-
-			// Make sure the item ids are integers
-			\Hubzero\Utility\Arr::toInteger($cid);
-
-			// Publish the items.
-			if (!$model->publish($cid, $value))
-			{
-				throw new Exception($model->getError(), 500);
-			}
-			else
-			{
-				if ($value == 1)
-				{
-					$ntext = 'COM_REDIRECT_N_ITEMS_PUBLISHED';
-				}
-				elseif ($value == 0)
-				{
-					$ntext = 'COM_REDIRECT_N_ITEMS_UNPUBLISHED';
-				}
-				elseif ($value == 2)
-				{
-					$ntext = 'COM_REDIRECT_N_ITEMS_ARCHIVED';
-				}
-				else
-				{
-					$ntext = 'COM_REDIRECT_N_ITEMS_TRASHED';
-				}
-				Notify::success(Lang::txts($ntext, count($cid)));
-			}
+			$ntext = 'COM_REDIRECT_N_ITEMS_TRASHED';
 		}
+		Notify::success(Lang::txts($ntext, $updated));
 
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option, false)
-		);
+		$this->cancelTask();
 	}
 
 	/**
-	 * Cancel a task
+	 * Remove one or more entries
 	 *
 	 * @return  void
 	 */
-	public function cancelTask()
+	public function removeTask()
 	{
-		User::setState($this->_option . '.edit.link.data', null);
+		// Access check.
+		if (!User::authorise('core.delete', $this->_option))
+		{
+			Notify::warning(Lang::txt('JLIB_APPLICATION_ERROR_DELETE_NOT_PERMITTED'));
+			return $this->cancelTask();
+		}
 
-		parent::cancelTask();
+		// Check for request forgeries
+		Request::checkToken(['get', 'post']);
+
+		$ids = Request::getVar('id', array(), '', 'array');
+
+		if (empty($ids))
+		{
+			Notify::error(Lang::txt('COM_REDIRECT_NO_ITEM_SELECTED'));
+		}
+
+		$i = 0;
+		foreach ($ids as $id)
+		{
+			$entry = Link::oneOrFail(intval($id));
+
+			if (!$entry->destroy())
+			{
+				Notify::error($entry->getError());
+				continue;
+			}
+
+			$i++;
+		}
+
+		if ($i)
+		{
+			Notify::success(Lang::txts('COM_REDIRECT_N_ITEMS_DELETED', $i));
+		}
+
+		$this->cancelTask();
 	}
 }

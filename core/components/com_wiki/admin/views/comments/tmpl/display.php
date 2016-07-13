@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -33,9 +32,9 @@
 // No direct access.
 defined('_HZEXEC_') or die();
 
-$canDo = \Components\Wiki\Helpers\Permissions::getActions('comment');
+$canDo = Components\Wiki\Helpers\Permissions::getActions('comment');
 
-Toolbar::title(Lang::txt('COM_WIKI') . ': ' . Lang::txt('COM_WIKI_PAGE') . ': ' . Lang::txt('COM_WIKI_COMMENTS'), 'wiki.png');
+Toolbar::title(Lang::txt('COM_WIKI') . ': ' . Lang::txt('COM_WIKI_PAGE') . ': ' . Lang::txt('COM_WIKI_COMMENTS'), 'wiki');
 
 if ($canDo->get('core.delete'))
 {
@@ -75,23 +74,22 @@ function submitbutton(pressbutton)
 		<input type="submit" value="<?php echo Lang::txt('COM_WIKI_GO'); ?>" />
 		<button type="button" onclick="$('#filter_search').val('');this.form.submit();"><?php echo Lang::txt('JSEARCH_FILTER_CLEAR'); ?></button>
 	</fieldset>
-	<div class="clr"></div>
 
 	<table class="adminlist">
 		<thead>
 			<tr>
 				<th colspan="7">
-					(<?php echo $this->escape(stripslashes($this->entry->get('pagename'))); ?>) &nbsp; <?php echo $this->escape(stripslashes($this->entry->get('title'))); ?>
+					(<?php echo $this->escape(stripslashes($this->page->get('pagename'))); ?>) &nbsp; <?php echo $this->escape(stripslashes($this->page->title)); ?>
 				</th>
 			</tr>
 			<tr>
 				<th><input type="checkbox" name="toggle" value="" onclick="checkAll(<?php echo count($this->rows);?>);" /></th>
-				<th scope="col" class="priority-5"><?php echo $this->grid('sort', 'COM_WIKI_COL_ID', 'id', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
-				<th scope="col"><?php echo $this->grid('sort', 'COM_WIKI_COL_COMMENT', 'content', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
-				<th scope="col" class="priority-3"><?php echo $this->grid('sort', 'COM_WIKI_COL_CREATOR', 'created_by', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
-				<th scope="col" class="priority-5"><?php echo $this->grid('sort', 'COM_WIKI_COL_ANONYMOUS', 'state', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
-				<th scope="col" class="priority-2"><?php echo $this->grid('sort', 'COM_WIKI_COL_STATE', 'status', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
-				<th scope="col" class="priority-4"><?php echo $this->grid('sort', 'COM_WIKI_COL_CREATED', 'created', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col" class="priority-5"><?php echo Html::grid('sort', 'COM_WIKI_COL_ID', 'id', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col"><?php echo Html::grid('sort', 'COM_WIKI_COL_COMMENT', 'content', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col" class="priority-3"><?php echo Html::grid('sort', 'COM_WIKI_COL_CREATOR', 'created_by', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col" class="priority-5"><?php echo Html::grid('sort', 'COM_WIKI_COL_ANONYMOUS', 'state', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col" class="priority-2"><?php echo Html::grid('sort', 'COM_WIKI_COL_STATE', 'status', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col" class="priority-4"><?php echo Html::grid('sort', 'COM_WIKI_COL_CREATED', 'created', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
 			</tr>
 		</thead>
 		<tfoot>
@@ -107,91 +105,91 @@ function submitbutton(pressbutton)
 			</tr>
 		</tfoot>
 		<tbody>
-<?php
-$k = 0;
+		<?php
+		$k = 0;
 
-$rows = $this->rows;
-for ($i=0, $n=count($rows); $i < $n; $i++)
-{
-	$row =& $rows[$i];
+		$rows = $this->rows;
+		for ($i=0, $n=count($rows); $i < $n; $i++)
+		{
+			$row =& $rows[$i];
 
-	if (!$row->anonymous)
-	{
-		$calt2  = Lang::txt('JOFF');
-		$cls2   = 'off';
-		$state2 = 1;
-	}
-	else
-	{
-		$calt2  = Lang::txt('JON');
-		$cls2   = 'on';
-		$state2 = 0;
-	}
+			if (!$row->get('anonymous'))
+			{
+				$calt2  = Lang::txt('JOFF');
+				$cls2   = 'off';
+				$state2 = 1;
+			}
+			else
+			{
+				$calt2  = Lang::txt('JON');
+				$cls2   = 'on';
+				$state2 = 0;
+			}
 
-	switch ($row->status)
-	{
-		case 2:
-			$calt1  = Lang::txt('JTRASHED');
-			$cls1   = 'trash';
-			$state1 = 'publish';
-		break;
+			switch ($row->get('state'))
+			{
+				case 2:
+					$calt1  = Lang::txt('JTRASHED');
+					$cls1   = 'trash';
+					$state1 = 'publish';
+				break;
 
-		case 1:
-			$calt1  = Lang::txt('COM_WIKI_STATE_ABUSIVE');
-			$cls1   = 'unpublish';
-			$state1 = 'publish';
-		break;
+				case 1:
+					$calt1  = Lang::txt('COM_WIKI_STATE_ABUSIVE');
+					$cls1   = 'unpublish';
+					$state1 = 'publish';
+				break;
 
-		case 0:
-		default:
-			$calt1  = Lang::txt('JPUBLISHED');
-			$cls1   = 'publish';
-			$state1 = 'unpublish';
-		break;
-	}
-?>
+				case 0:
+				default:
+					$calt1  = Lang::txt('JPUBLISHED');
+					$cls1   = 'publish';
+					$state1 = 'unpublish';
+				break;
+			}
+			?>
 			<tr class="<?php echo "row$k"; ?>">
 				<td>
-					<input type="checkbox" name="id[]" id="cb<?php echo $i; ?>" value="<?php echo $row->id; ?>" onclick="isChecked(this.checked, this);" />
+					<input type="checkbox" name="id[]" id="cb<?php echo $i; ?>" value="<?php echo $row->get('id'); ?>" onclick="isChecked(this.checked, this);" />
 				</td>
 				<td class="priority-5">
-					<?php echo $row->id; ?>
+					<?php echo $row->get('id'); ?>
 				</td>
 				<td>
-					<?php echo $row->treename; ?>
+					<?php echo $row->get('treename'); ?>
 					<?php if ($canDo->get('core.edit')) { ?>
-						<a href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=' . $this->controller . '&task=edit&id=' . $row->id); ?>">
-							<?php echo \Hubzero\Utility\String::truncate($this->escape(stripslashes($row->ctext)), 90); ?>
+						<a href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=' . $this->controller . '&task=edit&id=' . $row->get('id')); ?>">
+							<?php echo \Hubzero\Utility\String::truncate($this->escape(stripslashes($row->get('ctext'))), 90); ?>
 						</a>
 					<?php } else { ?>
 						<span>
-							<?php echo \Hubzero\Utility\String::truncate($this->escape(stripslashes($row->ctext)), 90); ?>
+							<?php echo \Hubzero\Utility\String::truncate($this->escape(stripslashes($row->get('ctext'))), 90); ?>
 						</span>
 					<?php } ?>
 				</td>
 				<td class="priority-3">
-					<?php echo $this->escape(stripslashes($row->name)); ?>
+					<?php echo $this->escape(stripslashes($row->creator->get('name'))); ?>
 				</td>
 				<td class="priority-5">
-					<a class="state <?php echo $cls2; ?>" href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=' . $this->controller . '&task=anonymous&state=' . $state2 . '&id=' . $row->id . '&pageid=' . $this->filters['pageid'] . '&' . Session::getFormToken() . '=1'); ?>">
+					<a class="state <?php echo $cls2; ?>" href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=' . $this->controller . '&task=anonymous&state=' . $state2 . '&id=' . $row->get('id') . '&pageid=' . $this->filters['page_id'] . '&' . Session::getFormToken() . '=1'); ?>">
 						<span><?php echo $calt2; ?></span>
 					</a>
 				</td>
 				<td class="priority-2">
-					<a class="state <?php echo $cls1; ?>" href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=' . $this->controller . '&task=' . $state1 . '&id=' . $row->id . '&pageid=' . $this->filters['pageid'] . '&' . Session::getFormToken() . '=1'); ?>">
+					<a class="state <?php echo $cls1; ?>" href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=' . $this->controller . '&task=' . $state1 . '&id=' . $row->get('id') . '&pageid=' . $this->filters['page_id'] . '&' . Session::getFormToken() . '=1'); ?>">
 						<span><?php echo $calt1; ?></span>
 					</a>
 				</td>
 				<td class="priority-4">
-					<time datetime="<?php echo $row->created; ?>">
-						<?php echo $row->created; ?>
+					<time datetime="<?php echo $row->created(); ?>">
+						<?php echo $row->created(); ?>
 					</time>
 				</td>
 			</tr>
-<?php
-	$k = 1 - $k;
-}
-?>
+			<?php
+			$k = 1 - $k;
+		}
+		?>
 		</tbody>
 	</table>
 
@@ -199,7 +197,7 @@ for ($i=0, $n=count($rows); $i < $n; $i++)
 	<input type="hidden" name="controller" value="<?php echo $this->controller; ?>" />
 	<input type="hidden" name="task" value="" autocomplete="off" />
 	<input type="hidden" name="boxchecked" value="0" />
-	<input type="hidden" name="pageid" value="<?php echo $this->filters['pageid']; ?>" />
+	<input type="hidden" name="page_+id" value="<?php echo $this->filters['page_id']; ?>" />
 	<input type="hidden" name="filter_order" value="<?php echo $this->filters['sort']; ?>" />
 	<input type="hidden" name="filter_order_Dir" value="<?php echo $this->filters['sort_Dir']; ?>" />
 

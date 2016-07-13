@@ -190,7 +190,7 @@ class UsersControllerUser extends UsersController
 	{
 		$app = JFactory::getApplication();
 
-		$user = User::getRoot();
+		$user = User::getInstance();
 
 		$authenticator = Request::getVar('authenticator', '', 'method');
 
@@ -426,7 +426,7 @@ class UsersControllerUser extends UsersController
 
 	public function link()
 	{
-		$user = User::getRoot();
+		$user = User::getInstance();
 
 		// First, they should already be logged in, so check for that
 		if ($user->get('guest'))

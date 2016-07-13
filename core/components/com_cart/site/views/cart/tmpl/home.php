@@ -28,8 +28,8 @@
  * @license   http://www.gnu.org/licenses/lgpl-3.0.html LGPLv3
  */
 
-// Check to ensure this file is included in Joomla!
-defined('_JEXEC') or die( 'Restricted access' );
+// No direct access
+defined('_HZEXEC_') or die('Restricted access');
 
 $this->css()
      ->js()
@@ -80,7 +80,7 @@ if (!empty($errors))
 
 			<div id="cartItems" class="col span8">
 
-				<form name="shoppingCart" id="shoppingCart" method="post">
+				<form action="<?php echo Route::url('index.php?option=' . $this->option); ?>" name="shoppingCart" id="shoppingCart" method="post">
 				<?php
 
 				if (!empty($this->couponPerks['items']))
@@ -196,8 +196,8 @@ if (!empty($errors))
 					echo '<p>' . Lang::txt('COM_CART_EMPTY') . '</p>';
 				}
 				?>
-
 					<input type="hidden" name="option" value="<?php echo $this->option; ?>" />
+					<input type="hidden" name="controller" value="<?php echo $this->controller; ?>" />
 				</form>
 
 			</div> <!-- // cartItems -->
@@ -257,7 +257,7 @@ if (!empty($errors))
 
 						if ($this->cartInfo->totalItems)
 						{
-							echo '<p><a href="' . Route::url('index.php?option=' . $this->option) . 'checkout" class="btn">Checkout</a></p>';
+							echo '<p><a href="' . Route::url('index.php?option=' . $this->option . '&controller=checkout') . '" class="btn">Checkout</a></p>';
 						}
 
 					echo '</div>';

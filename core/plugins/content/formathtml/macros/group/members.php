@@ -129,7 +129,7 @@ class Members extends GroupMacro
 		$displaySystemUsers = $params->get('display_system_users', 'no');
 
 		//get this groups params
-		$gparams = new \JParameter($group->get('params'));
+		$gparams = new \Hubzero\Config\Registry($group->get('params'));
 		$displaySystemUsers = $gparams->get('display_system_users', $displaySystemUsers);
 
 		// filter is system users
@@ -162,13 +162,14 @@ class Members extends GroupMacro
 		$content = '<div class="member_browser">';
 		if (count($members) > 0)
 		{
-			foreach ($members as $member)
-			{
-				$profile = \Hubzero\User\Profile::getInstance($member);
-				$link    = \Route::url('index.php?option=com_members&id='.$profile->get('uidNumber'));
+			$profiles = \Hubzero\User\User::all()
+				->whereIn('id', $members)
+				->rows();
 
+			foreach ($profiles as $profile)
+			{
 				$content .= '<a href="' . $link . '" class="member" title="Go to ' . stripslashes($profile->get('name')) . '\'s Profile.">';
-				$content .= '<img src="' . $profile->getPicture(0, true) . '" alt="' . stripslashes($profile->get('name')) . '" class="member-border" width="50px" height="50px" />';
+				$content .= '<img src="' . $profile->picture() . '" alt="' . stripslashes($profile->get('name')) . '" class="member-border" width="50px" height="50px" />';
 				$content .= '<span class="name">' . stripslashes($profile->get('name')) . '</span>';
 				$content .= '<span class="org">' . stripslashes($profile->get('organization')) . '</span>';
 				$content .= '</a>';

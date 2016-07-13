@@ -41,22 +41,22 @@ class plgMembersCourses extends \Hubzero\Plugin\Plugin
 	/**
 	 * Affects constructor behavior. If true, language files will be loaded automatically.
 	 *
-	 * @var    boolean
+	 * @var  boolean
 	 */
 	protected $_autoloadLanguage = true;
 
 	/**
 	 * Event call to determine if this plugin should return data
 	 *
-	 * @param      object  $user   User
-	 * @param      object  $member MembersProfile
-	 * @return     array   Plugin name
+	 * @param   object  $user    User
+	 * @param   object  $member  MembersProfile
+	 * @return  array   Plugin name
 	 */
 	public function &onMembersAreas($user, $member)
 	{
 		$areas = array();
 
-		if ($user->get('id') == $member->get('uidNumber'))
+		if ($user->get('id') == $member->get('id'))
 		{
 			$areas['courses'] = Lang::txt('PLG_MEMBERS_COURSES');
 			$areas['icon'] = 'f09c';
@@ -67,11 +67,11 @@ class plgMembersCourses extends \Hubzero\Plugin\Plugin
 	/**
 	 * Event call to return data for a specific member
 	 *
-	 * @param      object  $user   User
-	 * @param      object  $member MembersProfile
-	 * @param      string  $option Component name
-	 * @param      string  $areas  Plugins to return data
-	 * @return     array   Return array of html
+	 * @param   object  $user    User
+	 * @param   object  $member  MembersProfile
+	 * @param   string  $option  Component name
+	 * @param   string  $areas   Plugins to return data
+	 * @return  array   Return array of html
 	 */
 	public function onMembers($user, $member, $option, $areas)
 	{
@@ -202,9 +202,10 @@ class plgMembersCourses extends \Hubzero\Plugin\Plugin
 	/**
 	 * Event call to return data for a specific member
 	 *
-	 * @param      object  $user   User
-	 * @param      object  $member MembersProfile
-	 * @return     array   Return array of html
+	 * @param   string  $what
+	 * @param   string  $who
+	 * @param   array   $filters
+	 * @return  array   Return array of html
 	 */
 	private function _getData($what='count', $who=null, $filters=array())
 	{
@@ -237,7 +238,7 @@ class plgMembersCourses extends \Hubzero\Plugin\Plugin
 							LEFT JOIN `#__courses_offerings` AS o ON o.id=m.offering_id
 							LEFT JOIN `#__courses_offering_sections` AS s on s.id=m.section_id
 							LEFT JOIN `#__courses_roles` AS r ON r.id=m.role_id
-						WHERE c.state=1 AND m.user_id=" . (int) $this->member->get('uidNumber') . " AND m.student=1
+						WHERE c.state=1 AND m.user_id=" . (int) $this->member->get('id') . " AND m.student=1
 							AND (s.publish_down='0000-00-00 00:00:00' OR s.publish_down < " . $this->database->quote($now) .") AND s.state=1 AND o.state=1");
 					$results = $this->database->loadResult();
 				}
@@ -250,7 +251,7 @@ class plgMembersCourses extends \Hubzero\Plugin\Plugin
 							LEFT JOIN `#__courses_offerings` AS o ON o.id=m.offering_id
 							LEFT JOIN `#__courses_offering_sections` AS s on s.id=m.section_id
 							LEFT JOIN `#__courses_roles` AS r ON r.id=m.role_id
-						WHERE c.state=1 AND m.user_id=" . (int) $this->member->get('uidNumber') . " AND m.student=1
+						WHERE c.state=1 AND m.user_id=" . (int) $this->member->get('id') . " AND m.student=1
 							AND (s.publish_down='0000-00-00 00:00:00' OR s.publish_down < " . $this->database->quote($now) .") AND s.state=1 AND o.state=1
 						ORDER BY " . $filters['sort'] . " ASC LIMIT " . $filters['start'] . "," . $filters['limit']);
 					$results = $this->database->loadObjectList();
@@ -266,7 +267,7 @@ class plgMembersCourses extends \Hubzero\Plugin\Plugin
 							LEFT JOIN `#__courses_offerings` AS o ON o.id=m.offering_id
 							LEFT JOIN `#__courses_offering_sections` AS s on s.id=m.section_id
 							LEFT JOIN `#__courses_roles` AS r ON r.id=m.role_id
-							WHERE c.state IN (1, 3) AND m.user_id=" . (int) $this->member->get('uidNumber') . " AND m.student=0 AND r.alias='manager'");
+							WHERE c.state IN (1, 3) AND m.user_id=" . (int) $this->member->get('id') . " AND m.student=0 AND r.alias='manager'");
 					$results = $this->database->loadResult();
 				}
 				else
@@ -278,7 +279,7 @@ class plgMembersCourses extends \Hubzero\Plugin\Plugin
 							LEFT JOIN `#__courses_offerings` AS o ON o.id=m.offering_id
 							LEFT JOIN `#__courses_offering_sections` AS s on s.id=m.section_id
 							LEFT JOIN `#__courses_roles` AS r ON r.id=m.role_id
-						WHERE c.state IN (1, 3) AND m.user_id=" . (int) $this->member->get('uidNumber') . " AND m.student=0 AND r.alias='manager'
+						WHERE c.state IN (1, 3) AND m.user_id=" . (int) $this->member->get('id') . " AND m.student=0 AND r.alias='manager'
 						ORDER BY " . $filters['sort'] . " ASC LIMIT " . $filters['start'] . "," . $filters['limit']);
 					$results = $this->database->loadObjectList();
 				}
@@ -293,7 +294,7 @@ class plgMembersCourses extends \Hubzero\Plugin\Plugin
 						LEFT JOIN `#__courses_offerings` AS o ON o.id=m.offering_id
 						LEFT JOIN `#__courses_offering_sections` AS s on s.id=m.section_id
 						LEFT JOIN `#__courses_roles` AS r ON r.id=m.role_id
-						WHERE c.state IN (1, 3) AND m.user_id=" . (int) $this->member->get('uidNumber') . " AND m.student=0 AND r.alias=" . $this->database->Quote('instructor'));
+						WHERE c.state IN (1, 3) AND m.user_id=" . (int) $this->member->get('id') . " AND m.student=0 AND r.alias=" . $this->database->Quote('instructor'));
 					$results = $this->database->loadResult();
 				}
 				else
@@ -305,7 +306,7 @@ class plgMembersCourses extends \Hubzero\Plugin\Plugin
 						LEFT JOIN `#__courses_offerings` AS o ON o.id=m.offering_id
 						LEFT JOIN `#__courses_offering_sections` AS s on s.id=m.section_id
 						LEFT JOIN `#__courses_roles` AS r ON r.id=m.role_id
-						WHERE c.state IN (1, 3) AND m.user_id=" . (int) $this->member->get('uidNumber') . " AND m.student=0 AND r.alias=" . $this->database->Quote('instructor') . "
+						WHERE c.state IN (1, 3) AND m.user_id=" . (int) $this->member->get('id') . " AND m.student=0 AND r.alias=" . $this->database->Quote('instructor') . "
 						ORDER BY " . $filters['sort'] . " ASC LIMIT " . $filters['start'] . "," . $filters['limit']);
 					$results = $this->database->loadObjectList();
 				}
@@ -320,7 +321,7 @@ class plgMembersCourses extends \Hubzero\Plugin\Plugin
 						LEFT JOIN `#__courses_offerings` AS o ON o.id=m.offering_id
 						LEFT JOIN `#__courses_offering_sections` AS s on s.id=m.section_id
 						LEFT JOIN `#__courses_roles` AS r ON r.id=m.role_id
-						WHERE c.state IN (1, 3) AND m.user_id=" . (int) $this->member->get('uidNumber') . " AND m.student=0 AND r.alias=" . $this->database->Quote('ta'));
+						WHERE c.state IN (1, 3) AND m.user_id=" . (int) $this->member->get('id') . " AND m.student=0 AND r.alias=" . $this->database->Quote('ta'));
 					$results = $this->database->loadResult();
 				}
 				else
@@ -332,7 +333,7 @@ class plgMembersCourses extends \Hubzero\Plugin\Plugin
 						LEFT JOIN `#__courses_offerings` AS o ON o.id=m.offering_id
 						LEFT JOIN `#__courses_offering_sections` AS s on s.id=m.section_id
 						LEFT JOIN `#__courses_roles` AS r ON r.id=m.role_id
-						WHERE c.state IN (1, 3) AND m.user_id=" . (int) $this->member->get('uidNumber') . " AND m.student=0 AND r.alias=" . $this->database->Quote('ta') . "
+						WHERE c.state IN (1, 3) AND m.user_id=" . (int) $this->member->get('id') . " AND m.student=0 AND r.alias=" . $this->database->Quote('ta') . "
 						ORDER BY " . $filters['sort'] . " ASC LIMIT " . $filters['start'] . "," . $filters['limit']);
 					$results = $this->database->loadObjectList();
 				}
@@ -347,7 +348,7 @@ class plgMembersCourses extends \Hubzero\Plugin\Plugin
 						LEFT JOIN `#__courses_offerings` AS o ON o.id=m.offering_id
 						LEFT JOIN `#__courses_offering_sections` AS s on s.id=m.section_id
 						LEFT JOIN `#__courses_roles` AS r ON r.id=m.role_id
-						WHERE c.state IN (1, 3) AND m.user_id=" . (int) $this->member->get('uidNumber') . " AND m.student=0 AND r.alias=" . $this->database->Quote($who));
+						WHERE c.state IN (1, 3) AND m.user_id=" . (int) $this->member->get('id') . " AND m.student=0 AND r.alias=" . $this->database->Quote($who));
 					$results = $this->database->loadResult();
 				}
 				else
@@ -359,7 +360,7 @@ class plgMembersCourses extends \Hubzero\Plugin\Plugin
 						LEFT JOIN `#__courses_offerings` AS o ON o.id=m.offering_id
 						LEFT JOIN `#__courses_offering_sections` AS s on s.id=m.section_id
 						LEFT JOIN `#__courses_roles` AS r ON r.id=m.role_id
-						WHERE c.state IN (1, 3) AND m.user_id=" . (int) $this->member->get('uidNumber') . " AND r.alias=" . $this->database->Quote($who) . "
+						WHERE c.state IN (1, 3) AND m.user_id=" . (int) $this->member->get('id') . " AND r.alias=" . $this->database->Quote($who) . "
 						ORDER BY " . $filters['sort'] . " ASC LIMIT " . $filters['start'] . "," . $filters['limit']);
 					$results = $this->database->loadObjectList();
 				}
@@ -371,7 +372,7 @@ class plgMembersCourses extends \Hubzero\Plugin\Plugin
 	/**
 	 * Return a list of categories
 	 *
-	 * @return     array
+	 * @return  array
 	 */
 	public function onMembersContributionsAreas()
 	{
@@ -383,9 +384,9 @@ class plgMembersCourses extends \Hubzero\Plugin\Plugin
 	/**
 	 * Build SQL for returning the count of the number of contributions
 	 *
-	 * @param      string $user_id  Field to join on user ID
-	 * @param      string $username Field to join on username
-	 * @return     string
+	 * @param   string  $user_id   Field to join on user ID
+	 * @param   string  $username  Field to join on username
+	 * @return  string
 	 */
 	public function onMembersContributionsCount($user_id='m.uidNumber', $username='m.username')
 	{
@@ -403,14 +404,14 @@ class plgMembersCourses extends \Hubzero\Plugin\Plugin
 	/**
 	 * Return either a count or an array of the member's contributions
 	 *
-	 * @param      object  $member     Current member
-	 * @param      string  $option     Component name
-	 * @param      string  $authorized Authorization level
-	 * @param      integer $limit      Number of record to return
-	 * @param      integer $limitstart Record return start
-	 * @param      string  $sort       Field to sort records on
-	 * @param      array   $areas      Areas to return data for
-	 * @return     array
+	 * @param   object   $member      Current member
+	 * @param   string   $option      Component name
+	 * @param   string   $authorized  Authorization level
+	 * @param   integer  $limit       Number of record to return
+	 * @param   integer  $limitstart  Record return start
+	 * @param   string   $sort        Field to sort records on
+	 * @param   array    $areas       Areas to return data for
+	 * @return  array
 	 */
 	public function onMembersContributions($member, $option, $limit=0, $limitstart=0, $sort, $areas=null)
 	{
@@ -427,15 +428,15 @@ class plgMembersCourses extends \Hubzero\Plugin\Plugin
 		}
 
 		// Do we have a member ID?
-		if ($member instanceof \Hubzero\User\Profile)
+		if ($member instanceof \Hubzero\User\User)
 		{
-			if (!$member->get('uidNumber'))
+			if (!$member->get('id'))
 			{
 				return array();
 			}
 			else
 			{
-				$uidNumber = $member->get('uidNumber');
+				$uidNumber = $member->get('id');
 				$username  = $member->get('username');
 			}
 		}

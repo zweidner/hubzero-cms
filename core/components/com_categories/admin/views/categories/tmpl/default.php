@@ -53,7 +53,6 @@ $saveOrder = ($listOrder == 'a.lft' && $listDirn == 'asc');
 			</select>
 		</div>
 	</fieldset>
-	<div class="clr"> </div>
 
 	<table class="adminlist">
 		<thead>
@@ -106,7 +105,12 @@ $saveOrder = ($listOrder == 'a.lft' && $listDirn == 'asc');
 						<?php echo Html::grid('id', $i, $item->id); ?>
 					</td>
 					<td>
-						<?php echo str_repeat('<span class="gi">|&mdash;</span>', $item->level-1) ?>
+						<?php
+							if ($item->level-1  > 0)
+							{
+								echo str_repeat('<span class="gi">|&mdash;</span>', $item->level-1);
+							}
+						?>
 						<?php if ($item->checked_out) : ?>
 							<?php echo Html::grid('checkedout', $i, $item->editor, $item->checked_out_time, 'categories.', $canCheckin); ?>
 						<?php endif; ?>
@@ -117,7 +121,12 @@ $saveOrder = ($listOrder == 'a.lft' && $listDirn == 'asc');
 							<?php echo $this->escape($item->title); ?>
 						<?php endif; ?>
 						<p class="smallsub" title="<?php echo $this->escape($item->path);?>">
-							<?php echo str_repeat('<span class="gtr">|&mdash;</span>', $item->level-1) ?>
+							<?php
+								if ($item->level-1  > 0)
+								{
+									echo str_repeat('<span class="gi">|&mdash;</span>', $item->level-1);
+								}
+							?>
 							<?php if (empty($item->note)) : ?>
 								<?php echo Lang::txt('JGLOBAL_LIST_ALIAS', $this->escape($item->alias));?>
 							<?php else : ?>
@@ -159,7 +168,7 @@ $saveOrder = ($listOrder == 'a.lft' && $listDirn == 'asc');
 		</tbody>
 	</table>
 	<?php //Load the batch processing form. ?>
-	<?php if (User::authorize('core.create', $extension) & User::authorize('core.edit', $extension) && User::authorize('core.edit.state', $extension)) : ?>
+	<?php if (User::authorise('core.create', $extension) & User::authorise('core.edit', $extension) && User::authorise('core.edit.state', $extension)) : ?>
 		<?php echo $this->loadTemplate('batch'); ?>
 	<?php endif;?>
 

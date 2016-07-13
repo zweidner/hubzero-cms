@@ -35,6 +35,11 @@ namespace Components\Publications\Admin\Controllers;
 use Hubzero\Component\AdminController;
 use Components\Publications\Tables;
 use stdClass;
+use Request;
+use Config;
+use Route;
+use Lang;
+use App;
 
 /**
  * Manage publication master types
@@ -49,39 +54,41 @@ class Types extends AdminController
 	public function displayTask()
 	{
 		// Incoming
-		$this->view->filters = array();
-		$this->view->filters['limit'] = Request::getState(
-			$this->_option . '.types.limit',
-			'limit',
-			Config::get('list_limit'),
-			'int'
+		$this->view->filters = array(
+			'limit' => Request::getState(
+				$this->_option . '.types.limit',
+				'limit',
+				Config::get('list_limit'),
+				'int'
+			),
+			'start' => Request::getState(
+				$this->_option . '.types.limitstart',
+				'limitstart',
+				0,
+				'int'
+			),
+			'search' => Request::getState(
+				$this->_option . '.types.search',
+				'search',
+				''
+			),
+			'sort' => Request::getState(
+				$this->_option . '.types.sort',
+				'filter_order',
+				'id'
+			),
+			'sort_Dir' => Request::getState(
+				$this->_option . '.types.sortdir',
+				'filter_order_Dir',
+				'ASC'
+			)
 		);
-		$this->view->filters['start'] = Request::getState(
-			$this->_option . '.types.limitstart',
-			'limitstart',
-			0,
-			'int'
-		);
-		$this->view->filters['search'] = trim(Request::getState(
-			$this->_option . '.types.search',
-			'search',
-			''
-		));
-		$this->view->filters['sort'] = trim(Request::getState(
-			$this->_option . '.types.sort',
-			'filter_order',
-			'id'
-		));
-		$this->view->filters['sort_Dir'] = trim(Request::getState(
-			$this->_option . '.types.sortdir',
-			'filter_order_Dir',
-			'ASC'
-		));
 
 		$this->view->filters['state'] = 'all';
 
 		// Instantiate an object
-		$rt = new \Components\Publications\Tables\MasterType($this->database);
+		$database = App::get('db');
+		$rt = new \Components\Publications\Tables\MasterType($database);
 
 		// Get a record count
 		$this->view->total = $rt->getCount($this->view->filters);
@@ -122,8 +129,9 @@ class Types extends AdminController
 
 		// Incoming
 		$id = Request::getInt('id', 0);
+		$database = App::get('db');
 
-		$this->view->row = new \Components\Publications\Tables\MasterType($this->database);
+		$this->view->row = new \Components\Publications\Tables\MasterType($database);
 
 		// Load object
 		if (!$id || !$this->view->row->load($id))
@@ -142,10 +150,11 @@ class Types extends AdminController
 		);
 
 		// Get blocks model
-		$blocksModel = new \Components\Publications\Models\Blocks($this->database);
+		$blocksModel = new \Components\Publications\Models\Blocks($database);
 
 		// Get available blocks
-		$this->view->blocks = $blocksModel->getBlocks('*',
+		$this->view->blocks = $blocksModel->getBlocks(
+			'*',
 			" WHERE status=1",
 			" ORDER BY ordering, id"
 		);
@@ -178,7 +187,9 @@ class Types extends AdminController
 		$newblock = Request::getVar('newblock', '');
 		$before   = Request::getInt('before', 1);
 
-		$row = new \Components\Publications\Tables\MasterType($this->database);
+		$database = App::get('db');
+
+		$row = new \Components\Publications\Tables\MasterType($database);
 
 		// Load object
 		if (!$id || !$row->load($id))
@@ -196,8 +207,7 @@ class Types extends AdminController
 			$row->curation
 		);
 
-		$url = Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller
-			. '&task=edit&id[]=' . $id, false);
+		$url = Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=edit&id=' . $id, false);
 
 		$manifest   = new stdClass;
 		$manifest->blocks = new stdClass;
@@ -206,7 +216,7 @@ class Types extends AdminController
 		if ($newblock)
 		{
 			// Get blocks model
-			$blocksModel = new \Components\Publications\Models\Blocks($this->database);
+			$blocksModel = new \Components\Publications\Models\Blocks($database);
 
 			// Get max used block and element IDs
 			$maxBlockId   = 0;
@@ -285,7 +295,9 @@ class Types extends AdminController
 		// Incoming
 		$id = Request::getInt('id', 0);
 
-		$this->view->row = new \Components\Publications\Tables\MasterType($this->database);
+		$database = App::get('db');
+
+		$this->view->row = new \Components\Publications\Tables\MasterType($database);
 
 		// Load object
 		if (!$id || !$this->view->row->load($id))
@@ -323,11 +335,12 @@ class Types extends AdminController
 	public function saveadvancedTask()
 	{
 		// Incoming
-		$id = Request::getInt('id', 0);
+		$id       = Request::getInt('id', 0);
 		$curation = Request::getVar('curation', '', 'post', 'none', 2);
 		$curation = preg_replace('/\s{2,}/u', ' ', preg_replace('/[\n\r\t]+/', '', $curation));
+		$database = App::get('db');
 
-		$row = new \Components\Publications\Tables\MasterType($this->database);
+		$row = new \Components\Publications\Tables\MasterType($database);
 
 		// Load object
 		if (!$id || !$row->load($id))
@@ -340,7 +353,7 @@ class Types extends AdminController
 			return;
 		}
 
-		$url = Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=edit&id[]=' . $id, false);
+		$url = Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=edit&id=' . $id, false);
 
 		if (!trim($curation) || $this->isJson(trim($curation)))
 		{
@@ -387,8 +400,9 @@ class Types extends AdminController
 		// Incoming
 		$id = Request::getInt('id', 0);
 		$this->view->blockId = Request::getInt('bid', 0);
+		$database = App::get('db');
 
-		$this->view->row = new \Components\Publications\Tables\MasterType($this->database);
+		$this->view->row = new \Components\Publications\Tables\MasterType($database);
 
 		// Load object
 		if (!$id || !$this->view->row->load($id))
@@ -429,8 +443,9 @@ class Types extends AdminController
 		// Incoming
 		$id = Request::getInt('id', 0);
 		$blockId = Request::getInt('bid', 0);
+		$database = App::get('db');
 
-		$row = new \Components\Publications\Tables\MasterType($this->database);
+		$row = new \Components\Publications\Tables\MasterType($database);
 
 		// Load object
 		if (!$id || !$row->load($id))
@@ -526,8 +541,9 @@ class Types extends AdminController
 
 		// Incoming
 		$id = Request::getInt('id', 0);
+		$database = App::get('db');
 
-		$this->view->row = new \Components\Publications\Tables\MasterType($this->database);
+		$this->view->row = new \Components\Publications\Tables\MasterType($database);
 
 		// Load object
 		if (!$id || !$this->view->row->load($id))
@@ -546,10 +562,11 @@ class Types extends AdminController
 		);
 
 		// Get blocks model
-		$blocksModel = new \Components\Publications\Models\Blocks($this->database);
+		$blocksModel = new \Components\Publications\Models\Blocks($database);
 
 		// Get available blocks
-		$this->view->blocks = $blocksModel->getBlocks('*',
+		$this->view->blocks = $blocksModel->getBlocks(
+			'*',
 			" WHERE status=1",
 			" ORDER BY ordering, id"
 		);
@@ -582,8 +599,9 @@ class Types extends AdminController
 		$id       = Request::getInt('id', 0);
 		$neworder = Request::getVar('neworder', '');
 		$order    = explode('-', $neworder);
+		$database = App::get('db');
 
-		$row = new \Components\Publications\Tables\MasterType($this->database);
+		$row = new \Components\Publications\Tables\MasterType($database);
 
 		// Load object
 		if (!$id || !$row->load($id))
@@ -601,7 +619,7 @@ class Types extends AdminController
 			$row->curation
 		);
 
-		$url = Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=edit&id[]=' . $id, false);
+		$url = Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=edit&id=' . $id, false);
 
 		$manifest = new stdClass;
 		if ($neworder && !empty($order))
@@ -656,10 +674,11 @@ class Types extends AdminController
 		);
 
 		// Get blocks model
-		$blocksModel = new \Components\Publications\Models\Blocks($this->database);
+		$blocksModel = new \Components\Publications\Models\Blocks($database);
 
 		// Get available blocks
-		$this->view->blocks = $blocksModel->getBlocks('*',
+		$this->view->blocks = $blocksModel->getBlocks(
+			'*',
 			" WHERE status=1",
 			" ORDER BY ordering, id"
 		);
@@ -673,7 +692,7 @@ class Types extends AdminController
 		$this->view->config = $this->config;
 
 		// Get all active categories
-		$objC = new \Components\Publications\Tables\Category($this->database);
+		$objC = new \Components\Publications\Tables\Category($database);
 		$this->view->cats = $objC->getCategories();
 
 		// Output the HTML
@@ -705,11 +724,12 @@ class Types extends AdminController
 
 		$fields = Request::getVar('fields', array(), 'post', 'none', 2);
 		$fields = array_map('trim', $fields);
+		$database = App::get('db');
 
 		// Initiate extended database class
-		$row = new \Components\Publications\Tables\MasterType($this->database);
+		$row = new \Components\Publications\Tables\MasterType($database);
 
-		$url = Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=edit&id[]=' . $fields['id'], false);
+		$url = Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=edit&id=' . $fields['id'], false);
 
 		// Load record
 		if ($fields['id'])
@@ -720,8 +740,7 @@ class Types extends AdminController
 		// Bind new data
 		if (!$row->bind($fields))
 		{
-			$this->addComponentMessage($row->getError(), 'error');
-			App::redirect($url);
+			App::redirect($url, $row->getError(), 'error');
 			return;
 		}
 
@@ -836,7 +855,6 @@ class Types extends AdminController
 				Lang::txt('COM_PUBLICATIONS_SUCCESS_TYPE_SAVED')
 			);
 		}
-		return;
 	}
 
 	/**
@@ -872,9 +890,10 @@ class Types extends AdminController
 
 		// Incoming
 		$id = Request::getVar('id', array(0), '', 'array');
+		$database = App::get('db');
 
 		// Load row
-		$row = new \Components\Publications\Tables\MasterType($this->database);
+		$row = new \Components\Publications\Tables\MasterType($database);
 		$row->load( (int) $id[0]);
 
 		// Update order
@@ -911,7 +930,8 @@ class Types extends AdminController
 			return;
 		}
 
-		$rt = new \Components\Publications\Tables\MasterType($this->database);
+		$database = App::get('db');
+		$rt = new \Components\Publications\Tables\MasterType($database);
 
 		foreach ($ids as $id)
 		{

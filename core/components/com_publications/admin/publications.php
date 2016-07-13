@@ -39,6 +39,7 @@ if (!\User::authorise('core.manage', 'com_publications'))
 
 // Include scripts
 require_once(dirname(__DIR__) . DS . 'models' . DS . 'publication.php');
+require_once(dirname(__DIR__) . DS . 'helpers' . DS . 'permissions.php');
 
 // get controller name
 $controllerName = \Request::getCmd('controller', 'items');

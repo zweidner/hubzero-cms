@@ -163,21 +163,22 @@ class UsersModelReset extends JModelForm
 		}
 
 		// Initiate profile classs
-		$profile = new \Hubzero\User\Profile();
-		$profile->load( $id );
+		$profile = User::getInstance($id);
 
 		if (\Hubzero\User\Helper::isXDomainUser($user->get('id'))) {
 			App::abort( 403, Lang::txt('This is a linked account. To change your password you must change it using the procedures available where the account you are linked to is managed.') );
 			return;
 		}
 
-		$password_rules = \Hubzero\Password\Rule::getRules();
+		$password_rules = \Hubzero\Password\Rule::all()
+					->whereEquals('enabled', 1)
+					->rows();
 
 		$password1 = $data['password1'];
 		$password2 = $data['password2'];
 
 		if (!empty($password1)) {
-			$msg = \Hubzero\Password\Rule::validate($password1,$password_rules,$profile->get('username'));
+			$msg = \Hubzero\Password\Rule::verify($password1,$password_rules,$profile->get('username'));
 		} else {
 			$msg = array();
 		}

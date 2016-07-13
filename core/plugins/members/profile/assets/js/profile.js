@@ -12,7 +12,7 @@ if (!HUB) {
 	var HUB = {};
 }
 
-if(!HUB.Members) {
+if (!HUB.Members) {
 	HUB.Members = {};
 }
 
@@ -49,7 +49,6 @@ HUB.Members.Profile = {
 		//profile address section
 		HUB.Members.Profile.addresses();
 		HUB.Members.Profile.locateMe();
-		HUB.Members.Profile.fetchOrcid();
 	},
 	
 	//-------------------------------------------------------------
@@ -130,17 +129,17 @@ HUB.Members.Profile = {
 		
 		var $section = trigger.parents("li"),
 			section_classes = $section.attr("class").split(" ");
-		
+
 		//show edit or close link
-		if($section.find(".section-edit a").html() == "Edit")
-		{   
+		if (!$section.find(".section-edit a").hasClass('open'))
+		{
 			$section.find(".section-edit a").addClass("open").html('&times;'); 
 		}
 		else
 		{
 			$section.find(".section-edit a").removeClass("open").html('Edit');
 		}
-			
+
 		//hide all open sections
 		$("#profile li:not(."+section_classes[0]+") .section-edit a").removeClass("open").html('Edit');
 		$("#profile li:not(."+section_classes[0]+")").removeClass("active").find(".section-edit-container").slideUp();
@@ -177,6 +176,7 @@ HUB.Members.Profile = {
 			data: form.serialize(),
 			success: function(data, status, xhr)
 			{
+				console.log(data);
 				//parse the returned json data
 				var returned = jQuery.parseJSON(data);
 				
@@ -200,7 +200,7 @@ HUB.Members.Profile = {
 				}
 				else if(returned.loggedout)
 				{
-				    HUB.Members.Profile.editRedirect("/");
+					HUB.Members.Profile.editRedirect("/");
 				}
 				else
 				{
@@ -252,9 +252,6 @@ HUB.Members.Profile = {
 			{
 				wykiwygs   = [];
 			}
-			
-			//call ajaxLoad which triggers re-apply
-			jQuery(document).trigger('ajaxLoad');
 		}
 	},
 	
@@ -290,7 +287,7 @@ HUB.Members.Profile = {
 	//-------------------------------------------------------------
 
 	editRedirect: function( location )
-	{              
+	{
 		if(location != '')
 		{
 			window.location.href = location;
@@ -330,7 +327,10 @@ HUB.Members.Profile = {
 				//re-initalize autocompler for tags and wiki editor for bio
 				HUB.Members.Profile.editInterestsAutocompleterReinstantiate();
 				HUB.Members.Profile.editBiographyEditorReinstantiate();
-			
+
+				//call ajaxLoad which triggers re-apply
+				jQuery(document).trigger('ajaxLoad');
+
 				//update the complete ness meter
 				var new_completeness = $("#profile-page-content #member-profile-completeness #meter-percent").attr("data-percent");
 				$("#page_options #meter-percent").width( new_completeness + "%" );
@@ -348,14 +348,14 @@ HUB.Members.Profile = {
 	editValidationHandling: function( form, returned_data, registration_field )
 	{
 		var $ = this.jQuery;
-		
+
 		var error = "",
 			missing = returned_data._missing,
 			invalid = returned_data._invalid;
 
-		if(missing[registration_field] || invalid[registration_field]) 
-		{     
-			if(missing[registration_field])
+		if (missing[registration_field] || invalid[registration_field]) 
+		{
+			if (missing[registration_field])
 			{
 				error = '<p class="error no-margin-top"><strong>Missing Required Field:</strong> ' + missing[registration_field] + '</p>';
 			}
@@ -366,96 +366,91 @@ HUB.Members.Profile = {
 			form.find(".section-edit-errors").html( error );
 		}
 	},
-	
+
 	//-------------------------------------------------------------
-	
+
 	editPrivacy: function()
 	{
-		var $ = this.jQuery;
+		var $ = this.jQuery,
+			privacy = $("#profile-privacy");
 
-		$("#profile-privacy").click( function(event){
-			var pub = 0,
-				id = $(this).attr("data-uidnumber"),
-				url = $(this).attr("href");
-			
-			if($(this).hasClass("private"))
-			{
-				pub = 1;
-			}
-			else
-			{
-				pub = 0;
+		privacy.on('click', function(event){
+			var pub = 1,
+				id  = $(this).attr('data-id'),
+				url = $(this).attr('href');
+
+			if ($(this).hasClass("private")) {
+				pub = 5;
 			}
 
-			
 			var params = {
 				'option': 'com_members',
 				'id': id,
 				'task': 'save',
-				'profile[public]': pub,
-				'field_to_check[]': 'profile[public]',
+				'profileaccess': pub,
+				'field_to_check[]': 'profileaccess',
 				'no_html': 1
 			};
-			
+
 			$.post(url, params, function(data){ 
 				var returned = jQuery.parseJSON(data);
-				
-				if(returned.success)
-				{
-					if(pub)
-					{
-						$("#profile-privacy").removeClass("private");
-						$("body").find(".tooltip-text").html("Click here to set your profile private.");
-						$("body").find("#profile-privacy").html("Public Profile :: Click here to set your profile private.");
-					}
-					else
-					{
-						$("#profile-privacy").addClass("private");
-						$("body").find(".tooltip-text").html("Click here to set your profile public.");
-						$("body").find("#profile-privacy").html("Private Profile :: Click here to set your profile public.");
+
+				if (returned.success) {
+					if (pub) {
+						privacy
+							.removeClass("private")
+							.html("Public Profile :: " + privacy.attr('data-private'));
+
+						$("body").find(".tooltip-text").html(privacy.attr('data-private'));
+					} else {
+						privacy
+							.addClass("private")
+							.html("Private Profile :: " + privacy.attr('data-public'));
+
+						$("body").find(".tooltip-text").html(privacy.attr('data-public'));
 					}
 				}
 			});
-			
+
 			event.preventDefault();
 		});
 	},
-	
+
 	//-------------------------------------------------------------
-	
+
 	editProfilePicture: function()
 	{
 		var $ = this.jQuery;
-		
+
 		var $identity = $("#page_identity"),
-		    $change = $("<a id=\"page_identity_change\"><span>Change Picture</span></a>");
-			
+		    $change = $('<a id="page_identity_change"><span>Change Picture</span></a>');
+
 		//if this is our profile otherwise dont do ot
 		if( $(".section-edit a").length )
 		{
 			var w = $identity.find("img").width() + 2;
 			w = (w < 165) ? 165 : w;
-			
+
 			$change
 				.css('width',  w)
 				.attr("href", window.location.href.replace("profile","ajaxupload"))
 				.appendTo($identity);
-					
-			//edit picture	
+
+			//edit picture
 			$('.com_members')
 				.on("click", "#page_identity_change", function(event) {
 					HUB.Members.Profile.editProfilePicturePopup();
 					event.preventDefault();
-				});	
+				});
 		}
 	},
-	
+
 	//-------------------------------------------------------------
-	
+
 	editProfilePicturePopup: function()
 	{
 		var $ = this.jQuery;
-		
+
 		$('#page_identity_change').fancybox({
 			type: 'ajax',
 			width: 500,
@@ -469,7 +464,7 @@ HUB.Members.Profile = {
 			{
 				href = $(this).attr('href').replace("#", "");
 				href += (href.indexOf('?') == -1) ? '?no_html=1' : '&no_html=1' ;
-				$(this).attr('href', href);	
+				$(this).attr('href', href);
 			},
 			beforeShow: function()
 			{
@@ -480,12 +475,26 @@ HUB.Members.Profile = {
 				$("#ajax-upload-container")
 					.on("click", "#remove-picture", function(event) {
 						event.preventDefault();
+
+						$.get($(this).attr('href'), function(data){});
+
 						$(this).hide();
-						$("#ajax-upload-right").find("table").hide();
-						$("#ajax-upload-right").append("<p class=\"warning\" style=\"margin-top:0;\">You must save changes to remove your profile picture.</p>"); 
-						
-						$("#profile-picture").attr("value", "");
+
 						$("#picture-src").attr("src", $("#picture-src").attr("data-default-pic"));
+						// load exact page to get results new profile pic sources
+						// not ideal way to do this, save should really return new profile pic
+						$.get(window.location.href, function(data)
+						{
+							var full = $(data).find('.profile-pic.full').first().attr('src'),
+								thumb = $(data).find('.profile-pic.thumb').first().attr('src');
+
+							// update all full & thumb
+							$('.profile-pic.full').attr('src', full + '?' + new Date().getTime());
+							$('.profile-pic.thumb').attr('src', thumb + '?' + new Date().getTime());
+
+							// close fancy box
+							$.fancybox.close();
+						});
 					})
 					.on("click", ".section-edit-cancel", function(event) {
 						event.preventDefault();
@@ -496,9 +505,9 @@ HUB.Members.Profile = {
 						var form = $("#ajax-upload-container").find("form");
 
 						// save profile picture updates
-						$.post( form.attr("action"), form.serialize(), function(data){
+						$.post(form.attr("action"), form.serialize(), function(data){
 							var save = jQuery.parseJSON(data);
-							if(save.success)
+							if (save.success)
 							{
 								// load exact page to get results new profile pic sources
 								// not ideal way to do this, save should really return new profile pic
@@ -520,22 +529,22 @@ HUB.Members.Profile = {
 			}
 		});
 	},
-	
+
 	//-------------------------------------------------------------
-	
+
 	editProfilePictureUpload: function()
 	{
 		var $ = this.jQuery;
-		
+
 		var uploader = new qq.FileUploader({
 			element: $("#ajax-uploader")[0],
 			action: $("#ajax-uploader").attr("data-action"),
 			multiple: false,
 			template: '<div class="qq-uploader">' + 
-	                '<div class="qq-upload-drop-area"><span>Drop files here to upload</span></div>' +
-	                '<div class="qq-upload-button">Upload an Image</div>' +
-	                '<ul class="qq-upload-list"></ul>' + 
-	             '</div>',
+						'<div class="qq-upload-button"><span>Upload an Image</span></div>' +
+						'<div class="qq-upload-drop-area"><span>Upload an Image</span></div>' +
+						'<ul class="qq-upload-list"></ul>' + 
+					'</div>',
 			onSubmit: function(id, file)
 			{
 				$("#ajax-upload-left").append("<div id=\"ajax-upload-uploading\" />");
@@ -545,36 +554,44 @@ HUB.Members.Profile = {
 				$("#ajax-upload-uploading").fadeOut("slow").remove();
 				var url = $("#ajax-uploader").attr("data-action");
 				url = url.replace("doajaxupload","getfileatts"); 
-				
+
 				$.post(url, {file:response.file, dir:response.directory}, function(data) {
 					var upload = jQuery.parseJSON( data );
-					if(upload)
+					if (upload)
 					{
-						$("#ajax-upload-right").find("table").show();
 						$("#ajax-upload-right").find("p.warning").remove();
-						
 						$("#picture-src").attr("src", upload.src + "?v=" + new Date().getTime());
-						$("#picture-name").html(upload.name);
-						$("#picture-size").html(upload.size);
-						$("#picture-width").html(upload.width);
-						$("#picture-height").html(upload.height);
-						$("#profile-picture").attr("value", upload.name); 
+
+						// load exact page to get results new profile pic sources
+						// not ideal way to do this, save should really return new profile pic
+						$.get(window.location.href, function(data)
+						{
+							var full = $(data).find('.profile-pic.full').first().attr('src'),
+								thumb = $(data).find('.profile-pic.thumb').first().attr('src');
+
+							// update all full & thumb
+							$('.profile-pic.full').attr('src', full + '?' + new Date().getTime());
+							$('.profile-pic.thumb').attr('src', thumb + '?' + new Date().getTime());
+
+							// close fancy box
+							$.fancybox.close();
+						});
 					}
 				})
 			}
 		});
 	},
-	
+
 	//-------------------------------------------------------------
-	
+
 	editTermsOfUse: function()
 	{
 		var $ = this.jQuery;
-		
-		if( $("#usage-agreement-popup").length )
+
+		if ($("#usage-agreement-popup").length)
 		{
 			$("#usage-agreement-popup").hide();
-			
+
 			$.fancybox({
 				type:'inline',
 				autoSize: false, 
@@ -591,35 +608,35 @@ HUB.Members.Profile = {
 			});
 		}
 	},
-	
+
 	//-------------------------------------------------------------
-	
+
 	editCompletenessMeter: function()
 	{
 		var $ = this.jQuery;
-		
-		if( $("#member-profile-completeness").length )
+
+		if ($("#member-profile-completeness").length)
 		{
 			$("#member-profile-completeness").appendTo( $("#page_options") ).show();
 			var timeout = setTimeout(function() {
 				$("#meter-percent").width( $("#meter-percent").attr("data-percent") + "%" );
 			}, 1000);
 		}
-		
-		if( $("#award-info").length )
+
+		if ($("#award-info").length)
 		{
 			$("#completeness-info").on("click", function(event) {
 				$("#award-info").slideToggle();
 			});
 		}
 	},
-	
+
 	//-------------------------------------------------------------
-	
+
 	editProfileSectionWithHash: function()
 	{
 		var $ = this.jQuery;
-		
+
 		var timeout = null,
 			distance = 0,
 			bottom = 0,
@@ -627,24 +644,24 @@ HUB.Members.Profile = {
 			item = null,
 			item_edit_btn = null,
 			hash = document.location.hash.replace("#", "");
-			
+
 		//if we have a hash and we have an edit btn(on our profile)
-		if(hash != "")
+		if (hash != "")
 		{
 			item = $("." + hash),
 			item_edit_btn = item.find(".section-edit a");
-			if(item_edit_btn.length)
+			if (item_edit_btn.length)
 			{
 				//trigger edit button click
 				item_edit_btn.trigger("click");
-			
+
 				//set timeout to allow section to open so we can capture height of section
 				timeout = setTimeout(function() {
 					window_bottom = $(window).innerHeight();
 					bottom = item.offset().top + item.outerHeight(true);
-				
-					if(bottom > window_bottom)
-					{   
+
+					if (bottom > window_bottom)
+					{
 						distance = bottom - window_bottom + 20;
 						$("body").animate({ scrollTop: distance }, 1500);
 					}
@@ -652,11 +669,11 @@ HUB.Members.Profile = {
 			}
 		}
 	},
-	
+
 	addresses: function()
 	{
 		var $ = this.jQuery;
-		
+
 		//delete confirmation
 		$('.com_members').on('click','.delete-address', function(event) {
 			if (!confirm("Are you sure you want to delete this member Address?"))
@@ -664,7 +681,7 @@ HUB.Members.Profile = {
 				event.preventDefault();
 			}
 		});
-		
+
 		//add/edit addresses
 		if ($('.add-address, .edit-address').length) {
 			$('.add-address, .edit-address').fancybox({
@@ -700,22 +717,22 @@ HUB.Members.Profile = {
 			});
 		}
 	},
-	
+
 	locateMe: function()
 	{
 		var $ = this.jQuery;
-		
+
 		//locate me
 		$('body').on('click', '#locate-me', function(event) {
 			event.preventDefault();
-			
+
 			//make sure we have the ability
 			if (!navigator.geolocation) 
 			{
 				alert('You browser is not capable of gettting you location.');
 				return;
 			}
-				
+
 			//use the browser geo location
 			navigator.geolocation.getCurrentPosition(
 				HUB.Members.Profile.locateMeGotLocation,
@@ -728,20 +745,20 @@ HUB.Members.Profile = {
 			);
 		});
 	},
-	
+
 	locateMeGotLocation: function( location )
 	{
 		var $ = HUB.Members.Profile.jQuery;
-		
+
 		var latitude      = location.coords.latitude,
 			longitude     = location.coords.longitude,
 			reverseGeoUrl = 'https://maps.google.com/maps/api/geocode/json?sensor=true&latlng=' + latitude + ',' + longitude;
-		
+
 		var address_parts = [];
-		
+
 		$.getJSON(reverseGeoUrl, function(json){
 			var result = json.results[0].address_components;
-			
+
 			for (var i=0, n=result.length; i<n; i++)
 			{
 				//do we have a street
@@ -749,38 +766,38 @@ HUB.Members.Profile = {
 				{
 					address_parts['address1'] = result[i].long_name;
 				}
-				
+
 				//do we have a street
 				if (jQuery.inArray('route', result[i].types) > -1)
 				{
 					address_parts['address1'] += ' ' + result[i].long_name;
 				}
-				
+
 				//do we have a state / region
 				if (jQuery.inArray('locality', result[i].types) > -1)
 				{
 					address_parts['city'] = result[i].long_name;
 				}
-				
+
 				//do we have a state / region
 				if (jQuery.inArray('administrative_area_level_1', result[i].types) > -1)
 				{
 					address_parts['region'] = result[i].long_name;
 				}
-				
+
 				//do we have a postal code
 				if (jQuery.inArray('postal_code', result[i].types) > -1)
 				{
 					address_parts['postal'] = result[i].long_name;
 				}
-				
+
 				//do we have a country
 				if (jQuery.inArray('country', result[i].types) > -1)
 				{
 					address_parts['country'] = result[i].long_name;
 				}
 			}
-			
+
 			//set values
 			$('.member-address-form').find('#address1').val(address_parts['address1']);
 			$('.member-address-form').find('#addressCity').val(address_parts['city']);
@@ -797,89 +814,6 @@ HUB.Members.Profile = {
 		var $ = HUB.Members.Profile.jQuery;
 
 		alert('Geo Location Error: ' + error.message);
-	},
-
-	fetchOrcidRecords: function()
-	{
-		var $ = this.jQuery;
-
-		var firstName = $('#first-name').val();
-		var lastName  = $('#last-name').val();
-		var email     = $('#email').val();
-
-		if (!firstName && !lastName && !email) {
-			alert('Please fill at least one of the fields.');
-			return;
-		}
-
-		// return param: 1 means return ORCID to use to finish registration, assumes registration page
-		// return param: 0 means do not return ORCID, assumes profile page
-		var url = $('#base_uri').val() + '/index.php?option=com_members&controller=orcid&task=fetch&no_html=1&fname=' + firstName + '&lname=' + lastName + '&email=' + email + '&return=0';
-
-		$.ajax({
-			url: url,
-			type: 'GET',
-			success: function(data, status, jqXHR)
-			{
-				$('#section-orcid-results').html(jQuery.parseJSON(data));
-			}
-		});
-	},
-
-	fetchOrcid: function()
-	{
-		var $ = this.jQuery;
-
-		$('body').on('click', '#get-orcid-results', function(event) {
-			event.preventDefault();
-
-			HUB.Members.Profile.fetchOrcidRecords();
-		});
-	},
-
-	associateOrcid: function(parentField, orcid)
-	{
-		var url = $('#base_uri').val() + '/index.php?option=com_members&controller=orcid&task=associate&no_html=1&orcid=' + orcid;
-
-		$.ajax({
-			url: url,
-			type: 'GET',
-			success: function(data, status, jqXHR) {
-				var status = jQuery.parseJSON(data);
-
-				if (status) {
-					//window.parent.document.getElementById('orcid').value = orcid;
-					window.parent.jQuery.fancybox.close();
-				}
-			}
-		});
-	},
-
-	createOrcid: function(fname, lname, email)
-	{
-		$.ajax({
-			url: $('#base_uri').val() + '/index.php?option=com_members&controller=orcid&task=create&no_html=1&fname=' + fname + '&lname=' + lname + '&email=' + email,
-			type: 'GET',
-			success: function(data, status, jqXHR) {
-				var response = jQuery.parseJSON(data);
-
-				if (response.success) {
-					if (response.orcid) {
-						alert('Successful creation of your new ORCID. Claim the ORCID through the link sent to your email.');
-						window.parent.document.getElementById('orcid').value = response.orcid;
-						window.parent.jQuery.fancybox.close();
-					} else {
-						alert('ORCID service reported a successful creation but we failed to retrieve an ORCID. Please contact support.');
-					}
-				} else {
-					if (response.message) {
-						alert(response.message);
-					} else {
-						alert('Failed to create a new ORCID. Possible existence of an ORCID with the same email.');
-					}
-				}
-			}
-		});
 	}
 };
 
@@ -887,35 +821,4 @@ HUB.Members.Profile = {
 
 jQuery(document).ready(function($){
 	HUB.Members.Profile.initialize();
-
-	// Iframe method
-	if ($('#orcid-fetch').length) {
-		$('#orcid-fetch').fancybox({
-			type: 'iframe',   // change this to 'ajax' if you want to use AJAX
-			width: 700,
-			height: 'auto',
-			autoSize: false,
-			fitToView: false,
-			titleShow: false,
-			closeClick: false,
-			helpers: { 
-				overlay : {closeClick: false} // prevents closing when clicking OUTSIDE fancybox
-			},
-			tpl: {
-				wrap:'<div class="fancybox-wrap"><div class="fancybox-skin"><div class="fancybox-outer"><div id="sbox-content" class="fancybox-inner"></div></div></div></div>'
-			},
-			beforeLoad: function() {
-				href = $(this).attr('href');
-				if (href.indexOf('?') == -1) {
-						href += '?tmpl=component';    // Change to no_html=1 if using AJAX
-				} else {
-						href += '&tmpl=component';    // Change to no_html=1 if using AJAX
-				}
-				$(this).attr('href', href);
-			},
-			afterClose: function() {
-				HUB.Members.Profile.editReloadSections();
-			}
-		});
-	}
 });

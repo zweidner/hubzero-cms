@@ -70,7 +70,7 @@ class plgUserJoomla extends \Hubzero\Plugin\Plugin
 					// Look for user language. Priority:
 					//  1. User frontend language
 					//  2. User backend language
-					$userParams = new \Hubzero\Config\Registry($user['params']);
+					$userParams = new Hubzero\Config\Registry($user['params']);
 					$userLocale = $userParams->get('language', $userParams->get('admin_language', $defaultLocale));
 
 					if ($userLocale != $defaultLocale)
@@ -178,8 +178,68 @@ class plgUserJoomla extends \Hubzero\Plugin\Plugin
 		$session->set('user', $instance);
 
 		// Check to see the the session already exists.
-		$app = JFactory::getApplication();
-		$app->checkSession();
+		//$app = JFactory::getApplication();
+		//$app->checkSession();
+		if ((App::get('config')->get('session_handler') != 'database' && (time() % 2 || $session->isNew()))
+		 || (App::get('config')->get('session_handler') == 'database' && $session->isNew()))
+		{
+			if (App::get('config')->get('session_handler') == 'database' && App::has('db'))
+			{
+				$db   = App::get('db');
+				//$user = User::getInstance();
+
+				$query = $db->getQuery(true);
+				$query->select($query->qn('session_id'))
+					->from($query->qn('#__session'))
+					->where($query->qn('session_id') . ' = ' . $query->q($session->getId()));
+
+				$db->setQuery($query, 0, 1);
+				$exists = $db->loadResult();
+
+				// If the session record doesn't exist initialise it.
+				if (!$exists)
+				{
+					$query->clear();
+
+					$ip = Request::ip();
+
+					if ($session->isNew())
+					{
+						$query->insert($query->qn('#__session'))
+							->columns($query->qn('session_id') . ', ' . $query->qn('client_id') . ', ' . $query->qn('time') .  ', ' . $query->qn('ip'))
+							->values($query->q($session->getId()) . ', ' . (int) App::get('client')->id . ', ' . $query->q((int) time()) . ', ' . $query->q($ip));
+						$db->setQuery($query);
+					}
+					else
+					{
+						$query->insert($query->qn('#__session'))
+							->columns(
+								$query->qn('session_id') . ', ' . $query->qn('client_id') . ', ' . $query->qn('guest') . ', ' .
+								$query->qn('time') . ', ' . $query->qn('userid') . ', ' . $query->qn('username') .  ', ' . $query->q('ip')
+							)
+							->values(
+								$query->q($session->getId()) . ', ' . (int) App::get('client')->id . ', ' . (int) $instance->get('guest') . ', ' .
+								$query->q((int) $session->get('session.timer.start')) . ', ' . (int) $instance->get('id') . ', ' . $query->q($instance->get('username')) .  ', ' . $query->q($ip)
+							);
+
+						$db->setQuery($query);
+					}
+
+					// If the insert failed, exit the application.
+					if (App::get('client')->id != 4 && !$db->execute())
+					{
+						exit($db->getErrorMsg());
+					}
+				}
+			}
+
+			// Session doesn't exist yet, so create session variables
+			if ($session->isNew())
+			{
+				$session->set('registry', new Hubzero\Config\Registry('session'));
+				$session->set('user', $instance);
+			}
+		}
 
 		if (App::get('config')->get('session_handler') == 'database')
 		{
@@ -212,7 +272,7 @@ class plgUserJoomla extends \Hubzero\Plugin\Plugin
 	 */
 	public function onUserLogout($user, $options = array())
 	{
-		$my = User::getRoot();
+		$my = User::getInstance();
 
 		// Make sure we're a valid user first
 		if ($user['id'] == 0 && !$my->get('tmp_user'))
@@ -254,11 +314,10 @@ class plgUserJoomla extends \Hubzero\Plugin\Plugin
 	 */
 	protected function _getUser($user, $options = array())
 	{
-		$instance = JUser::getInstance();
+		$instance = Hubzero\User\User::oneByUsername($user['username']);
 
-		if ($id = intval(JUserHelper::getUserId($user['username'])))
+		if ($id = intval($instance->get('id')))
 		{
-			$instance->load($id);
 			return $instance;
 		}
 
@@ -268,15 +327,16 @@ class plgUserJoomla extends \Hubzero\Plugin\Plugin
 		// Default to Registered.
 		$defaultUserGroup = $config->get('new_usertype', 2);
 
-		$acl = JFactory::getACL();
+		//$acl = JFactory::getACL();
 
 		$instance->set('id',             0);
 		$instance->set('name',           $user['fullname']);
 		$instance->set('username',       $user['username']);
-		$instance->set('password_clear', ((isset($user['password_clear'])) ? $user['password_clear'] : ''));
+		//$instance->set('password_clear', ((isset($user['password_clear'])) ? $user['password_clear'] : ''));
 		$instance->set('email',          $user['email']);  // Result should contain an email (check)
 		$instance->set('usertype',       'deprecated');
-		$instance->set('groups',         array($defaultUserGroup));
+		$instance->set('accessgroups',   array($defaultUserGroup));
+		$instance->set('activation',     1);
 
 		// Check joomla user activation setting
 		// 0 = automatically confirmed
@@ -297,7 +357,7 @@ class plgUserJoomla extends \Hubzero\Plugin\Plugin
 		// Now, also check to see if user came in via an auth plugin, as that may affect their approval status
 		if (isset($user['auth_link']))
 		{
-			$domain = \Hubzero\Auth\Domain::find_by_id($user['auth_link']->auth_domain_id);
+			$domain = Hubzero\Auth\Domain::find_by_id($user['auth_link']->auth_domain_id);
 
 			if ($domain && is_object($domain))
 			{
@@ -325,6 +385,8 @@ class plgUserJoomla extends \Hubzero\Plugin\Plugin
 			// No existing user and autoregister off, this is a temporary user.
 			$instance->set('tmp_user', true);
 		}
+
+		$instance->set('password_clear', (isset($user['password_clear']) ? $user['password_clear'] : ''));
 
 		return $instance;
 	}

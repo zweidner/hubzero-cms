@@ -32,6 +32,7 @@
 
 namespace Components\Members\Site\Controllers;
 
+use Components\Members\Models\Member;
 use Hubzero\Component\SiteController;
 use Filesystem;
 use Request;
@@ -39,6 +40,8 @@ use Route;
 use Lang;
 use User;
 use App;
+
+include_once(dirname(dirname(__DIR__)) . DS . 'models' . DS . 'member.php');
 
 /**
  * Members controller class for media
@@ -48,7 +51,7 @@ class Media extends SiteController
 	/**
 	 * Execute a task
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function execute()
 	{
@@ -70,34 +73,26 @@ class Media extends SiteController
 	/**
 	 * Show a form for uploading a file
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function ajaxuploadTask()
 	{
-		//get the id
+		// get the id
 		$id = Request::getInt('id', 0);
-		if (!$id)
-		{
-			return;
-		}
 
-		//load profile from id
-		$this->view->profile = \Hubzero\User\Profile::getInstance($id);
+		// load profile from id
+		$profile = Member::oneOrFail($id);
 
-		if (!$this->view->profile)
+		if (!$profile->get('id'))
 		{
 			App::abort(404, Lang::txt('MEMBERS_NO_ID'));
 		}
 
-		//instantiate view and pass needed vars
-		$this->view->config = $this->config;
-
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
-		}
-
+		// instantiate view and pass needed vars
 		$this->view
+			->set('config', $this->config)
+			->set('profile', $profile)
+			->setErrors($this->getErrors())
 			->setLayout('upload')
 			->display();
 	}
@@ -105,7 +100,7 @@ class Media extends SiteController
 	/**
 	 * Upload a file to the profile via AJAX
 	 *
-	 * @return     string
+	 * @return  string
 	 */
 	public function doajaxuploadTask()
 	{
@@ -137,8 +132,9 @@ class Media extends SiteController
 
 		//get the id and load profile
 		$id = Request::getVar('id', 0);
-		$profile = \Hubzero\User\Profile::getInstance($id);
-		if (!$profile)
+		$profile = Member::oneOrFail($id);
+
+		if (!$profile->get('id'))
 		{
 			return;
 		}
@@ -192,7 +188,7 @@ class Media extends SiteController
 		}
 
 		$file = $uploadDirectory . $filename . '.' . $ext;
-		$final_file = $uploadDirectory . 'profile.png';
+		$final_file  = $uploadDirectory . 'profile.png';
 		$final_thumb = $uploadDirectory . 'thumb.png';
 
 		if ($stream)
@@ -255,7 +251,7 @@ class Media extends SiteController
 	/**
 	 * Set the picture of a profile
 	 *
-	 * @return     string JSON
+	 * @return  string  JSON
 	 */
 	public function ajaxuploadsaveTask()
 	{
@@ -269,8 +265,8 @@ class Media extends SiteController
 		}
 
 		//load the user profile
-		$profile = \Hubzero\User\Profile::getInstance($id);
-		if (!$profile)
+		$profile = Member::oneOrFail($id);
+		if (!$profile->get('id'))
 		{
 			echo json_encode(array('error' => 'Unable to locate user profile.'));
 		}
@@ -280,7 +276,7 @@ class Media extends SiteController
 		$profile->set('picture', $p['picture']);
 
 		//save
-		if ($profile->update())
+		if ($profile->save())
 		{
 			echo json_encode(array('success' => true));
 		}
@@ -293,7 +289,7 @@ class Media extends SiteController
 	/**
 	 * Get the size, width, height, and src attributes for a file
 	 *
-	 * @return     string JSON
+	 * @return  string  JSON
 	 */
 	public function getfileattsTask()
 	{
@@ -329,7 +325,7 @@ class Media extends SiteController
 	/**
 	 * Upload a file to the wiki
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function uploadTask()
 	{
@@ -346,8 +342,7 @@ class Media extends SiteController
 		if (!$id)
 		{
 			$this->setError(Lang::txt('MEMBERS_NO_ID'));
-			$this->displayTask('', $id);
-			return;
+			return $this->displayTask('', $id);
 		}
 
 		// Incoming file
@@ -355,8 +350,7 @@ class Media extends SiteController
 		if (!$file['name'])
 		{
 			$this->setError(Lang::txt('MEMBERS_NO_FILE'));
-			$this->displayTask('', $id);
-			return;
+			return $this->displayTask('', $id);
 		}
 
 		// Build upload path
@@ -368,8 +362,7 @@ class Media extends SiteController
 			if (!Filesystem::makeDirectory($path))
 			{
 				$this->setError(Lang::txt('UNABLE_TO_CREATE_UPLOAD_PATH'));
-				$this->displayTask('', $id);
-				return;
+				return $this->displayTask('', $id);
 			}
 		}
 
@@ -398,8 +391,7 @@ class Media extends SiteController
 					if (!Filesystem::delete($path . DS . $curfile))
 					{
 						$this->setError(Lang::txt('UNABLE_TO_DELETE_FILE'));
-						$this->displayTask($file['name'], $id);
-						return;
+						return $this->displayTask($file['name'], $id);
 					}
 				}
 
@@ -409,16 +401,15 @@ class Media extends SiteController
 					if (!Filesystem::delete($path . DS . $curthumb))
 					{
 						$this->setError(Lang::txt('UNABLE_TO_DELETE_FILE'));
-						$this->displayTask($file['name'], $id);
-						return;
+						return $this->displayTask($file['name'], $id);
 					}
 				}
 			}
 
 			// Instantiate a profile, change some info and save
-			$profile = \Hubzero\User\Profile::getInstance($id);
+			$profile = Member::oneOrFail($id);
 			$profile->set('picture', $file['name']);
-			if (!$profile->update())
+			if (!$profile->save())
 			{
 				$this->setError($profile->getError());
 			}
@@ -453,7 +444,7 @@ class Media extends SiteController
 	/**
 	 * Delete a file in the wiki
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function deleteTask()
 	{
@@ -463,62 +454,47 @@ class Media extends SiteController
 			return false;
 		}
 
+		Request::checkToken(['get', 'post']);
+
 		// Incoming member ID
 		$id = Request::getInt('id', 0);
 		if (!$id)
 		{
-			$this->setError(Lang::txt('MEMBERS_NO_ID'));
-			$this->displayTask('', $id);
+			$this->setError(Lang::txt('COM_MEMBERS_NO_ID'));
+			return $this->displayTask('', $id);
 		}
 
-		// Incoming file
-		$file = Request::getVar('file', '');
-		if (!$file)
+		$profile = Member::oneOrFail($id);
+
+		if (!$profile->get('id'))
 		{
-			$this->setError(Lang::txt('MEMBERS_NO_FILE'));
-			$this->displayTask('', $id);
+			$this->setError(Lang::txt('COM_MEMBERS_NO_ID'));
+			return $this->displayTask('', $id);
 		}
 
 		// Build the file path
+		$files = array(
+			'profile.png',
+			'thumb.png'
+		);
+
 		$dir  = \Hubzero\Utility\String::pad($id);
 		$path = PATH_APP . DS . $this->filespace() . DS . $dir;
 
-		if (!file_exists($path . DS . $file) or !$file)
+		foreach ($files as $file)
 		{
-			$this->setError(Lang::txt('FILE_NOT_FOUND'));
-		}
-		else
-		{
-			$ih = new \Components\Members\Helpers\ImgHandler();
+			if (!file_exists($path . DS . $file))
+			{
+				$this->setError(Lang::txt('FILE_NOT_FOUND'));
+				continue;
+			}
 
 			// Attempt to delete the file
 			if (!Filesystem::delete($path . DS . $file))
 			{
 				$this->setError(Lang::txt('UNABLE_TO_DELETE_FILE'));
-				$this->displayTask($file, $id);
-				return;
+				continue;
 			}
-
-			$curthumb = $ih->createThumbName($file);
-			if (file_exists($path . DS . $curthumb))
-			{
-				if (!Filesystem::delete($path . DS . $curthumb))
-				{
-					$this->setError(Lang::txt('UNABLE_TO_DELETE_FILE'));
-					$this->displayTask($file, $id);
-					return;
-				}
-			}
-
-			// Instantiate a profile, change some info and save
-			$profile = \Hubzero\User\Profile::getInstance($id);
-			$profile->set('picture', '');
-			if (!$profile->update())
-			{
-				$this->setError($profile->getError());
-			}
-
-			$file = '';
 		}
 
 		// Push through to the image view
@@ -528,9 +504,9 @@ class Media extends SiteController
 	/**
 	 * Display a user's profile picture
 	 *
-	 * @param      string  $file File name
-	 * @param      integer $id   User ID
-	 * @return     void
+	 * @param   string   $file  File name
+	 * @param   integer  $id    User ID
+	 * @return  void
 	 */
 	public function displayTask($file='', $id=0)
 	{
@@ -539,41 +515,36 @@ class Media extends SiteController
 		{
 			$id = Request::getInt('id', 0, 'get');
 		}
-		$this->view->id = $id;
 
 		if (!$file)
 		{
 			$file = Request::getVar('file', '', 'get');
 		}
-		$this->view->file = $file;
 
 		// Build the file path
 		$dir  = \Hubzero\Utility\String::pad($id);
 		$path = PATH_APP . DS . $this->filespace() . DS . $dir;
 
 		// Output HTML
-		$this->view->webpath = '/' . $this->filespace();
-		$this->view->default_picture = $this->config->get('defaultpic', '/core/components/com_members/site/assets/img/profile.gif');
-		$this->view->path = $dir;
-
-		$this->view->file_path = $path;
-
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
-		}
-
-		$this->view->setLayout('display');
-		$this->view->display();
+		$this->view
+			->set('webpath', '/' . $this->filespace())
+			->set('default_picture', $this->config->get('defaultpic', '/core/components/com_members/site/assets/img/profile.gif'))
+			->set('path', $dir)
+			->set('file', $file)
+			->set('id', $id)
+			->set('file_path', $path)
+			->setErrors($this->getErrors())
+			->setLayout('display')
+			->display();
 	}
 
 	/**
 	 * Method to check admin access permission
 	 *
-	 * @param      integer $uid       User ID
-	 * @param      string  $assetType Asset type
-	 * @param      string  $assetId   Asset ID
-	 * @return     boolean True on success
+	 * @param   integer  $uid        User ID
+	 * @param   string   $assetType  Asset type
+	 * @param   string   $assetId    Asset ID
+	 * @return  boolean  True on success
 	 */
 	protected function _authorize($assetType='component', $assetId=null)
 	{
@@ -599,7 +570,7 @@ class Media extends SiteController
 	/**
 	 * Download a file
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function downloadTask()
 	{
@@ -613,7 +584,7 @@ class Media extends SiteController
 		}
 
 		//Load member profile
-		$member = \Hubzero\User\Profile::getInstance($id);
+		$member = Member::oneOrFail($id);
 
 		// check to make sure we have member profile
 		if (!$member)
@@ -637,7 +608,7 @@ class Media extends SiteController
 		$file = urldecode($file);
 
 		// build base path
-		$base_path = $this->filespace() . DS . \Hubzero\User\Profile\Helper::niceidformat($member->get('uidNumber'));
+		$base_path = $this->filespace() . DS . \Hubzero\Utility\String::pad($member->get('id'), 5);
 
 		//if we are on the blog
 		if (Request::getVar('active', 'profile') == 'blog')
@@ -646,10 +617,9 @@ class Media extends SiteController
 			//authorize checks
 			/*if ($this->_authorize() != 'admin')
 			{
-				if (User::get('id') != $member->get('uidNumber'))
+				if (User::get('id') != $member->get('id'))
 				{
 					App::abort(403, Lang::txt('You are not authorized to download the file: ') . ' ' . $file);
-					return;
 				}
 			}*/
 
@@ -657,7 +627,7 @@ class Media extends SiteController
 			$blog_params = Plugin::params('members', 'blog');
 
 			//build the base path to file based of upload path param
-			$base_path = str_replace('{{uid}}', \Hubzero\User\Profile\Helper::niceidformat($member->get('uidNumber')), $blog_params->get('uploadpath'));
+			$base_path = str_replace('{{uid}}', \Hubzero\Utility\String::pad($member->get('id'), 5), $blog_params->get('uploadpath'));
 		}
 
 		//build file path
@@ -682,21 +652,17 @@ class Media extends SiteController
 			// Should only get here on error
 			App::abort(404, Lang::txt('An error occured while trying to output the file'));
 		}
-		else
-		{
-			exit;
-		}
-		return;
+
+		exit;
 	}
 
 	/**
-	 * Download a file
+	 * Get file path
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	private function filespace()
 	{
 		return trim($this->config->get('webpath', '/site/members'), DS);
 	}
 }
-

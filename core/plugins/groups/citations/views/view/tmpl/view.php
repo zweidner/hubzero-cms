@@ -42,7 +42,7 @@ $database = $this->database;
 $citation = $this->citation;
 
 //load user profile
-$profile = \Hubzero\User\Profile::getInstance($citation->uid);
+$profile = User::getInstance($citation->uid);
 
 //get citation type
 $ct = new \Components\Citations\Tables\Type($database);
@@ -116,7 +116,7 @@ $showAbstract = $config->get('citation_rollover', 'no');
 $showAbstract = ($showAbstract == "yes") ? 1 : 0;
 
 //are we showing this citations abstract
-$params = new JParameter($citation->params);
+$params = new \Hubzero\Config\Registry($citation->params);
 $showThisAbstract = $params->get('rollover', $showAbstract);
 
 //get tags and badges
@@ -124,8 +124,8 @@ $tags   = \Components\Citations\Helpers\Format::citationTags($citation, $databas
 $badges = \Components\Citations\Helpers\Format::citationBadges($citation, $database, false);
 
 //are we allowed to show tags and badges
-$showTags 	= $config->get('citation_show_tags', 'yes');
-$showBadges	= $config->get('citation_show_badges', 'yes');
+$showTags   = $config->get('citation_show_tags', 'yes');
+$showBadges = $config->get('citation_show_badges', 'yes');
 
 //get internal associations
 $associationLinks = array();
@@ -550,11 +550,11 @@ $area = Request::getVar('area', 'about');
 				<?php endif; ?>
 
 				<?php if (isset($citation->uid)) : ?>
-					<?php if (is_object($profile) && $profile->get('uidNumber')) : ?>
+					<?php if (is_object($profile) && $profile->get('id')) : ?>
 						<tr>
 							<th><?php echo Lang::txt('COM_CITATIONS_SUBMITTED_BY'); ?></th>
 							<td>
-								<a href="<?php echo Route::url('index.php?option=com_members&id=' . $profile->get('uidNumber')); ?>">
+								<a href="<?php echo Route::url('index.php?option=com_members&id=' . $profile->get('id')); ?>">
 									<?php echo $profile->get('name'); ?>
 								</a>
 							</td>

@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Chris Smoak <csmoak@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -33,9 +32,10 @@
 namespace Components\Developer\Admin\Controllers;
 
 use Hubzero\Component\AdminController;
-use Components\Developer\Models;
+use Components\Developer\Models\Application\Member;
+use Components\Developer\Models\Application;
 use Request;
-use Config;
+use Notify;
 use Lang;
 use User;
 use Date;
@@ -47,14 +47,28 @@ use App;
 class Applications extends AdminController
 {
 	/**
+	 * Execute a task
+	 *
+	 * @return  void
+	 */
+	public function execute()
+	{
+		$this->registerTask('add', 'edit');
+		$this->registerTask('apply', 'save');
+		$this->registerTask('publish', 'state');
+		$this->registerTask('unpublish', 'state');
+
+		parent::execute();
+	}
+
+	/**
 	 * Display a list of entries
 	 *
 	 * @return  void
 	 */
 	public function displayTask()
 	{
-		$this->view->filters = array(
-			'state'    => array(0,1,2), //all states
+		$filters = array(
 			'sort'     => trim(Request::getState(
 				$this->_option . '.' . $this->_controller . '.sort',
 				'filter_order',
@@ -64,71 +78,44 @@ class Applications extends AdminController
 				$this->_option . '.' . $this->_controller . '.sortdir',
 				'filter_order_Dir',
 				'ASC'
-			)),
-			'limit'    => Request::getState(
-				$this->_option . '.' . $this->_controller . '.limit',
-				'limit',
-				Config::get('list_limit'),
-				'int'
-			),
-			'start'    => Request::getState(
-				$this->_option . '.' . $this->_controller . '.limitstart',
-				'limitstart',
-				0,
-				'int'
-			)
+			))
 		);
 
-		// In case limit has been changed, adjust limitstart accordingly
-		$this->view->filters['start'] = ($this->view->filters['limit'] != 0 ? (floor($this->view->filters['start'] / $this->view->filters['limit']) * $this->view->filters['limit']) : 0);
+		$entries = Application::all();
 
-		// Get our model
-		// This is the entry point to the database and the 
-		// table of characters we'll be retrieving data from
-		$model = new Models\Developer();
+		// Get records
+		$rows = $entries
+			->ordered('filter_order', 'filter_order_Dir')
+			->paginated('limitstart', 'limit')
+			->rows();
 
-		// Get a total record count
-		// This is used for pagination and detemrining the total number of pages
-		$this->view->total = $model->applications('count', $this->view->filters);
-
-		// Get a list of records
-		$this->view->rows  = $model->applications('list', $this->view->filters);
-
-		// Output the view
-		$this->view->display();
-	}
-
-	/**
-	 * Create a new entry
-	 *
-	 * @return  void
-	 */
-	public function addTask()
-	{
-		$this->editTask();
+		// Output the HTML
+		$this->view
+			->set('rows', $rows)
+			->set('filters', $filters)
+			->display();
 	}
 
 	/**
 	 * Show a form for editing an entry
 	 *
-	 * @param   object  $row  DrwhoModelSeason
+	 * @param   object  $row
 	 * @return  void
 	 */
 	public function editTask($row=null)
 	{
+		if (!User::authorise('core.edit', $this->_option)
+		 && !User::authorise('core.create', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		// This is a flag to disable the main menu. This makes sure the user
 		// doesn't navigate away while int he middle of editing an entry.
 		// To leave the form, one must explicitely call the "cancel" task.
 		Request::setVar('hidemainmenu', 1);
 
-		// If we're being passed an object, use it instead
-		// Thsi means we came from saveTask() and some error occurred.
-		// Most likely a missing or incorrect field.
-		if (is_object($row))
-		{
-			$this->view->row = $row;
-		}
-		else
+		if (!is_object($row))
 		{
 			// Grab the incoming ID and load the record for editing
 			//
@@ -141,67 +128,51 @@ class Applications extends AdminController
 				$id = $id[0];
 			}
 
-			$this->view->row = new Models\Api\Application($id);
+			$row = Application::oneOrNew($id);
 		}
 
 		// If this is a new record, we'll set the creator data
-		if (!$this->view->row->exists())
+		if ($row->isNew())
 		{
-			$this->view->row->set('created_by', User::get('id'));
-			$this->view->row->set('created', Date::of('now')->toSql());
-		}
-
-		// Get the show model.
-		// We will need this in the form to output a list of seasons.
-		$this->view->model = new Models\Developer();
-
-		// Pass any received errors to the view
-		// These will be coming from the editTask()
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
+			$row->set('created_by', User::get('id'));
+			$row->set('created', Date::of('now')->toSql());
 		}
 
 		// Output the view
 		$this->view
-		     ->setLayout('edit')
-		     ->display();
-	}
-
-	/**
-	 * Save an entry and show the edit form
-	 *
-	 * @return     void
-	 */
-	public function applyTask()
-	{
-		$this->saveTask(false);
+			->set('row', $row)
+			->setLayout('edit')
+			->display();
 	}
 
 	/**
 	 * Save an entry
 	 *
-	 * @param      boolean $redirect Redirect after save?
-	 * @return     void
+	 * @return  void
 	 */
-	public function saveTask($redirect=true)
+	public function saveTask()
 	{
 		// [SECURITY] Check for request forgeries
 		Request::checkToken();
+
+		if (!User::authorise('core.edit', $this->_option)
+		 && !User::authorise('core.create', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
 
 		// Incoming
 		$fields = Request::getVar('fields', array(), 'post', 'none', 2);
 		$team   = Request::getVar('team', '', 'post', 2, 'none');
 
 		// Bind the incoming data to our mdoel
-		$row = new Models\Api\Application($fields);
+		$row = Application::oneOrNew($fields['id'])->set($fields);
 
 		// Validate and save the data
-		if (!$row->store(true))
+		if (!$row->save())
 		{
-			$this->setError($row->getError());
-			$this->editTask($row);
-			return;
+			Notify::error($row->getError());
+			return $this->editTask($row);
 		}
 
 		// parse incoming team
@@ -217,18 +188,18 @@ class Applications extends AdminController
 				if (strpos($t, '@'))
 				{
 					// load profile by email
-					$profile = \Hubzero\User\Profile\Helper::find_by_email($t);
+					$profile = \Hubzero\User\User::oneByEmail($t);
 				}
 				else
 				{
 					// load profile by username
-					$profile = \Hubzero\User\Profile::getInstance($t);
+					$profile = \Hubzero\User\User::oneOrNew($t);
 				}
 
 				// swap usernames for uidnumbers
 				if ($profile)
 				{
-					$team[$k] = $profile->get('uidNumber');
+					$team[$k] = $profile->get('id');
 				}
 				else
 				{
@@ -242,46 +213,41 @@ class Applications extends AdminController
 		$team[] = User::get('id');
 
 		// get current team
-		$currentTeam = $row->team()->lists('uidNumber');
+		$currentTeam = $row->team()->rows();
 
-		// remove members not included now
-		foreach (array_diff($currentTeam, $team) as $uidNumber)
-		{
-			$member = $row->team($uidNumber);
-			$member->delete();
-		}
+		$found = array();
 
-		// add each non-team member to team
-		foreach (array_diff($team, $currentTeam) as $uidNumber)
+		// Remove members not included now
+		foreach ($currentTeam as $member)
 		{
-			if ($uidNumber < 1)
+			if (!in_array($member->get('uidNumber'), $team))
 			{
-				continue;
+				$member->destroy();
 			}
 
-			// new team member object
-			$teamMember = new Models\Api\Application\Team\Member(array(
-				'uidNumber'      => $uidNumber,
-				'application_id' => $row->get('id')
-			));
-			$teamMember->store();
+			$found[] = $member->get('uidNumber');
 		}
 
-		// Are we redirecting?
-		// This will happen if a user clicks the "save & close" button.
-		if ($redirect)
+		// Add each non-team member to team
+		foreach ($team as $uidNumber)
 		{
-			// Set the redirect
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-				Lang::txt('COM_DEVELOPER_APPLICATION_SAVED')
-			);
-			return;
+			if (!in_array($uidNumber, $found))
+			{
+				$member = Member::blank();
+				$member->set('uidNumber', $uidNumber);
+				$member->set('application_id', $row->get('id'));
+				$member->save();
+			}
 		}
 
-		// Display the edit form. This will happen if the user clicked
-		// the "save" or "apply" button.
-		$this->editTask($row);
+		Notify::success(Lang::txt('COM_DEVELOPER_APPLICATION_SAVED'));
+
+		if ($this->getTask() == 'apply')
+		{
+			return $this->editTask($row);
+		}
+
+		$this->cancelTask();
 	}
 
 	/**
@@ -294,6 +260,11 @@ class Applications extends AdminController
 		// [SECURITY] Check for request forgeries
 		Request::checkToken();
 
+		if (!User::authorise('core.delete', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		// Incoming
 		$ids = Request::getVar('id', array());
 		$ids = (!is_array($ids) ? array($ids) : $ids);
@@ -301,49 +272,32 @@ class Applications extends AdminController
 		// Do we actually have any entries?
 		if (count($ids) > 0)
 		{
+			$i = 0;
+
 			// Loop through all the IDs
 			foreach ($ids as $id)
 			{
 				// Get the model for this entry
-				$entry = new Models\Api\Application(intval($id));
+				$entry = Application::oneOrFail(intval($id));
 
 				// Delete the entry
-				if (!$entry->delete())
+				if (!$entry->destroy())
 				{
-					// If the deletion process fails for any reason, we'll take the 
-					// error message passed from the model and assign it to the message
-					// handler to be displayed by the template after we redirect back
-					// to the main listing.
 					Notify::error($entry->getError());
+					continue;
 				}
+
+				$i++;
 			}
 		}
 
 		// Set the redirect URL to the main entries listing.
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-			Lang::txt('COM_DEVELOPER_APPLICATIONS_DELETED')
-		);
-	}
+		if ($i)
+		{
+			Notify::success(Lang::txt('COM_DEVELOPER_APPLICATIONS_DELETED'));
+		}
 
-	/**
-	 * Calls stateTask to publish entries
-	 *
-	 * @return  void
-	 */
-	public function publishTask()
-	{
-		$this->stateTask(1);
-	}
-
-	/**
-	 * Calls stateTask to unpublish entries
-	 *
-	 * @return  void
-	 */
-	public function unpublishTask()
-	{
-		$this->stateTask(0);
+		$this->cancelTask();
 	}
 
 	/**
@@ -352,10 +306,17 @@ class Applications extends AdminController
 	 * @param   integer  $state  The state to set entries to
 	 * @return  void
 	 */
-	public function stateTask($state=0)
+	public function stateTask()
 	{
 		// [SECURITY] Check for request forgeries
 		Request::checkToken(['get', 'post']);
+
+		if (!User::authorise('core.edit.state', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
+		$state = $this->getTask() == 'publish' ? 1 : 0;
 
 		// Incoming
 		$ids = Request::getVar('id', array(0));
@@ -366,29 +327,23 @@ class Applications extends AdminController
 		{
 			// No entries found, so go back to the entries list with
 			// a message scolding the user for not selecting anything. Tsk, tsk.
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-				Lang::txt('COM_DEVELOPER_SELECT_APPLICATION_TO', $this->_task),
-				'error'
-			);
-			return;
+			Notify::warning(Lang::txt('COM_DEVELOPER_SELECT_APPLICATION_TO', $this->_task));
+
+			return $this->cancelTask();
 		}
 
 		// Loop through all the IDs
 		$success = 0;
+
 		foreach ($ids as $id)
 		{
 			// Load the entry and set its state
-			$row = new Models\Api\Application(intval($id));
+			$row = Application::oneOrFail(intval($id));
 			$row->set('state', $state);
 
 			// Store the changes
-			if (!$row->store())
+			if (!$row->save())
 			{
-				// If the store() process fails for any reason, we'll take the 
-				// error message passed from the model and assign it to the message
-				// handler to be displayed by the template after we redirect back
-				// to the main listing.
 				Notify::error($row->getError());
 				continue;
 			}
@@ -398,39 +353,46 @@ class Applications extends AdminController
 			$success++;
 		}
 
-		// Get the appropriate message for the task called. We're
-		// passing in the number of successful state changes so it
-		// can be displayed in the message.
-		switch ($this->_task)
+		if ($success)
 		{
-			case 'publish':
-				$message = Lang::txt('COM_DEVELOPER_APPLICATION_PUBLISHED', $success);
-			break;
-			case 'unpublish':
-				$message = Lang::txt('COM_DEVELOPER_APPLICATION_UNPUBLISHED', $success);
-			break;
-			case 'archive':
-				$message = Lang::txt('COM_DEVELOPER_APPLICATION_ARCHIVED', $success);
-			break;
+			// Get the appropriate message for the task called. We're
+			// passing in the number of successful state changes so it
+			// can be displayed in the message.
+			switch ($this->_task)
+			{
+				case 'publish':
+					$message = Lang::txt('COM_DEVELOPER_APPLICATION_PUBLISHED', $success);
+				break;
+				case 'unpublish':
+					$message = Lang::txt('COM_DEVELOPER_APPLICATION_UNPUBLISHED', $success);
+				break;
+				case 'archive':
+					$message = Lang::txt('COM_DEVELOPER_APPLICATION_ARCHIVED', $success);
+				break;
+			}
+
+			// Set the redirect URL to the main entries listing.
+			Notify::success($message);
 		}
 
-		// Set the redirect URL to the main entries listing.
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-			$message
-		);
+		$this->cancelTask();
 	}
 
 	/**
 	 * Regenerate Client Id & Secret for application
 	 * 
-	 * @return void
+	 * @return  void
 	 */
 	public function resetClientSecretTask()
 	{
 		// [SECURITY] Check for request forgeries
 		Request::checkToken();
 
+		if (!User::authorise('core.edit', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		// Incoming
 		$ids = Request::getVar('id', array(0));
 		$ids = (!is_array($ids) ? array($ids) : $ids);
@@ -440,45 +402,55 @@ class Applications extends AdminController
 		{
 			// No entries found, so go back to the entries list with
 			// a message scolding the user for not selecting anything. Tsk, tsk.
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-				Lang::txt('COM_DEVELOPER_SELECT_APPLICATION_TO', $this->_task),
-				'error'
-			);
-			return;
+			Notify::warning(Lang::txt('COM_DEVELOPER_SELECT_APPLICATION_TO', $this->_task));
+
+			return $this->cancelTask();
 		}
+
+		$i = 0;
 
 		// loop through each id
 		foreach ($ids as $id)
 		{
 			// Load the entry and set its state
-			$row = new Models\Api\Application(intval($id));
+			$row = Application::oneOrFail(intval($id));
 
 			// generate new client secret
-			$clientSecret = $row->newClientSecret();
+			$row->set('client_secret', $row->newClientSecret());
 
-			// set our new value on application & store
-			$row->set('client_secret', $clientSecret);
-			$row->store(false);
+			if (!$row->save())
+			{
+				Notify::error($row->getError());
+				continue;
+			}
+
+			$i++;
 		}
 
 		// Set the redirect URL to the main entries listing.
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-			Lang::txt('COM_DEVELOPER_REGENERATE_CLIENT_ID_AND_SECRET_SUCCESS')
-		);
+		if ($i)
+		{
+			Notify::success(Lang::txt('COM_DEVELOPER_REGENERATE_CLIENT_ID_AND_SECRET_SUCCESS'));
+		}
+
+		$this->cancelTask();
 	}
 
 	/**
 	 * Remove any existing tokens for applications
 	 * 
-	 * @return void
+	 * @return  void
 	 */
 	public function removeTokensTask()
 	{
 		// [SECURITY] Check for request forgeries
 		Request::checkToken();
 
+		if (!User::authorise('core.edit', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		// Incoming
 		$ids = Request::getVar('id', array(0));
 		$ids = (!is_array($ids) ? array($ids) : $ids);
@@ -488,28 +460,24 @@ class Applications extends AdminController
 		{
 			// No entries found, so go back to the entries list with
 			// a message scolding the user for not selecting anything. Tsk, tsk.
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-				Lang::txt('COM_DEVELOPER_SELECT_APPLICATION_TO', $this->_task),
-				'error'
-			);
-			return;
+			Notify::warning(Lang::txt('COM_DEVELOPER_SELECT_APPLICATION_TO', $this->_task));
+
+			return $this->cancelTask();
 		}
 
 		// loop through each application id
 		foreach ($ids as $id)
 		{
 			// Load the entry and revoke tokens/codes
-			$row = new Models\Api\Application(intval($id));
+			$row = Application::oneOrFail(intval($id));
 			$row->revokeAccessTokens();
 			$row->revokeRefreshTokens();
 			$row->revokeAuthorizationCodes();
 		}
 
 		// Set the redirect URL to the main entries listing.
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-			Lang::txt('COM_DEVELOPER_REVOKE_TOKENS_SUCCESS')
-		);
+		Notify::success(Lang::txt('COM_DEVELOPER_REVOKE_TOKENS_SUCCESS'));
+
+		$this->cancelTask();
 	}
 }

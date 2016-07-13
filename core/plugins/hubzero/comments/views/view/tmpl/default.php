@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -56,22 +55,22 @@ $this->css()
 							}
 
 							// Load the comment
-							$comment = new \Plugins\Hubzero\Comments\Models\Comment($edit);
+							$comment = \Plugins\Hubzero\Comments\Models\Comment::oneOrNew($edit);
 							// If the comment exists and the editor is NOT the creator and the editor is NOT a manager...
-							if ($comment->exists() && $comment->get('created_by') != User::get('id') && !$this->params->get('access-manage-comment'))
+							if ($comment->get('id') && $comment->get('created_by') != User::get('id') && !$this->params->get('access-manage-comment'))
 							{
 								// Disallow editing
-								$comment = new \Plugins\Hubzero\Comments\Models\Comment(0);
+								$comment = \Plugins\Hubzero\Comments\Models\Comment::blank();
 							}
 
-							if (!$comment->exists())
+							if ($comment->isNew())
 							{
 								$comment->set('parent', Request::getInt('commentreply', 0));
 								$comment->set('created_by', (!User::isGuest() ? User::get('id') : 0));
 								$comment->set('anonymous', (!User::isGuest() ? 0 : 1));
 							}
 							?>
-							<img src="<?php echo $comment->creator()->getPicture($comment->get('anonymous')); ?>" alt="" />
+							<img src="<?php echo $comment->creator->picture($comment->get('anonymous')); ?>" alt="" />
 						</p>
 						<fieldset>
 							<?php
@@ -79,12 +78,16 @@ $this->css()
 							{
 								if ($replyto = Request::getInt('commentreply', 0))
 								{
-									$reply = new \Plugins\Hubzero\Comments\Models\Comment($replyto);
+									$reply = \Plugins\Hubzero\Comments\Models\Comment::oneOrNew($replyto);
 
 									$name = Lang::txt('COM_KB_ANONYMOUS');
 									if (!$reply->get('anonymous'))
 									{
-										$name = ($reply->creator('public') ? '<a href="' . Route::url($reply->creator()->getLink()) . '">' : '') . $this->escape(stripslashes($repy->creator('name'))) . ($reply->creator('public') ? '</a>' : '');
+										$name = $this->escape(stripslashes($repy->creator->get('name')));
+										if (in_array($reply->creator->get('access'), User::getAuthorisedViewLevels()))
+										{
+											$name = '<a href="' . Route::url($reply->creator->link()) . '">' . $name . '</a>';
+										}
 									}
 									?>
 									<blockquote cite="c<?php echo $reply->get('id'); ?>">
@@ -95,7 +98,7 @@ $this->css()
 											<span class="comment-date-on"><?php echo Lang::txt('COM_ANSWERS_ON'); ?></span>
 											<span class="date"><time datetime="<?php echo $reply->created(); ?>"><?php echo $reply->created('date'); ?></time></span>
 										</p>
-										<p><?php echo $reply->content('clean', 300); ?></p>
+										<p><?php echo $reply->content; ?></p>
 									</blockquote>
 									<?php
 								}
@@ -106,7 +109,7 @@ $this->css()
 								<?php
 								if (!User::isGuest())
 								{
-									echo $this->editor('comment[content]', $this->escape($comment->content('raw')), 35, 15, 'commentcontent', array('class' => 'minimal no-footer'));
+									echo $this->editor('comment[content]', $this->escape($comment->get('content')), 35, 15, 'commentcontent', array('class' => 'minimal no-footer'));
 								}
 								?>
 							</label>

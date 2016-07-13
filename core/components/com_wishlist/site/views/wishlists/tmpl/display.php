@@ -232,16 +232,16 @@ if ($this->wishlist->exists())
 								$name = Lang::txt('COM_WISHLIST_ANONYMOUS');
 								if (!$item->get('anonymous'))
 								{
-									$name = $this->escape(stripslashes($item->proposer('name', $name)));
-									if ($item->proposer('public'))
+									$name = $this->escape(stripslashes($item->proposer()->get('name', $name)));
+									if (in_array($item->proposer()->get('access'), User::getAuthorisedViewLevels()))
 									{
-										$name = '<a href="' . Route::url($item->proposer()->getLink()) . '">' . $name . '</a>';
+										$name = '<a href="' . Route::url($item->proposer()->link()) . '">' . $name . '</a>';
 									}
 								}
 								?>
 								<tr class="<?php echo $state; ?>">
 									<th class="priority-5 <?php echo $status; ?>">
-										<span class="entry-id"><?php echo $item->get('id'); ?></span>
+										<span class="entry-status"><?php echo $status; ?></span>
 									</th>
 									<td>
 								<?php if (!$item->isReported()) { ?>
@@ -250,6 +250,8 @@ if ($this->wishlist->exists())
 										</a>
 										<br />
 										<span class="entry-details">
+											<span class="entry-identifier">#<?php echo $item->get('id'); ?></span>
+											<span class="entry-details-divider">&bull;</span>
 											<?php echo Lang::txt('COM_WISHLIST_WISH_PROPOSED_BY'); ?> <?php echo $name . ' '; ?>
 											<span class="entry-date-at"><?php echo Lang::txt('COM_WISHLIST_AT'); ?></span>
 											<span class="entry-time"><time datetime="<?php echo $item->proposed(); ?>"><?php echo $item->proposed('time'); ?></time></span>

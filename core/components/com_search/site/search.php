@@ -36,6 +36,11 @@ $config = \Component::params('com_search');
 
 $controllerName = \Request::getCmd('controller', \Request::getCmd('view', $config->get('engine', 'basic')));
 
+if ($controllerName != 'basic')
+{
+	$controllerName = 'hubsearch';
+}
+
 // Are we falling back to the default engine?
 $fallback = \App::get('session')->get('searchfallback');
 if ($fallback && intval($fallback) <= time())
@@ -55,6 +60,7 @@ if ($fallback || !file_exists(__DIR__ . DS . 'controllers' . DS . $controllerNam
 {
 	$controllerName = 'basic';
 }
+
 require_once(__DIR__ . DS . 'controllers' . DS . $controllerName . '.php');
 $controllerName = __NAMESPACE__ . '\\Controllers\\' . ucfirst(strtolower($controllerName));
 

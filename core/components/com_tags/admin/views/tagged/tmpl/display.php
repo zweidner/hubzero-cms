@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -33,9 +32,9 @@
 // No direct access.
 defined('_HZEXEC_') or die();
 
-$canDo = \Components\Tags\Helpers\Permissions::getActions();
+$canDo = Components\Tags\Helpers\Permissions::getActions();
 
-Toolbar::title(Lang::txt('COM_TAGS') . ': ' . Lang::txt('COM_TAGS_TAGGED'), 'tags.png');
+Toolbar::title(Lang::txt('COM_TAGS') . ': ' . Lang::txt('COM_TAGS_TAGGED'), 'tags');
 if ($canDo->get('core.create'))
 {
 	Toolbar::addNew();
@@ -50,49 +49,42 @@ Toolbar::help('tagged');
 
 <form action="<?php echo Route::url('index.php?option=' . $this->option . '&controller=' . $this->controller); ?>" method="post" name="adminForm" id="adminForm">
 	<fieldset id="filter-bar">
-		<div class="col width-50 fltrt">
-			<label for="filter-tbl"><?php echo Lang::txt('COM_TAGS_FILTER'); ?>:</label>
-			<select name="tbl" id="filter-tbl" onchange="document.adminForm.submit();">
-				<option value=""<?php if (!$this->filters['tbl']) { echo ' selected="selected"'; } ?>><?php echo Lang::txt('COM_TAGS_FILTER_TYPE'); ?></option>
-				<?php foreach ($this->types as $type) { ?>
-					<option value="<?php echo $type; ?>"<?php if ($this->filters['tbl'] == $type) { echo ' selected="selected"'; } ?>><?php echo $type; ?></option>
-				<?php } ?>
-			</select>
-		</div>
+		<label for="filter-tbl"><?php echo Lang::txt('COM_TAGS_FILTER'); ?>:</label>
+		<select name="tbl" id="filter-tbl" onchange="document.adminForm.submit();">
+			<option value=""<?php if (!$this->filters['tbl']) { echo ' selected="selected"'; } ?>><?php echo Lang::txt('COM_TAGS_FILTER_TYPE'); ?></option>
+			<?php foreach ($this->types as $type) { ?>
+				<option value="<?php echo $type->get('tbl'); ?>"<?php if ($this->filters['tbl'] == $type->get('tbl')) { echo ' selected="selected"'; } ?>><?php echo $type->get('tbl'); ?></option>
+			<?php } ?>
+		</select>
 
 		<input type="hidden" name="tagid" value="<?php echo $this->filters['tagid']; ?>" />
 	</fieldset>
-	<div class="clr"></div>
 
 	<table class="adminlist">
 		<?php if ($this->filters['tagid']) { ?>
 			<caption><?php
-			$tag = new \Components\Tags\Models\Tag($this->filters['tagid']);
+			$tag = \Components\Tags\Models\Tag::oneOrFail($this->filters['tagid']);
 			echo Lang::txt('COM_TAGS_TAG') . ': ' . $this->escape($tag->get('raw_tag')) . ' (' . $this->escape($tag->get('tag')) . ')';
 			?></caption>
 		<?php } ?>
 		<thead>
 			<tr>
-				<th scope="col"><input type="checkbox" name="toggle" value="" onclick="checkAll(<?php echo count($this->rows);?>);" /></th>
-				<th scope="col" class="priority-5"><?php echo $this->grid('sort', 'COM_TAGS_COL_ID', 'id', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col"><input type="checkbox" name="toggle" value="" onclick="checkAll(<?php echo $this->rows->count(); ?>);" /></th>
+				<th scope="col" class="priority-5"><?php echo Html::grid('sort', 'COM_TAGS_COL_ID', 'id', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
 				<?php if (!$this->filters['tagid']) { ?>
-					<th scope="col"><?php echo $this->grid('sort', 'COM_TAGS_COL_TAGID', 'tagid', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+					<th scope="col"><?php echo Html::grid('sort', 'COM_TAGS_COL_TAGID', 'tagid', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
 				<?php } ?>
-				<th scope="col"><?php echo $this->grid('sort', 'COM_TAGS_COL_TBL', 'tbl', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
-				<th scope="col"><?php echo $this->grid('sort', 'COM_TAGS_COL_OBJECTID', 'objectid', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
-				<th scope="col" class="priority-3"><?php echo $this->grid('sort', 'COM_TAGS_COL_CREATED', 'taggedon', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
-				<th scope="col" class="priority-4"><?php echo $this->grid('sort', 'COM_TAGS_COL_CREATED_BY', 'taggerid', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col"><?php echo Html::grid('sort', 'COM_TAGS_COL_TBL', 'tbl', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col"><?php echo Html::grid('sort', 'COM_TAGS_COL_OBJECTID', 'objectid', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col" class="priority-3"><?php echo Html::grid('sort', 'COM_TAGS_COL_CREATED', 'taggedon', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col" class="priority-4"><?php echo Html::grid('sort', 'COM_TAGS_COL_CREATED_BY', 'taggerid', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
 			</tr>
 		</thead>
 		<tfoot>
 			<tr>
 				<td colspan="<?php echo (!$this->filters['tagid'] ? 7 : 6); ?>"><?php
 				// Initiate paging
-				echo $this->pagination(
-					$this->total,
-					$this->filters['start'],
-					$this->filters['limit']
-				);
+				echo $this->rows->pagination;
 				?></td>
 			</tr>
 		</tfoot>
@@ -102,9 +94,9 @@ Toolbar::help('tagged');
 		$i = 0;
 		foreach ($this->rows as $row)
 		{
-			$row = new \Components\Tags\Models\Object($row);
-			$row->set('id', $row->get('taggedid'));
-		?>
+			//$row = \Components\Tags\Models\Object::blank()->set($row);
+			//$row->set('id', $row->get('taggedid'));
+			?>
 			<tr class="<?php echo "row$k"; ?>">
 				<td>
 					<?php if ($canDo->get('core.edit')) { ?>
@@ -163,14 +155,14 @@ Toolbar::help('tagged');
 				<td class="priority-4">
 					<?php if ($row->get('taggerid')) { ?>
 						<a href="<?php echo Route::url('index.php?option=com_members&controller=members&task=edit&id=' . $row->get('taggerid')); ?>">
-							<?php echo $row->creator('name', Lang::txt('COM_TAGS_UNKNOWN')); ?>
+							<?php echo $row->creator()->get('name', Lang::txt('COM_TAGS_UNKNOWN')); ?>
 						</a>
 					<?php } else { ?>
 						<?php echo Lang::txt('COM_TAGS_UNKNOWN'); ?>
 					<?php } ?>
 				</td>
 			</tr>
-		<?php
+			<?php
 			$i++;
 			$k = 1 - $k;
 		}

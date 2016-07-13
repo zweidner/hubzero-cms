@@ -32,7 +32,7 @@
 
 namespace Components\Wishlist\Models;
 
-use Hubzero\User\Profile;
+use Components\Members\Models\Member;
 use Lang;
 use Date;
 
@@ -52,7 +52,7 @@ class Vote extends Base
 	protected $_tbl_name = '\\Components\\Wishlist\\Tables\\Wish\\Rank';
 
 	/**
-	 * Hubzero\User\Profile
+	 * Hubzero\User\User
 	 *
 	 * @var object
 	 */
@@ -117,19 +117,15 @@ class Vote extends Base
 	 */
 	public function creator($property=null, $default=null)
 	{
-		if (!($this->_creator instanceof Profile))
+		if (!($this->_creator instanceof \Hubzero\User\User))
 		{
-			$this->_creator = Profile::getInstance($this->get('userid'));
-			if (!$this->_creator)
-			{
-				$this->_creator = new Profile();
-			}
+			$this->_creator = \User::getInsatnce($this->get('userid'));
 		}
 		if ($property)
 		{
 			if ($property == 'picture')
 			{
-				return $this->_creator->getPicture();
+				return $this->_creator->picture();
 			}
 			return $this->_creator->get($property, $default);
 		}

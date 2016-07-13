@@ -30,6 +30,7 @@
 
 // No direct access
 defined('_HZEXEC_') or die();
+//ddie(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS));
 
 $privacy = !$this->model->isPublic() ? Lang::txt('COM_PROJECTS_PRIVATE') : Lang::txt('COM_PROJECTS_PUBLIC');
 
@@ -40,7 +41,7 @@ $config = $this->model->config();
 	<h3 class="inform"><?php echo Lang::txt('COM_PROJECTS_PROJECT_INFO'); ?></h3>
 </div>
 
-<?php if ($this->model->access('manager')) { ?>
+<?php if ($this->model->access('manager') || ($this->model->access('content') && $config->get('edit_description'))) { ?>
 	<p class="editing"><a href="<?php echo Route::url('index.php?option=' . $this->option . '&task=edit&alias=' . $this->model->get('alias') . '&active=info'); ?>"><?php echo Lang::txt('COM_PROJECTS_EDIT_PROJECT'); ?></a></p>
 <?php } ?>
 
@@ -81,6 +82,21 @@ $config = $this->model->config();
 				<th class="htd"><?php echo Lang::txt('COM_PROJECTS_OWNER'); ?></th>
 				<td><?php echo $this->model->groupOwner() ? $this->model->groupOwner('description') : $this->model->owner('name'); ?></td>
 			</tr>
+
+			<?php
+				// This is for the admin-defined project information
+				if ($this->info)
+				{
+					foreach ($this->info as $field)
+					{ ?>
+						<tr>
+							<th class="htd"><?php echo $field->label; ?></th>
+							<td><?php echo $field->value; ?></td>
+						</tr>
+			<?php } // end foreach
+					} // end if
+				?>
+
 			<?php if ($this->model->about('parsed')) { ?>
 			<tr>
 				<th class="htd"><?php echo Lang::txt('COM_PROJECTS_ABOUT'); ?></th>

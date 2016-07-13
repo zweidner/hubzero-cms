@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -33,9 +32,9 @@
 // No direct access.
 defined('_HZEXEC_') or die();
 
-$canDo = \Components\Tags\Helpers\Permissions::getActions();
+$canDo = Components\Tags\Helpers\Permissions::getActions();
 
-Toolbar::title(Lang::txt('COM_TAGS') . ': ' . Lang::txt('COM_TAGS_PIERCE'), 'tags.png');
+Toolbar::title(Lang::txt('COM_TAGS') . ': ' . Lang::txt('COM_TAGS_PIERCE'), 'tags');
 if ($canDo->get('core.edit'))
 {
 	Toolbar::save('pierce');
@@ -60,41 +59,42 @@ function submitbutton(pressbutton)
 <form action="<?php echo Route::url('index.php?option=' . $this->option . '&controller=' . $this->controller); ?>" method="post" name="adminForm" class="editform" id="item-form">
 	<p class="warning"><?php echo Lang::txt('COM_TAGS_PIERCED_EXPLANATION'); ?></p>
 
-	<div class="col width-50 fltlft">
-		<fieldset class="adminform">
-			<legend><span><?php echo Lang::txt('COM_TAGS_PIERCING'); ?></span></legend>
+	<div class="grid">
+		<div class="col span6">
+			<fieldset class="adminform">
+				<legend><span><?php echo Lang::txt('COM_TAGS_PIERCING'); ?></span></legend>
 
-			<div class="input-wrap">
-				<ul>
+				<div class="input-wrap">
+					<ul>
+						<?php
+						foreach ($this->tags as $tag)
+						{
+							echo '<li>' . $this->escape(stripslashes($tag->get('raw_tag'))) . ' (' . $this->escape($tag->get('tag')) . ' - ' . $tag->objects()->total() . ')</li>' . "\n";
+						}
+						?>
+					</ul>
+				</div>
+			</fieldset>
+		</div>
+		<div class="col span6">
+			<fieldset class="adminform">
+				<legend><span><?php echo Lang::txt('COM_TAGS_PIERCE_TO'); ?></span></legend>
+
+				<div class="input-wrap">
+					<label for="newtag"><?php echo Lang::txt('COM_TAGS_NEW_TAG'); ?>:</label><br />
 					<?php
-					foreach ($this->tags as $tag)
-					{
-						echo '<li>' . $this->escape(stripslashes($tag->get('raw_tag'))) . ' (' . $this->escape($tag->get('tag')) . ' - ' . $tag->objects('count') . ')</li>' . "\n";
-					}
+					$tf = Event::trigger(
+						'hubzero.onGetMultiEntry',
+						array(
+							array('tags', 'newtag', 'newtag')
+						)
+					);
+					echo (count($tf) ? implode("\n", $tf) : '<input type="text" name="newtag" id="newtag" size="25" value="" />');
 					?>
-				</ul>
-			</div>
-		</fieldset>
+				</div>
+			</fieldset>
+		</div>
 	</div>
-	<div class="col width-50 fltrt">
-		<fieldset class="adminform">
-			<legend><span><?php echo Lang::txt('COM_TAGS_PIERCE_TO'); ?></span></legend>
-
-			<div class="input-wrap">
-				<label for="newtag"><?php echo Lang::txt('COM_TAGS_NEW_TAG'); ?>:</label><br />
-				<?php
-				$tf = Event::trigger(
-					'hubzero.onGetMultiEntry',
-					array(
-						array('tags', 'newtag', 'newtag')
-					)
-				);
-				echo (count($tf) ? implode("\n", $tf) : '<input type="text" name="newtag" id="newtag" size="25" value="" />');
-				?>
-			</div>
-		</fieldset>
-	</div>
-	<div class="clr"></div>
 
 	<input type="hidden" name="ids" value="<?php echo $this->idstr; ?>" />
 	<input type="hidden" name="option" value="<?php echo $this->option; ?>" />

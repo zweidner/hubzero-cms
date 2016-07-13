@@ -148,7 +148,7 @@ class Membership extends AdminController
 		if ($this->view->filters['status'] == '' || $this->view->filters['status'] == 'invitee')
 		{
 			//get group invite emails
-			$hubzeroGroupInviteEmail = new \Hubzero\User\Group\InviteEmail($this->database);
+			$hubzeroGroupInviteEmail = new \Hubzero\User\Group\InviteEmail();
 			$inviteemails = $hubzeroGroupInviteEmail->getInviteEmails($group->get('gidNumber'));
 
 			//add invite emails to list
@@ -235,13 +235,11 @@ class Membership extends AdminController
 		$m = Request::getVar('usernames', '', 'post');
 		$mbrs = preg_split("/[,;]/", $m);
 
-		jimport('joomla.user.helper');
-
 		foreach ($mbrs as $mbr)
 		{
 			// Retrieve user's account info
 			$mbr = trim($mbr);
-			$uid = \JUserHelper::getUserId($mbr);
+			$uid = \Hubzero\User\User::oneByUsername($mbr)->get('id');
 
 			// Ensure we found an account
 			if ($uid)
@@ -566,7 +564,6 @@ class Membership extends AdminController
 
 		// Incoming array of users to demote
 		$mbrs = Request::getVar('id', array());
-
 		$mbrs = (!is_array($mbrs) ? array($mbrs) : $mbrs);
 
 		foreach ($mbrs as $mbr)
@@ -591,23 +588,21 @@ class Membership extends AdminController
 			}
 			else
 			{
-				// Check to see if removing an invite
-				$db = App::get('db');
-				$inviteEmail = new \Hubzero\User\Group\InviteEmail($db);
-				$invites = $inviteEmail->getInviteEmails($this->group->get('gidNumber'));
+				// Check to see if email is matching
+				$inviteEmail = new \Hubzero\User\Group\InviteEmail();
+				$invites = $inviteEmail->all()->where('gidNumber', '=', $this->group->get('gidNumber'))->rows();
 				foreach ($invites as $invite)
 				{
-					if (in_array($invite['email'], $mbrs))
+					if ($invite->email ==  $mbr)
 					{
-						$arr = array($invite['email']);
-						$inviteEmail->removeInvites($this->group->get('gidNumber'), $arr);
+						$invite->destroy();
 					}
 					else
 					{
 						$this->setError(Lang::txt('COM_GROUPS_USER_NOTFOUND') . ' ' . $mbr);
 					}
-				} // end foreach
-			} // end else
+				}
+			}
 		}
 
 		// Remove users from members list
@@ -698,7 +693,7 @@ class Membership extends AdminController
 		//remove any invite emails
 		if (count($useremails) > 0)
 		{
-			$hubzeroGroupInviteEmail = new \Hubzero\User\Group\InviteEmail($this->database);
+			$hubzeroGroupInviteEmail = new \Hubzero\User\Group\InviteEmail();
 			$hubzeroGroupInviteEmail->removeInvites($this->group->get('gidNumber'), $useremails);
 		}
 

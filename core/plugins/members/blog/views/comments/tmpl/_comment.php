@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -37,10 +36,10 @@ $cls = isset($this->cls) ? $this->cls : 'odd';
 $name = Lang::txt('PLG_MEMBERS_BLOG_ANONYMOUS');
 if (!$this->comment->get('anonymous'))
 {
-	$name = $this->escape(stripslashes($this->comment->creator()->get('name', $name)));
-	if ($this->comment->creator()->get('public'))
+	$name = $this->escape(stripslashes($this->comment->creator->get('name', $name)));
+	if (in_array($this->comment->creator->get('access'), User::getAuthorisedViewLevels()))
 	{
-		$name = '<a href="' . Route::url($this->comment->creator()->getLink()) . '">' . $name . '</a>';
+		$name = '<a href="' . Route::url($this->comment->creator->link()) . '">' . $name . '</a>';
 	}
 }
 
@@ -50,13 +49,13 @@ if ($this->comment->isReported())
 }
 else
 {
-	$comment  = $this->comment->content('parsed');
+	$comment  = $this->comment->content;
 }
 ?>
 	<li class="comment <?php echo $cls; ?>" id="c<?php echo $this->comment->get('id'); ?>">
 		<p class="comment-member-photo">
 			<a class="comment-anchor" name="c<?php echo $this->comment->get('id'); ?>"></a>
-			<img src="<?php echo $this->comment->creator()->getPicture($this->comment->get('anonymous')); ?>" alt="" />
+			<img src="<?php echo $this->comment->creator->picture($this->comment->get('anonymous')); ?>" alt="" />
 		</p>
 		<div class="comment-content">
 			<p class="comment-title">
@@ -89,7 +88,7 @@ else
 					<input type="hidden" name="comment[created]" value="<?php echo $this->comment->get('created'); ?>" />
 					<input type="hidden" name="comment[created_by]" value="<?php echo $this->comment->get('created_by'); ?>" />
 					<input type="hidden" name="option" value="<?php echo $this->option; ?>" />
-					<input type="hidden" name="id" value="<?php echo $this->member->get('uidNumber'); ?>" />
+					<input type="hidden" name="id" value="<?php echo $this->member->get('id'); ?>" />
 					<input type="hidden" name="active" value="blog" />
 					<input type="hidden" name="task" value="view" />
 					<input type="hidden" name="action" value="savecomment" />
@@ -99,7 +98,7 @@ else
 					<label for="comment_<?php echo $this->comment->get('id'); ?>_content">
 						<span class="label-text"><?php echo Lang::txt('PLG_MEMBERS_BLOG_FIELD_COMMENTS'); ?></span>
 						<?php
-						echo $this->editor('comment[content]', $this->comment->content('raw'), 35, 4, 'comment_' . $this->comment->get('id') . '_content', array('class' => 'minimal no-footer'));
+						echo $this->editor('comment[content]', $this->comment->get('content'), 35, 4, 'comment_' . $this->comment->get('id') . '_content', array('class' => 'minimal no-footer'));
 						?>
 					</label>
 
@@ -159,7 +158,7 @@ else
 						<input type="hidden" name="comment[created_by]" value="<?php echo User::get('id'); ?>" />
 						<input type="hidden" name="comment[state]" value="1" />
 						<input type="hidden" name="option" value="<?php echo $this->option; ?>" />
-						<input type="hidden" name="id" value="<?php echo $this->member->get('uidNumber'); ?>" />
+						<input type="hidden" name="id" value="<?php echo $this->member->get('id'); ?>" />
 						<input type="hidden" name="active" value="blog" />
 						<input type="hidden" name="task" value="view" />
 						<input type="hidden" name="action" value="savecomment" />
@@ -190,10 +189,21 @@ else
 		<?php
 		if ($this->depth < $this->config->get('comments_depth', 3))
 		{
+			$replies = $this->comment->replies()
+				->including(['creator', function ($creator){
+					$creator->select('*');
+				}])
+				->whereIn('state', array(
+					Components\Blog\Models\Comment::STATE_PUBLISHED,
+					Components\Blog\Models\Comment::STATE_FLAGGED
+				))
+				->ordered()
+				->rows();
+
 			$this->view('_list')
 			     ->set('parent', $this->comment->get('id'))
 			     ->set('option', $this->option)
-			     ->set('comments', $this->comment->replies())
+			     ->set('comments', $replies)
 			     ->set('config', $this->config)
 			     ->set('depth', $this->depth)
 			     ->set('cls', $cls)

@@ -35,7 +35,6 @@ use Modules\AdminMenu\Node;
 defined('_HZEXEC_') or die;
 
 $shownew = (boolean) $params->get('shownew', 1);
-$user = User::getRoot();
 $lang = Lang::getRoot();
 
 //
@@ -52,19 +51,19 @@ $menu->addSeparator();
 
 /*
 $menu->addChild(
-	new Node(Lang::txt('MOD_MENU_USER_PROFILE'), 'index.php?option=com_admin&task=profile.edit&id=' . $user->id, 'class:profile')
+	new Node(Lang::txt('MOD_MENU_USER_PROFILE'), 'index.php?option=com_admin&task=profile.edit&id=' . User::id, 'class:profile')
 );
 $menu->addSeparator();
 */
 
-if ($user->authorise('core.admin'))
+if (User::authorise('core.admin'))
 {
 	$menu->addChild(new Node(Lang::txt('MOD_MENU_CONFIGURATION'), 'index.php?option=com_config', 'class:config'));
 	$menu->addSeparator();
 }
 
-$chm = $user->authorise('core.admin', 'com_checkin');
-$cam = $user->authorise('core.manage', 'com_cache');
+$chm = User::authorise('core.admin', 'com_checkin');
+$cam = User::authorise('core.manage', 'com_cache');
 
 if ($chm || $cam)
 {
@@ -84,7 +83,7 @@ if ($chm || $cam)
 		$menu->addSeparator();
 	}
 
-	if ($user->authorise('core.admin'))
+	if (User::authorise('core.admin'))
 	{
 		$menu->addChild(new Node(Lang::txt('MOD_MENU_UPDATE'), 'index.php?option=com_update', 'class:update'));
 	}
@@ -99,7 +98,7 @@ if ($chm || $cam)
 }
 
 $menu->addSeparator();
-if ($user->authorise('core.admin'))
+if (User::authorise('core.admin'))
 {
 	$menu->addChild(
 		new Node(Lang::txt('MOD_MENU_SYSTEM_INFORMATION'), 'index.php?option=com_system&controller=info', 'class:info')
@@ -116,19 +115,19 @@ $menu->getParent();
 //
 // Users Submenu
 //
-if ($user->authorise('core.manage', 'com_users'))
+if (User::authorise('core.manage', 'com_users'))
 {
 	$menu->addChild(
 		new Node(Lang::txt('MOD_MENU_COM_USERS_USERS'), '#'), true
 	);
-	$createUser = $shownew && $user->authorise('core.create', 'com_users');
-	$createGrp  = $user->authorise('core.admin', 'com_users');
+	$createUser = $shownew && User::authorise('core.create', 'com_users');
+	$createGrp  = User::authorise('core.admin', 'com_users');
 
-	$menu->addChild(
+	/*$menu->addChild(
 		new Node(Lang::txt('MOD_MENU_COM_USERS_USER_MANAGER'), 'index.php?option=com_users&view=users', 'class:user') //, $createUser
 	);
 
-	/*if ($createUser)
+	if ($createUser)
 	{
 		$menu->addChild(
 			new Node(Lang::txt('MOD_MENU_COM_USERS_ADD_USER'), 'index.php?option=com_users&task=user.add', 'class:newarticle')
@@ -154,24 +153,24 @@ if ($user->authorise('core.manage', 'com_users'))
 	{
 		$menu->addSeparator();
 		$menu->addChild(
-			new Node(Lang::txt('MOD_MENU_COM_USERS_GROUPS'), 'index.php?option=com_users&view=groups', 'class:groups'), $createUser
+			new Node(Lang::txt('MOD_MENU_COM_USERS_GROUPS'), 'index.php?option=com_members&controller=accessgroups', 'class:groups'), $createUser
 		);
 		if ($createUser)
 		{
 			$menu->addChild(
-				new Node(Lang::txt('MOD_MENU_COM_USERS_ADD_GROUP'), 'index.php?option=com_users&task=group.add', 'class:newarticle')
+				new Node(Lang::txt('MOD_MENU_COM_USERS_ADD_GROUP'), 'index.php?option=com_members&controller=accessgroups&task=add', 'class:newarticle')
 			);
 			$menu->getParent();
 		}
 
 		$menu->addChild(
-			new Node(Lang::txt('MOD_MENU_COM_USERS_LEVELS'), 'index.php?option=com_users&view=levels', 'class:levels'), $createUser
+			new Node(Lang::txt('MOD_MENU_COM_USERS_LEVELS'), 'index.php?option=com_members&controller=accesslevels', 'class:levels'), $createUser
 		);
 
 		if ($createUser)
 		{
 			$menu->addChild(
-				new Node(Lang::txt('MOD_MENU_COM_USERS_ADD_LEVEL'), 'index.php?option=com_users&task=level.add', 'class:newarticle')
+				new Node(Lang::txt('MOD_MENU_COM_USERS_ADD_LEVEL'), 'index.php?option=com_members&controller=accesslevels&task=add', 'class:newarticle')
 			);
 			$menu->getParent();
 		}
@@ -179,13 +178,13 @@ if ($user->authorise('core.manage', 'com_users'))
 
 	$menu->addSeparator();
 	$menu->addChild(
-		new Node(Lang::txt('MOD_MENU_COM_USERS_NOTES'), 'index.php?option=com_users&view=notes', 'class:user-note'), $createUser
+		new Node(Lang::txt('MOD_MENU_COM_USERS_NOTES'), 'index.php?option=com_members&controller=notes', 'class:user-note'), $createUser
 	);
 
 	if ($createUser)
 	{
 		$menu->addChild(
-			new Node(Lang::txt('MOD_MENU_COM_USERS_ADD_NOTE'), 'index.php?option=com_users&task=note.add', 'class:newarticle')
+			new Node(Lang::txt('MOD_MENU_COM_USERS_ADD_NOTE'), 'index.php?option=com_members&controller=notes&task=add', 'class:newarticle')
 		);
 		$menu->getParent();
 	}
@@ -214,12 +213,12 @@ if ($user->authorise('core.manage', 'com_users'))
 //
 // Menus Submenu
 //
-if ($user->authorise('core.manage', 'com_menus'))
+if (User::authorise('core.manage', 'com_menus'))
 {
 	$menu->addChild(
 		new Node(Lang::txt('MOD_MENU_MENUS'), '#'), true
 	);
-	$createMenu = $shownew && $user->authorise('core.create', 'com_menus');
+	$createMenu = $shownew && User::authorise('core.create', 'com_menus');
 
 	$menu->addChild(
 		new Node(Lang::txt('MOD_MENU_MENU_MANAGER'), 'index.php?option=com_menus&view=menus', 'class:menumgr'), $createMenu
@@ -271,12 +270,12 @@ if ($user->authorise('core.manage', 'com_menus'))
 //
 // Content Submenu
 //
-if ($user->authorise('core.manage', 'com_content'))
+if (User::authorise('core.manage', 'com_content'))
 {
 	$menu->addChild(
 		new Node(Lang::txt('MOD_MENU_COM_CONTENT'), '#'), true
 	);
-	$createContent = $shownew && $user->authorise('core.create', 'com_content');
+	$createContent = $shownew && User::authorise('core.create', 'com_content');
 	$menu->addChild(
 		new Node(Lang::txt('MOD_MENU_COM_CONTENT_ARTICLE_MANAGER'), 'index.php?option=com_content', 'class:article'), $createContent
 	);
@@ -302,7 +301,7 @@ if ($user->authorise('core.manage', 'com_content'))
 		new Node(Lang::txt('MOD_MENU_COM_CONTENT_FEATURED'), 'index.php?option=com_content&view=featured', 'class:featured')
 	);
 	*/
-	if ($user->authorise('core.manage', 'com_media'))
+	if (User::authorise('core.manage', 'com_media'))
 	{
 		$menu->addSeparator();
 		$menu->addChild(new Node(Lang::txt('MOD_MENU_MEDIA_MANAGER'), 'index.php?option=com_media', 'class:media'));
@@ -350,11 +349,11 @@ if ($components)
 //
 // Extensions Submenu
 //
-$im = $user->authorise('core.manage', 'com_installer');
-$mm = $user->authorise('core.manage', 'com_modules');
-$pm = $user->authorise('core.manage', 'com_plugins');
-$tm = $user->authorise('core.manage', 'com_templates');
-$lm = $user->authorise('core.manage', 'com_languages');
+$im = User::authorise('core.manage', 'com_installer');
+$mm = User::authorise('core.manage', 'com_modules');
+$pm = User::authorise('core.manage', 'com_plugins');
+$tm = User::authorise('core.manage', 'com_templates');
+$lm = User::authorise('core.manage', 'com_languages');
 
 if ($im || $mm || $pm || $tm || $lm)
 {

@@ -1,9 +1,6 @@
 <?php
 /**
- * @package     hubzero-cms
- * @author      Alissa Nedossekina <alisa@purdue.edu>
- * @copyright   Copyright 2005-2015 HUBzero Foundation, LLC.
- * @license     http://opensource.org/licenses/MIT MIT
+ * HUBzero CMS
  *
  * Copyright 2005-2015 HUBzero Foundation, LLC.
  *
@@ -26,6 +23,11 @@
  * THE SOFTWARE.
  *
  * HUBzero is a registered trademark of Purdue University.
+ *
+ * @package   hubzero-cms
+ * @author    Alissa Nedossekina <alisa@purdue.edu>
+ * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
+ * @license   http://opensource.org/licenses/MIT MIT
  */
 
 // No direct access
@@ -39,44 +41,44 @@ class plgMembersImpact extends \Hubzero\Plugin\Plugin
 	/**
 	 * Affects constructor behavior. If true, language files will be loaded automatically.
 	 *
-	 * @var    boolean
+	 * @var  boolean
 	 */
 	protected $_autoloadLanguage = true;
 
 	/**
 	 * Publication areas
 	 *
-	 * @var array
+	 * @var  array
 	 */
 	private $_areas = null;
 
 	/**
 	 * Publication stats
 	 *
-	 * @var    boolean
+	 * @var  boolean
 	 */
 	protected $_stats = null;
 
 	/**
 	 * Publication categories
 	 *
-	 * @var array
+	 * @var  array
 	 */
 	private $_cats  = null;
 
 	/**
 	 * Record count
 	 *
-	 * @var integer
+	 * @var  integer
 	 */
 	private $_total = null;
 
 	/**
 	 * Constructor
 	 *
-	 * @param      object &$subject Event observer
-	 * @param      array  $config   Optional config values
-	 * @return     void
+	 * @param   object  &$subject  Event observer
+	 * @param   array   $config    Optional config values
+	 * @return  void
 	 */
 	public function __construct(&$subject, $config)
 	{
@@ -92,9 +94,11 @@ class plgMembersImpact extends \Hubzero\Plugin\Plugin
 	}
 
 	/**
-	 * Return the alias and name for this category of content
+	 * Event call to determine if this plugin should return data
 	 *
-	 * @return     array
+	 * @param   object  $user    User
+	 * @param   object  $member  Profile
+	 * @return  array   Plugin name
 	 */
 	public function &onMembersAreas($user, $member)
 	{
@@ -102,11 +106,11 @@ class plgMembersImpact extends \Hubzero\Plugin\Plugin
 		$areas = array();
 
 		//if this is the logged in user show them
-		if (($user->get('id') == $member->get('uidNumber') && $this->params->get('show_impact', 0) == 1) || $this->params->get('show_impact', 0) == 2)
+		if (($user->get('id') == $member->get('id') && $this->params->get('show_impact', 0) == 1) || $this->params->get('show_impact', 0) == 2)
 		{
 			// Check if user has any publications
 			$pubLog = new \Components\Publications\Tables\Log($this->_database);
-			$this->_stats = $pubLog->getAuthorStats($member->get('uidNumber'), 0, false );
+			$this->_stats = $pubLog->getAuthorStats($member->get('id'), 0, false );
 
 			if ($this->_stats)
 			{
@@ -119,13 +123,13 @@ class plgMembersImpact extends \Hubzero\Plugin\Plugin
 	}
 
 	/**
-	 * Perform actions when viewing a member profile
+	 * Event call to return data for a specific member
 	 *
-	 * @param      object $user   Current user
-	 * @param      object $member Current member page
-	 * @param      string $option Start of records to pull
-	 * @param      array  $areas  Active area(s)
-	 * @return     array
+	 * @param   object  $user    User
+	 * @param   object  $member  Profile
+	 * @param   string  $option  Component name
+	 * @param   string  $areas   Plugins to return data
+	 * @return  array   Return array of html
 	 */
 	public function onMembers($user, $member, $option, $areas)
 	{
@@ -159,7 +163,7 @@ class plgMembersImpact extends \Hubzero\Plugin\Plugin
 			switch ($task)
 			{
 				case 'view':
-				default:        $arr['html'] = $this->_view($member->get('uidNumber'));   break;
+				default:        $arr['html'] = $this->_view($member->get('id'));   break;
 			}
 		}
 
@@ -173,8 +177,8 @@ class plgMembersImpact extends \Hubzero\Plugin\Plugin
 	/**
 	 * View entries
 	 *
-	 * @param      int $uid
-	 * @return     string
+	 * @param   integer  $uid
+	 * @return  string
 	 */
 	protected function _view($uid = 0)
 	{
@@ -206,38 +210,36 @@ class plgMembersImpact extends \Hubzero\Plugin\Plugin
 	/**
 	 * Return a list of categories
 	 *
-	 * @return     array
+	 * @return  array
 	 */
 	public function &onMembersContributionsAreas()
 	{
 		$areas = array();
 
-		// Load contributions plugin parameters
-		$this->_cPlugin = Plugin::byType('members', 'contributions');
-		$this->_cParams = new JParameter($this->_cPlugin->params);
-
-		if ($this->_cParams->get('include_publications', 0) == 1)
-		{
+		//if ($this->params->get('contributions', 0) == 1)
+		//{
 			$areas = array(
 				'impact' => Lang::txt('PLG_MEMBERS_IMPACT_PUBLICATIONS')
 			);
-		}
+		//}
+
 		$this->_areas = $areas;
+
 		return $areas;
 	}
 
 	/**
 	 * Build SQL for returning the count of the number of contributions
 	 *
-	 * @param      string $user_id  Field to join on user ID
-	 * @param      string $username Field to join on username
-	 * @return     string
+	 * @param   string  $user_id   Field to join on user ID
+	 * @param   string  $username  Field to join on username
+	 * @return  string
 	 */
 	public function onMembersContributionsCount($user_id='m.uidNumber', $username='m.username')
 	{
-		$query = "SELECT COUNT(DISTINCT P.id) FROM #__publications AS P,
-				#__publication_versions as V,
-				#__publication_authors as A
+		$query = "SELECT COUNT(DISTINCT P.id) FROM `#__publications` AS P,
+				`#__publication_versions` as V,
+				`#__publication_authors` as A
 				WHERE V.publication_id=P.id AND A.publication_version_id = V.id
 				AND A.user_id=" . $user_id . " AND
 				V.state=1 AND A.status=1 AND A.role!='submitter'";
@@ -247,14 +249,14 @@ class plgMembersImpact extends \Hubzero\Plugin\Plugin
 	/**
 	 * Return either a count or an array of the member's contributions
 	 *
-	 * @param      object  $member     Current member
-	 * @param      string  $option     Component name
-	 * @param      string  $authorized Authorization level
-	 * @param      integer $limit      Number of record to return
-	 * @param      integer $limitstart Record return start
-	 * @param      string  $sort       Field to sort records on
-	 * @param      array   $areas      Areas to return data for
-	 * @return     array
+	 * @param   object   $member      Current member
+	 * @param   string   $option      Component name
+	 * @param   string   $authorized  Authorization level
+	 * @param   integer  $limit       Number of record to return
+	 * @param   integer  $limitstart  Record return start
+	 * @param   string   $sort        Field to sort records on
+	 * @param   array    $areas       Areas to return data for
+	 * @return  array
 	 */
 	public function onMembersContributions($member, $option, $limit=0, $limitstart=0, $sort, $areas=null)
 	{
@@ -269,15 +271,15 @@ class plgMembersImpact extends \Hubzero\Plugin\Plugin
 		}
 
 		// Do we have a member ID?
-		if ($member instanceof \Hubzero\User\Profile)
+		if ($member instanceof \Hubzero\User\User)
 		{
-			if (!$member->get('uidNumber'))
+			if (!$member->get('id'))
 			{
 				return array();
 			}
 			else
 			{
-				$uidNumber = $member->get('uidNumber');
+				$uidNumber = $member->get('id');
 				$username  = $member->get('username');
 			}
 		}
@@ -308,11 +310,21 @@ class plgMembersImpact extends \Hubzero\Plugin\Plugin
 
 		if (!$limit)
 		{
+			if (!$this->params->get('contributions'))
+			{
+				return 0;
+			}
+
 			$results = $objP->getCount($filters);
 			return $results;
 		}
 		else
 		{
+			if (!$this->params->get('contributions'))
+			{
+				return array();
+			}
+
 			$rows = $objP->getRecords($filters);
 
 			if ($rows)
@@ -341,8 +353,8 @@ class plgMembersImpact extends \Hubzero\Plugin\Plugin
 	/**
 	 * Static method for formatting results
 	 *
-	 * @param      object $row Database row
-	 * @return     string HTML
+	 * @param   object  $row  Database row
+	 * @return  string  HTML
 	 */
 	public static function out($row)
 	{

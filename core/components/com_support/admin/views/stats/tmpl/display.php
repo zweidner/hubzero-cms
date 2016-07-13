@@ -292,7 +292,8 @@ $base = rtrim($base, '/');
 			</div>
 		</fieldset>
 
-		<div class="col width-50 fltlft">
+		<div class="grid">
+		<div class="col span6">
 			<fieldset class="adminform breakdown pies">
 				<legend><span><?php echo Lang::txt('COM_SUPPORT_STATS_FIELDSET_BY_SEVERITY'); ?></span></legend>
 				<div id="severities-container" style="min-width: 300px; height: 300px; margin: 60px 0 20px 0;">
@@ -383,7 +384,7 @@ $base = rtrim($base, '/');
 			</fieldset>
 		</div>
 
-		<div class="col width-50 fltrt">
+		<div class="col span6">
 			<fieldset class="adminform breakdown pies">
 				<legend><span><?php echo Lang::txt('COM_SUPPORT_STATS_FIELDSET_BY_RESOLUTION'); ?></span></legend>
 				<div id="resolutions-container" style="min-width: 300px; height: 300px; margin: 60px 0 20px 0;">
@@ -452,12 +453,12 @@ $base = rtrim($base, '/');
 								hoverable: false
 							}
 						});
-				    });
+					});
 				}
 				</script>
 			</fieldset>
 		</div>
-		<div class="clr"></div>
+		</div>
 
 		<?php
 		if ($this->users)
@@ -474,23 +475,25 @@ $base = rtrim($base, '/');
 					if ($z == 1)
 					{
 						?>
-						</div><!-- / .col width-50 fltlft -->
-						<div class="col width-50 fltrt">
+						</div><!-- / .col span6 -->
+						<div class="col span6">
 						<?php
 					}
 					else if ($z == 2)
 					{
 						$z = 0;
 						?>
-						</div><!-- / .col width-50 fltrt -->
-						<div class="clr"></div>
-						<div class="col width-50 fltlft">
+						</div><!-- / .col span6 -->
+						</div><!-- / .grid -->
+						<div class="grid">
+						<div class="col span6">
 						<?php
 					}
 					else
 					{
 						?>
-						<div class="col width-50 fltlft">
+						<div class="grid">
+						<div class="col span6">
 						<?php
 					}
 
@@ -510,7 +513,7 @@ $base = rtrim($base, '/');
 						$closeddata = implode(',', $c);
 					}
 					$anon = 0;
-					$profile = \Hubzero\User\Profile::getInstance($user->id);
+					$profile = User::getInstance($user->id);
 					if (!$profile)
 					{
 						$anon = 1;
@@ -523,7 +526,7 @@ $base = rtrim($base, '/');
 					<strong>#<?php echo $j; ?></strong>
 				</p>
 				<p class="entry-member-photo">
-					<img src="<?php echo $profile->getPicture($anon); ?>" alt="<?php echo Lang::txt('COM_SUPPORT_STATS_PHOTO_FOR', $this->escape(stripslashes($user->name))); ?>" />
+					<img src="<?php echo $profile->picture($anon); ?>" alt="<?php echo Lang::txt('COM_SUPPORT_STATS_PHOTO_FOR', $this->escape(stripslashes($user->name))); ?>" />
 				</p>
 				<p class="entry-title">
 					<?php echo $this->escape(stripslashes($user->name)); ?><br />
@@ -614,7 +617,7 @@ $base = rtrim($base, '/');
 			}
 		?>
 			</div><!-- / .col width-50 fltrt -->
-			<div class="clr"></div>
+			</div>
 		<?php
 		}
 		?>

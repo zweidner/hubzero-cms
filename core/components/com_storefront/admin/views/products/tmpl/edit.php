@@ -41,7 +41,7 @@ if ($canDo->get('core.edit'))
 }
 Toolbar::cancel();
 Toolbar::spacer();
-Toolbar::help('category');
+Toolbar::help('product');
 
 $this->css();
 ?>
@@ -111,6 +111,7 @@ function submitbutton(pressbutton)
 						<input type="hidden" name="fields[pId]" id="field-id" value="<?php echo $this->escape($this->row->getId()); ?>" />
 					</td>
 				</tr>
+				<?php if ($this->row->getTypeInfo() && $this->row->getTypeInfo()->name == 'Software Download') { ?>
 				<tr>
 					<th class="key"><?php echo Lang::txt('COM_STOREFRONT_DOWNLOADED'); ?>:</th>
 					<td>
@@ -126,6 +127,7 @@ function submitbutton(pressbutton)
 						?>
 					</td>
 				</tr>
+			<?php } ?>
 			</tbody>
 		</table>
 
@@ -188,12 +190,44 @@ function submitbutton(pressbutton)
 				<?php echo Html::input('calendar', 'fields[publish_down]', ($this->row->getPublishTime()->publish_down != '0000-00-00 00:00:00' ? $this->escape(Date::of($this->row->getPublishTime()->publish_down)->toLocal('Y-m-d H:i:s')) : ''), array('id' => 'field-publish_down')); ?>
 			</div>
 
-			<div class="input-wrap">
-				<label for="field-access"><?php echo Lang::txt('COM_STOREFRONT_ACCESS_LEVEL'); ?>:</label>
-				<?php
-				echo JHtml::_('access.level', 'fields[access]', $this->row->getAccessLevel());
-				?>
-			</div>
+			<?php if ($this->config->get('productAccess')) { ?>
+				<div class="input-wrap" data-hint="<?php echo Lang::txt('COM_STOREFRONT_ACCESS_GROUPS_HINT'); ?>">
+					<label><?php echo Lang::txt('COM_STOREFRONT_ACCESS_GROUPS'); ?>:</label>
+					<p class="hint"><?php echo Lang::txt('COM_STOREFRONT_ACCESS_GROUPS_HINT'); ?></p>
+					<?php
+					echo Html::access('usergroups', 'accessgroups', $this->row->getAccessGroups(), true); ?>
+					<script type="text/javascript">
+					jQuery(document).ready(function($){
+						var groups = $('.usergroups');
+						if (groups.length) {
+							var boxes = groups.find('input[type=checkbox]');
+
+							boxes.on('change', function(e){
+								checkDescendents(boxes, $(this));
+							});
+						}
+
+						function checkDescendents(boxes, el) {
+							var rel = el.attr('id');
+
+							if (el.is(":checked") && rel) {
+								boxes.each(function(i, el){
+									if ($(el).attr('rel') == rel) {
+										$(el).prop('checked', true);
+										checkDescendents(boxes, $(el));
+									}
+								});
+							}
+						}
+					});
+					</script>
+				</div>
+			<?php } else { ?>
+				<div class="input-wrap">
+					<label for="field-access"><?php echo Lang::txt('COM_STOREFRONT_ACCESS_LEVEL'); ?>:</label>
+					<?php echo Html::access('level', 'fields[access]', $this->row->getAccessLevel()); ?>
+				</div>
+			<?php } ?>
 		</fieldset>
 
 		<?php

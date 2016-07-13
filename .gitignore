@@ -1,5 +1,6 @@
 app/cache/**
+app/logs/**
 app/config/**
 app/site/**
-app/logs/**
 app/tmp/**
+core/vendor/**

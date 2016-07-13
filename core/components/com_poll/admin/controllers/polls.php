@@ -25,21 +25,23 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
 
 namespace Components\Poll\Admin\Controllers;
 
-use Components\Poll\Tables\Poll;
+use Components\Poll\Models\Poll;
+use Components\Poll\Models\Option;
 use Hubzero\Component\AdminController;
+use Hubzero\Utility\Arr;
 use Exception;
 use stdClass;
 use Request;
-use Config;
+use Notify;
 use User;
 use Lang;
+use App;
 
 /**
  * Controller class for polls
@@ -69,121 +71,79 @@ class Polls extends AdminController
 	 */
 	public function displayTask()
 	{
-		$db  = \App::get('db');
+		$filters = array(
+			'state' => Request::getState(
+				$this->_option . '.' . $this->_controller . '.filter_state',
+				'filter_state',
+				'',
+				'word'
+			),
+			'search' => Request::getState(
+				$this->_option . '.' . $this->_controller . '.search',
+				'search',
+				'',
+				'string'
+			),
+			'order'  => Request::getState(
+				$this->_option . '.' . $this->_controller . '.filter_order',
+				'filter_order',
+				'm.id',
+				'cmd'
+			),
+			'order_Dir' => Request::getState(
+				$this->_option . '.' . $this->_controller . '.filter_order_Dir',
+				'filter_order_Dir',
+				'',
+				'word'
+			)
+		);
 
-		$filter_order     = Request::getState(
-			$this->_option . '.' . $this->_controller . '.filter_order',
-			'filter_order',
-			'm.id',
-			'cmd'
-		);
-		$filter_order_Dir = Request::getState(
-			$this->_option . '.' . $this->_controller . '.filter_order_Dir',
-			'filter_order_Dir',
-			'',
-			'word'
-		);
-		$filter_state     = Request::getState(
-			$this->_option . '.' . $this->_controller . '.filter_state',
-			'filter_state',
-			'',
-			'word'
-		);
-		$search           = Request::getState(
-			$this->_option . '.' . $this->_controller . '.search',
-			'search',
-			'',
-			'string'
-		);
-		if (strpos($search, '"') !== false)
+		$polls = Poll::all()
+			->including(['options', function ($option){
+				$option
+					->select('id')
+					->select('poll_id')
+					->where('text', '<>', '');
+			}])
+			->including(['dates', function ($date){
+				$date
+					->select('id')
+					->select('poll_id');
+			}]);
+
+		if ($filters['search'])
 		{
-			$search = str_replace(array('=', '<'), '', $search);
-		}
-		$search = \JString::strtolower($search);
-
-		$limit      = Request::getState(
-			'global.list.limit',
-			'limit',
-			Config::get('list_limit'),
-			'int'
-		);
-		$limitstart = Request::getState(
-			$this->_option . '.' . $this->_controller . '.limitstart',
-			'limitstart',
-			0,
-			'int'
-		);
-
-		$where = array();
-
-		if ($filter_state)
-		{
-			if ( $filter_state == 'P' )
+			if (strpos($filters['search'], '"') !== false)
 			{
-				$where[] = 'm.published = 1';
+				$filters['search'] = str_replace(array('=', '<'), '', $filters['search']);
 			}
-			else if ($filter_state == 'U' )
+			$filters['search'] = strtolower($filters['search']);
+
+			$polls->whereLike('title', strtolower((string)$filters['search']));
+		}
+
+		if ($filters['state'])
+		{
+			if ($filters['state'] == 'P')
 			{
-				$where[] = 'm.published = 0';
+				$polls->whereEquals('state', 1);
+			}
+			else if ($filters['state'] == 'U')
+			{
+				$polls->whereEquals('state', 0);
 			}
 		}
-		if ($search)
-		{
-			$where[] = 'LOWER(m.title) LIKE ' . $db->Quote('%' . $search . '%');
-		}
 
-		$where = (count($where) ? ' WHERE ' . implode(' AND ', $where) : '');
+		$rows = $polls
+			->ordered('filter_order', 'filter_order_Dir')
+			->paginated('limitstart', 'limit')
+			->rows();
 
-		// sanitize $filter_order
-		if (!in_array($filter_order, array('m.title', 'm.published', 'a.ordering', 'catname', 'm.voters', 'numoptions', 'm.lag', 'm.id')))
-		{
-			$filter_order = 'm.id';
-		}
-		if (!in_array(strtoupper($filter_order_Dir), array('ASC', 'DESC')))
-		{
-			$filter_order_Dir = '';
-		}
-
-		$orderby = ' ORDER BY '. $filter_order .' '. $filter_order_Dir;
-
-		$db->setQuery('SELECT COUNT(m.id) FROM `#__polls` AS m' . $where);
-		$total = $db->loadResult();
-
-		$query = 'SELECT m.*, u.name AS editor, COUNT(d.id) AS numoptions'
-			. ' FROM `#__polls` AS m'
-			. ' LEFT JOIN `#__users` AS u ON u.id = m.checked_out'
-			. ' LEFT JOIN `#__poll_data` AS d ON d.pollid = m.id AND d.text <> ""'
-			. $where
-			. ' GROUP BY m.id'
-			. $orderby
-			;
-		$db->setQuery($query, $limitstart, $limit);
-		$rows = $db->loadObjectList();
-
-		if ($db->getErrorNum())
-		{
-			throw new Exception($db->stderr(), 500);
-		}
-
-		$lists = array();
-
-		// State filter
-		$lists['state']     = \Html::grid('states', $filter_state);
-
-		// Table ordering
-		$lists['order_Dir'] = $filter_order_Dir;
-		$lists['order']     = $filter_order;
-
-		// Dearch filter
-		$lists['search']    = $search;
+		$filters['states'] = \Html::grid('states', $filters['state']);
 
 		$this->view
-			->set('user', User::getRoot())
-			->set('lists', $lists)
-			->set('items', $rows)
-			->set('limit', $limit)
-			->set('limitstart', $limitstart)
-			->set('total', $total)
+			->set('filters', $filters)
+			->set('rows', $rows)
 			->display();
 	}
 
@@ -197,24 +157,17 @@ class Polls extends AdminController
 		Request::setVar('hidemainmenu', 1);
 		Request::setVar('tmpl', 'component');
 
-		$db = \App::get('db');
-
-		$id = Request::getVar('cid', array(0));
+		$id = Request::getVar('id', array(0));
 		if (is_array($id) && !empty($id))
 		{
 			$id = $id[0];
 		}
 
-		$poll = new Poll($db);
-		$poll->load($id);
+		$poll = Poll::oneOrFail($id);
 
-		$query = 'SELECT id, text'
-			. ' FROM `#__poll_data`'
-			. ' WHERE pollid = '. (int) $poll->id
-			. ' ORDER BY id'
-			;
-		$db->setQuery($query);
-		$options = $db->loadObjectList();
+		$options = $poll->options()
+			->ordered()
+			->rows();
 
 		$this->view
 			->set('poll', $poll)
@@ -230,60 +183,52 @@ class Polls extends AdminController
 	 */
 	public function editTask($poll=null)
 	{
+		if (!User::authorise('core.edit', $this->_option)
+		 && !User::authorise('core.create', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		Request::setVar('hidemainmenu', 1);
 
-		$db = \App::get('db');
-		$user = User::getRoot();
-
-		if (!$poll)
+		if (!is_object($poll))
 		{
-			$id = Request::getVar('cid', array(0));
+			$id = Request::getVar('id', array(0));
 			if (is_array($id) && !empty($id))
 			{
 				$id = $id[0];
 			}
 
-			$poll = new Poll($db);
-			$poll->load($id);
+			$poll = Poll::oneOrNew($id);
 		}
 
 		// Fail if checked out not by 'me'
-		if ($poll->isCheckedOut($user->get('id')))
+		if ($poll->isCheckedOut(User::get('id')))
 		{
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option, false),
-				Lang::txt('DESCBEINGEDITTED', Lang::txt('The poll'), $poll->title),
-				'warning'
-			);
-			return;
+			Notify::warning(Lang::txt('DESCBEINGEDITTED', Lang::txt('The poll'), $poll->get('title')));
+
+			return $this->cancelTask();
 		}
 
-		if ($poll->id == 0)
+		if ($poll->isNew())
 		{
-			$poll->published = 1;
+			$poll->set('published', 1);
+		}
+		else
+		{
+			$poll->checkout(User::get('id'));
 		}
 
-		$poll->checkout($user->get('id'));
-
-		$query = 'SELECT id, text'
-			. ' FROM `#__poll_data`'
-			. ' WHERE pollid = '. (int) $poll->id
-			. ' ORDER BY id'
-			;
-		$db->setQuery($query);
-		$options = $db->loadObjectList();
-
-		// Set any errors
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
-		}
+		$options = $poll->options()
+			->ordered()
+			->rows();
 
 		// Output the HTML
 		$this->view
 			->set('poll', $poll)
 			->set('options', $options)
 			->setLayout('edit')
+			->setErrors($this->getErrors())
 			->display();
 	}
 
@@ -297,35 +242,23 @@ class Polls extends AdminController
 		// Check for request forgeries
 		Request::checkToken();
 
-		$post = array(
-			'id' => Request::getInt('id', 0, 'post'),
-			'title' => Request::getVar('title', '', 'post'),
-			'alias' => Request::getVar('alias', '', 'post'),
-			'lag' => Request::getVar('lag', '', 'post'),
-			'published' => Request::getVar('published', '', 'post'),
-			'open' => Request::getVar('open', '', 'post'),
-		);
+		if (!User::authorise('core.edit', $this->_option)
+		 && !User::authorise('core.create', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
+		$fields = Request::getVar('fields', array(), 'post');
 
 		// Save the poll parent information
-		$db = \App::get('db');
-		$row = new Poll($db);
+		$row = Poll::oneOrNew($fields['id'])->set($fields);
 
-		if (!$row->bind($post))
+		if (!$row->save())
 		{
-			throw new Exception($row->getError(), 500);
+			Notify::error($row->getError());
+			return $this->editTask($row);
 		}
 
-		$isNew = ($row->id == 0);
-
-		if (!$row->check())
-		{
-			throw new Exception($row->getError(), 500);
-		}
-
-		if (!$row->store())
-		{
-			throw new Exception($row->getError(), 500);
-		}
 		$row->checkin();
 
 		// Save the poll options
@@ -333,38 +266,30 @@ class Polls extends AdminController
 
 		foreach ($options as $i => $text)
 		{
-			//$text = htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
-			if ($isNew)
+			$option = new Option;
+			$option->set('pollid', (int) $row->get('id'));
+			$option->set('text', htmlspecialchars($text, ENT_QUOTES, 'UTF-8'));
+
+			if ($fields['id'])
 			{
-				$obj = new stdClass();
-				$obj->pollid = (int)$row->id;
-				$obj->text   = $text;
-				$db->insertObject('#__poll_data', $obj);
+				$option->set('id', (int) $i);
 			}
-			else
+
+			if (!$option->save())
 			{
-				$obj = new stdClass();
-				$obj->id     = (int)$i;
-				$obj->text   = $text;
-				$db->updateObject('#__poll_data', $obj, 'id');
+				Notify::error($option->getError());
+				return $this->editTask($row);
 			}
 		}
 
-		switch (Request::getVar('task', 'save'))
+		Notify::success(Lang::txt('COM_POLL_ITEM_SAVED'));
+
+		if ($this->getTask() == 'apply')
 		{
-			case 'apply':
-				$msg  = Lang::txt('COM_POLL_ITEM_SAVED');
-				$link = Route::url('index.php?option=com_poll&view=poll&task=edit&cid=' . $row->id, false);
-			break;
-
-			case 'save':
-			default:
-				$msg  = Lang::txt('COM_POLL_ITEM_SAVED');
-				$link = Route::url('index.php?option=com_poll', false);
-			break;
+			return $this->editTask($row);
 		}
 
-		App::redirect($link, $msg);
+		$this->cancelTask();
 	}
 
 	/**
@@ -375,28 +300,27 @@ class Polls extends AdminController
 	public function removeTask()
 	{
 		// Check for request forgeries
-		Request::checkToken();
+		Request::checkToken(['get', 'post']);
 
-		$db  = \App::get('db');
-		$cid = Request::getVar('cid', array(), '', 'array');
-		\Hubzero\Utility\Arr::toInteger($cid);
-
-		$msg = '';
-
-		$poll = new Poll($db);
-
-		for ($i=0, $n=count($cid); $i < $n; $i++)
+		if (!User::authorise('core.delete', $this->_option))
 		{
-			if (!$poll->delete($cid[$i]))
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
+		$ids = Request::getVar('id', array());
+		Arr::toInteger($ids);
+
+		foreach ($ids as $id)
+		{
+			$poll = Poll::oneOrFail(intval($id));
+
+			if (!$poll->destroy())
 			{
-				$msg .= $poll->getError();
+				Notify::error($poll->getError());
 			}
 		}
 
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option, false),
-			$msg
-		);
+		$this->cancelTask();
 	}
 
 	/**
@@ -409,46 +333,43 @@ class Polls extends AdminController
 		// Check for request forgeries
 		Request::checkToken(['get', 'post']);
 
-		$cid = Request::getVar('cid', array(), '', 'array');
-		\Hubzero\Utility\Arr::toInteger($cid);
+		if (!User::authorise('core.edit.state', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
 
-		$publish = (Request::getVar('task') == 'publish' ? 1 : 0);
+		$ids = Request::getVar('id', array());
+		Arr::toInteger($ids);
 
-		if (count($cid) < 1)
+		$state = (Request::getVar('task') == 'publish' ? 1 : 0);
+
+		if (count($ids) < 1)
 		{
 			$action = $publish ? 'COM_POLL_PUBLISH' : 'COM_POLL_UNPUBLISH';
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option, false),
-				Lang::txt('COM_POLL_SELECT_ITEM_TO', Lang::txt($action), true),
-				'warning'
-			);
-			return;
+
+			Notify::warning(Lang::txt('COM_POLL_SELECT_ITEM_TO', Lang::txt($action), true));
+
+			return $this->cancelTask();
 		}
 
-		$cids = implode( ',', $cid);
-
-		$db   = \App::get('db');
-		$user = User::getRoot();
-
-		$query = 'UPDATE `#__polls`'
-			. ' SET published = ' . (int) $publish
-			. ' WHERE id IN (' . $cids . ')'
-			. ' AND (checked_out = 0 OR (checked_out = ' . (int) $user->get('id') . '))';
-		$db->setQuery($query);
-		if (!$db->query())
+		foreach ($ids as $id)
 		{
-			throw new Exception($db->getErrorMsg(), 500);
+			$poll = Poll::oneOrFail(intval($id));
+
+			if ($poll->get('checked_out') && $poll->get('checked_out') != User::get('id'))
+			{
+				continue;
+			}
+
+			$poll->set('state', (int) $state);
+
+			if (!$poll->save())
+			{
+				Notify::error($poll->getError());
+			}
 		}
 
-		if (count($cid) == 1)
-		{
-			$row = new Poll($db);
-			$row->checkin($cid[0]);
-		}
-
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option, false)
-		);
+		$this->cancelTask();
 	}
 
 	/**
@@ -461,46 +382,43 @@ class Polls extends AdminController
 		// Check for request forgeries
 		Request::checkToken(['get', 'post']);
 
-		$cid = Request::getVar('cid', array(), '', 'array');
-		\Hubzero\Utility\Arr::toInteger($cid);
+		if (!User::authorise('core.edit.state', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
+		$ids = Request::getVar('id', array());
+		Arr::toInteger($ids);
 
 		$publish = (Request::getVar('task') == 'open' ? 1 : 0);
 
-		if (count($cid) < 1)
+		if (count($ids) < 1)
 		{
 			$action = $publish ? 'COM_POLL_OPEN' : 'COM_POLL_CLOSE';
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option, false),
-				Lang::txt('COM_POLL_SELECT_ITEM_TO', Lang::txt($action), true),
-				'warning'
-			);
-			return;
+
+			Notify::warning(Lang::txt('COM_POLL_SELECT_ITEM_TO', Lang::txt($action), true));
+
+			return $this->cancelTask();
 		}
 
-		$cids = implode( ',', $cid);
-
-		$db   = \App::get('db');
-		$user = User::getRoot();
-
-		$query = 'UPDATE `#__polls`'
-			. ' SET open = ' . (int) $publish
-			. ' WHERE id IN (' . $cids . ')'
-			. ' AND (checked_out = 0 OR (checked_out = ' . (int) $user->get('id') . '))';
-		$db->setQuery($query);
-		if (!$db->query())
+		foreach ($ids as $id)
 		{
-			throw new Exception($db->getErrorMsg(), 500);
+			$poll = Poll::oneOrFail(intval($id));
+
+			if ($poll->get('checked_out') && $poll->get('checked_out') != User::get('id'))
+			{
+				continue;
+			}
+
+			$poll->set('open', (int) $publish);
+
+			if (!$poll->save())
+			{
+				Notify::error($poll->getError());
+			}
 		}
 
-		if (count($cid) == 1)
-		{
-			$row = new Poll($db);
-			$row->checkin($cid[0]);
-		}
-
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option, false)
-		);
+		$this->cancelTask();
 	}
 
 	/**
@@ -515,9 +433,8 @@ class Polls extends AdminController
 
 		if ($id  = Request::getVar('id', 0, '', 'int'))
 		{
-			$db  = \App::get('db');
-			$row = new Poll($db);
-			$row->checkin($id);
+			$row = Poll::oneOrFail($id);
+			$row->checkin();
 		}
 
 		App::redirect(

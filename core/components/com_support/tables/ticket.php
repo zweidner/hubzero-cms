@@ -540,7 +540,7 @@ class Ticket extends \JTable
 		}
 		else
 		{
-			$sql = "SELECT DISTINCT f.id, f.summary, f.report, f.category, f.open, f.status, f.severity, f.resolved, f.group, f.owner, f.created, f.closed, f.login, f.name, f.email, u.name AS owner_name, u.id AS owner_id, u.username AS username";
+			$sql = "SELECT DISTINCT f.id, f.summary, f.report, f.category, f.open, f.status, f.severity, f.resolved, f.group, f.owner, f.created, f.closed, f.login, f.name, f.email, u.name AS owner_name, u.id AS owner_id, u.username";
 		}
 		$sql .= " FROM $filter";
 		$sql .= " ORDER BY ".$filters['sort'] . ' ' . $filters['sortdir'];

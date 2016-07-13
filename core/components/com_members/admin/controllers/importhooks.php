@@ -33,9 +33,11 @@
 namespace Components\Members\Admin\Controllers;
 
 use Hubzero\Component\AdminController;
+use Hubzero\Content\Import\Model\Hook;
 use Filesystem;
 use Request;
 use Config;
+use Notify;
 use Route;
 use User;
 use Date;
@@ -54,6 +56,8 @@ class ImportHooks extends AdminController
 	 */
 	public function execute()
 	{
+		Lang::load($this->_option . '.import', dirname(__DIR__));
+
 		$this->registerTask('add', 'edit');
 		$this->registerTask('apply', 'save');
 
@@ -68,7 +72,7 @@ class ImportHooks extends AdminController
 	public function displayTask()
 	{
 		// Get filters
-		$this->view->filters = array(
+		$filters = array(
 			'limit' => Request::getState(
 				$this->_option . '.' . $this->_controller . '.limit',
 				'limit',
@@ -87,11 +91,32 @@ class ImportHooks extends AdminController
 			'type'     => 'members'
 		);
 
-		// get all imports from archive
-		$archive = \Hubzero\Content\Import\Model\Hook\Archive::getInstance();
+		$model = Hook::all();
 
-		$this->view->total = $archive->hooks('count', $this->view->filters);
-		$this->view->hooks = $archive->hooks('list', $this->view->filters);
+		if (isset($filters['state']) && $filters['state'])
+		{
+			if (!is_array($filters['state']))
+			{
+				$filters['state'] = array($filters['state']);
+			}
+			$filters['state'] = array_map('intval', $filters['state']);
+
+			$model->whereIn('state', $filters['state']);
+		}
+
+		if (isset($filters['type']) && $filters['type'])
+		{
+			$model->whereEquals('type', $filters['type']);
+		}
+
+		if (isset($filters['event']) && $filters['event'])
+		{
+			$model->whereEquals('event', $filters['event']);
+		}
+
+		$hooks = $model->ordered()
+			->paginated()
+			->rows();
 
 		// Set any errors
 		foreach ($this->getErrors() as $error)
@@ -101,6 +126,8 @@ class ImportHooks extends AdminController
 
 		// Output the HTML
 		$this->view
+			->set('filters', $filters)
+			->set('hooks', $hooks)
 			->setLayout('display')
 			->display();
 	}
@@ -116,7 +143,7 @@ class ImportHooks extends AdminController
 		Request::setVar('hidemainmenu', 1);
 
 		// get the import object
-		if (!($row instanceof \Hubzero\Content\Import\Model\Hook))
+		if (!($row instanceof Hook))
 		{
 			// get request vars
 			$id = Request::getVar('id', array(0));
@@ -125,10 +152,8 @@ class ImportHooks extends AdminController
 				$id = (isset($id[0]) ? $id[0] : 0);
 			}
 
-			$row = new \Hubzero\Content\Import\Model\Hook($id);
+			$row = Hook::oneOrNew($id);
 		}
-
-		$this->view->hook = $row;
 
 		// Set any errors
 		foreach ($this->getErrors() as $error)
@@ -138,6 +163,7 @@ class ImportHooks extends AdminController
 
 		// Output the HTML
 		$this->view
+			->set('hook', $row)
 			->setLayout('edit')
 			->display();
 	}
@@ -153,36 +179,29 @@ class ImportHooks extends AdminController
 		Request::checkToken();
 
 		// get request vars
-		$hook = Request::getVar('hook', array(), 'post');
-		$file = Request::getVar('file', array(), 'FILES');
+		$fields = Request::getVar('hook', array(), 'post');
+		$file   = Request::getVar('file', array(), 'FILES');
 
-		// Xreate hook model object
-		$this->hook = new \Hubzero\Content\Import\Model\Hook();
+		// Create hook model object
+		$hook = Hook::blank()->set($fields);
 
-		// Bind input to model
-		if (!$this->hook->bind($hook))
-		{
-			$this->setError($this->hook->getError());
-			return $this->editTask();
-		}
-
-		$this->hook->set('type', 'members');
+		$hook->set('type', 'members');
 
 		// Is this a new import?
 		$isNew = false;
-		if (!$this->hook->get('id'))
+		if ($hook->isNew())
 		{
 			$isNew = true;
 
 			// set the created by/at
-			$this->hook->set('created_by', User::get('id'));
-			$this->hook->set('created', Date::toSql());
+			$hook->set('created_by', User::get('id'));
+			$hook->set('created', Date::toSql());
 		}
 
 		// Attempt to save
-		if (!$this->hook->store(true))
+		if (!$hook->save())
 		{
-			$this->setError($this->hook->getError());
+			$this->setError($hook->getError());
 			return $this->editTask();
 		}
 
@@ -190,29 +209,27 @@ class ImportHooks extends AdminController
 		if ($isNew)
 		{
 			// Create folder for files
-			$this->_createImportFilespace($this->hook);
+			$this->_createImportFilespace($hook);
 		}
 
 		// If we have a file
 		if ($file['size'] > 0 && $file['error'] == 0)
 		{
-			move_uploaded_file($file['tmp_name'], $this->hook->fileSpacePath() . DS . $file['name']);
+			move_uploaded_file($file['tmp_name'], $hook->fileSpacePath() . DS . $file['name']);
 
-			$this->hook->set('file', $file['name']);
-			$this->hook->store();
+			$hook->set('file', $file['name']);
+			$hook->save();
 		}
 
-		\Notify::success(Lang::txt('COM_MEMBERS_IMPORTHOOK_CREATED'));
+		Notify::success(Lang::txt('COM_MEMBERS_IMPORTHOOK_CREATED'));
 
 		// Inform user & redirect
-		if ($this->_task == 'apply')
+		if ($this->getTask() == 'apply')
 		{
-			return $this->editTask($this->import);
+			return $this->editTask($hook);
 		}
 
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=display', false)
-		);
+		$this->cancelTask();
 	}
 
 	/**
@@ -230,10 +247,10 @@ class ImportHooks extends AdminController
 		}
 
 		// create hook model object
-		$this->hook = new \Hubzero\Content\Import\Model\Hook($id);
+		$hook = Hook::oneOrFail($id);
 
 		// get path to file
-		$file = $this->hook->fileSpacePath() . DS . $this->hook->get('file');
+		$file = $hook->fileSpacePath() . DS . $hook->get('file');
 
 		// default contents
 		$contents = '';
@@ -265,34 +282,35 @@ class ImportHooks extends AdminController
 		$ids = (!is_array($ids) ? array($ids) : $ids);
 
 		// loop through all ids posted
+		$i = 0;
 		foreach ($ids as $id)
 		{
 			// make sure we have an object
-			$hook = new \Hubzero\Content\Import\Model\Hook($id);
-			if (!$hook->exists())
+			$hook = Hook::oneOrNew($id);
+
+			if (!$hook->get('id'))
 			{
 				continue;
 			}
 
 			$hook->set('state', 2);
 
-			if (!$hook->store(true))
+			if (!$hook->save())
 			{
-				App::redirect(
-					Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=display', false),
-					$hook->getError(),
-					'error'
-				);
-				return;
+				Notify::error($hook->getError());
+				continue;
 			}
+
+			$i++;
+		}
+
+		if ($i)
+		{
+			Notify::success(Lang::txt('COM_MEMBERS_IMPORTHOOK_REMOVED'));
 		}
 
 		//inform user & redirect
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=display', false),
-			Lang::txt('COM_MEMBERS_IMPORTHOOK_REMOVED'),
-			'passed'
-		);
+		$this->cancelTask();
 	}
 
 	/**
@@ -301,7 +319,7 @@ class ImportHooks extends AdminController
 	 * @param   object   $hook  \Hubzero\Content\Import\Model\Hook
 	 * @return  boolean
 	 */
-	private function _createImportFilespace(\Hubzero\Content\Import\Model\Hook $hook)
+	private function _createImportFilespace(Hook $hook)
 	{
 		// upload path
 		$uploadPath = $hook->fileSpacePath();

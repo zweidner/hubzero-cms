@@ -37,6 +37,12 @@ use Components\Publications\Tables;
 use Components\Publications\Helpers;
 use Components\Publications\Models;
 use Exception;
+use Request;
+use Config;
+use Route;
+use Lang;
+use User;
+use App;
 
 /**
  * Manage publications
@@ -46,7 +52,7 @@ class Items extends AdminController
 	/**
 	 * Executes a task
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function execute()
 	{
@@ -57,7 +63,7 @@ class Items extends AdminController
 	/**
 	 * Lists publications
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function displayTask()
 	{
@@ -106,16 +112,16 @@ class Items extends AdminController
 		$this->view->model = new Models\Publication($this->database);
 
 		// Get record count
-		$this->view->total = $this->view->model->entries( 'count', $this->view->filters, true );
+		$this->view->total = $this->view->model->entries('count', $this->view->filters, true);
 
 		// Get publications
-		$this->view->rows = $this->view->model->entries( 'list', $this->view->filters, true );
+		$this->view->rows = $this->view->model->entries('list', $this->view->filters, true);
 
 		$this->view->config = $this->config;
 
 		// Get <select> of types
 		// Get types
-		$rt = new Tables\Category( $this->database );
+		$rt = new Tables\Category($this->database);
 		$this->view->categories = $rt->getContribCategories();
 
 		// Set any errors
@@ -131,8 +137,8 @@ class Items extends AdminController
 	/**
 	 * Edit form for a publication
 	 *
-	 * @param      integer $isnew Flag for editing (0) or creating new (1)
-	 * @return     void
+	 * @param   integer  $isnew  Flag for editing (0) or creating new (1)
+	 * @return  void
 	 */
 	public function editTask($isnew=0)
 	{
@@ -163,7 +169,7 @@ class Items extends AdminController
 		}
 
 		// Incoming version
-		$version = Request::getVar( 'version', 'default' );
+		$version = Request::getVar('version', 'default');
 
 		// Grab some filters for returning to place after editing
 		$this->view->return = array();
@@ -223,14 +229,14 @@ class Items extends AdminController
 	/**
 	 * Edit content item
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function editcontentTask()
 	{
 		// Incoming
-		$id = Request::getInt( 'id', 0 );
-		$el = Request::getInt( 'el', 0 );
-		$v  = Request::getVar( 'v', 'default' );
+		$id = Request::getInt('id', 0);
+		$el = Request::getInt('el', 0);
+		$v  = Request::getVar('v', 'default');
 
 		// Get publication information
 		$this->view->pub = new Models\Publication($id, $v);
@@ -286,14 +292,14 @@ class Items extends AdminController
 		Request::checkToken(['get', 'post']);
 
 		// Incoming
-		$el 	 = Request::getInt( 'el', 0 );
-		$id 	 = Request::getInt( 'id', 0 );
-		$version = Request::getVar( 'version', '' );
-		$params  = Request::getVar( 'params', array(), 'request', 'array' );
-		$attachments = Request::getVar( 'attachments', array(), 'request', 'array' );
+		$el 	 = Request::getInt('el', 0);
+		$id 	 = Request::getInt('id', 0);
+		$version = Request::getVar('version', '');
+		$params  = Request::getVar('params', array(), 'request', 'array');
+		$attachments = Request::getVar('attachments', array(), 'request', 'array');
 
 		// Load publication model
-		$this->model  = new Models\Publication( $id, $version);
+		$this->model  = new Models\Publication($id, $version);
 
 		if (!$this->model->exists())
 		{
@@ -307,9 +313,9 @@ class Items extends AdminController
 		// Save attachments
 		if (!empty($attachments))
 		{
-			foreach ($attachments as $attachId => $attach )
+			foreach ($attachments as $attachId => $attach)
 			{
-				$pContent = new Tables\Attachment( $this->database );
+				$pContent = new Tables\Attachment($this->database);
 				if ($pContent->load($attachId))
 				{
 					$pContent->title = $attach['title'];
@@ -332,7 +338,7 @@ class Items extends AdminController
 	/**
 	 * Add author form
 	 *
-	 * @return void
+	 * @return  void
 	 */
 	public function addauthorTask()
 	{
@@ -342,16 +348,16 @@ class Items extends AdminController
 	/**
 	 * Edit author name and details
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function editauthorTask()
 	{
 		// Incoming
-		$author = Request::getInt( 'author', 0 );
+		$author = Request::getInt('author', 0);
 
 		$this->view->setLayout('editauthor');
 
-		$this->view->author = new Tables\Author( $this->database );
+		$this->view->author = new Tables\Author($this->database);
 		if ($this->_task == 'editauthor' && !$this->view->author->load($author))
 		{
 			throw new Exception(Lang::txt('COM_PUBLICATIONS_ERROR_NO_AUTHOR_RECORD'), 404);
@@ -359,10 +365,10 @@ class Items extends AdminController
 		}
 
 		// Version ID
-		$vid = Request::getInt( 'vid', $this->view->author->publication_version_id );
+		$vid = Request::getInt('vid', $this->view->author->publication_version_id);
 
-		$this->view->row = new Tables\Version( $this->database );
-		$this->view->pub = new Tables\Publication( $this->database );
+		$this->view->row = new Tables\Version($this->database);
+		$this->view->pub = new Tables\Publication($this->database);
 
 		// Load version
 		if (!$this->view->row->load($vid))
@@ -372,7 +378,7 @@ class Items extends AdminController
 		}
 
 		// Load publication
-		$pid = Request::getInt( 'pid', $this->view->row->publication_id );
+		$pid = Request::getInt('pid', $this->view->row->publication_id);
 		if (!$this->view->pub->load($pid))
 		{
 			throw new Exception(Lang::txt('COM_PUBLICATIONS_NOT_FOUND'), 404);
@@ -381,12 +387,12 @@ class Items extends AdminController
 
 		// Instantiate project owner
 		$objO = new \Components\Projects\Tables\Owner($this->database);
-		$filters 					= array();
-		$filters['limit']    		= 0;
-		$filters['start']    		= 0;
-		$filters['sortby']   		= 'name';
-		$filters['sortdir']  		= 'ASC';
-		$filters['status']   		= 'active';
+		$filters = array();
+		$filters['limit']   = 0;
+		$filters['start']   = 0;
+		$filters['sortby']  = 'name';
+		$filters['sortdir'] = 'ASC';
+		$filters['status']  = 'active';
 
 		// Get all active team members
 		$this->view->team = $objO->getOwners($this->view->pub->project_id, $filters);
@@ -407,14 +413,14 @@ class Items extends AdminController
 	/**
 	 * Delete author
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function deleteauthorTask()
 	{
 		// Incoming
-		$aid = Request::getInt( 'aid', 0 );
+		$aid = Request::getInt('aid', 0);
 
-		$pAuthor = new Tables\Author( $this->database );
+		$pAuthor = new Tables\Author($this->database);
 		if (!$pAuthor->load($aid))
 		{
 			App::redirect(
@@ -431,8 +437,7 @@ class Items extends AdminController
 		$row = new Tables\Version($this->database);
 		if ($row->load($pAuthor->publication_version_id))
 		{
-			$url .= '&task=edit' . '&id[]=' . $row->publication_id
-				. '&version=' . $row->version_number;
+			$url .= '&task=edit' . '&id[]=' . $row->publication_id . '&version=' . $row->version_number;
 		}
 
 		if (!$pAuthor->delete())
@@ -465,12 +470,11 @@ class Items extends AdminController
 
 		// Incoming
 		$id       = Request::getInt('id', 0);
-		$version  = Request::getVar( 'version', '' );
+		$version  = Request::getVar('version', '');
 		$neworder = Request::getVar('list', '');
 
 		// Set redirect URL
-		$url = Route::url('index.php?option=' . $this->_option . '&controller='
-			. $this->_controller . '&task=edit' . '&id[]=' . $id . '&version=' . $version, false);
+		$url = Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=edit' . '&id[]=' . $id . '&version=' . $version, false);
 
 		if (!$neworder)
 		{
@@ -482,7 +486,7 @@ class Items extends AdminController
 		}
 
 		// Load publication model
-		$model  = new Models\Publication( $id, $version);
+		$model = new Models\Publication($id, $version);
 
 		if (!$model->exists())
 		{
@@ -523,7 +527,7 @@ class Items extends AdminController
 				$doiService = new Models\Doi($model);
 
 				// Get updated authors
-				$pAuthor = new Tables\Author( $this->database );
+				$pAuthor = new Tables\Author($this->database);
 				$authors = $pAuthor->getAuthors($model->version->id);
 				$doiService->set('authors', $authors);
 
@@ -546,7 +550,7 @@ class Items extends AdminController
 	/**
 	 * Save author name and details
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function saveauthorTask()
 	{
@@ -554,20 +558,20 @@ class Items extends AdminController
 		Request::checkToken(['get', 'post']);
 
 		// Incoming
-		$author  = Request::getInt( 'author', 0 );
-		$id 	 = Request::getInt( 'id', 0 );
-		$version = Request::getVar( 'version', '' );
+		$author  = Request::getInt('author', 0);
+		$id      = Request::getInt('id', 0);
+		$version = Request::getVar('version', '');
 
-		$firstName 	= Request::getVar( 'firstName', '', 'post' );
-		$lastName 	= Request::getVar( 'lastName', '', 'post' );
-		$org 		= Request::getVar( 'organization', '', 'post' );
+		$firstName = Request::getVar('firstName', '', 'post');
+		$lastName  = Request::getVar('lastName', '', 'post');
+		$org       = Request::getVar('organization', '', 'post');
 
 		// Set redirect URL
 		$url = Route::url('index.php?option=' . $this->_option . '&controller='
 			. $this->_controller . '&task=edit' . '&id[]=' . $id . '&version=' . $version, false);
 
 		// Load publication model
-		$model  = new Models\Publication( $id, $version);
+		$model  = new Models\Publication($id, $version);
 
 		if (!$model->exists())
 		{
@@ -638,7 +642,7 @@ class Items extends AdminController
 	/**
 	 * Save a publication and fall through to edit view
 	 *
-	 * @return void
+	 * @return  void
 	 */
 	public function applyTask()
 	{
@@ -649,7 +653,8 @@ class Items extends AdminController
 	 * Saves a publication
 	 * Redirects to main listing
 	 *
-	 * @return     void
+	 * @param   boolean  $redirect
+	 * @return  void
 	 */
 	public function saveTask($redirect = false)
 	{
@@ -657,10 +662,10 @@ class Items extends AdminController
 		Request::checkToken();
 
 		// Incoming
-		$id 			= Request::getInt( 'id', 0 );
-		$action 		= Request::getVar( 'admin_action', '' );
-		$published_up 	= Request::getVar( 'published_up', '' );
-		$version 	    = Request::getVar( 'version', 'default' );
+		$id           = Request::getInt('id', 0);
+		$action       = Request::getVar('admin_action', '');
+		$published_up = Request::getVar('published_up', '');
+		$version      = Request::getVar('version', 'default');
 
 		// Is this a new publication? Cannot create via back-end
 		$isnew = $id ? 0 : 1;
@@ -675,20 +680,18 @@ class Items extends AdminController
 		}
 
 		// Load publication model
-		$this->model  = new Models\Publication( $id, $version);
+		$this->model = new Models\Publication($id, $version);
 
 		if (!$this->model->exists())
 		{
 			throw new Exception(Lang::txt('COM_PUBLICATIONS_NOT_FOUND'), 404);
-			return;
 		}
 
 		// Checkin resource
 		$this->model->publication->checkin();
 
 		// Set redirect URL
-		$url = Route::url('index.php?option=' . $this->_option . '&controller='
-			. $this->_controller . '&task=edit' . '&id[]=' . $id . '&version=' . $version, false);
+		$url = Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=edit' . '&id[]=' . $id . '&version=' . $version, false);
 
 		$authors = $this->model->authors();
 		$project = $this->model->project();
@@ -698,23 +701,23 @@ class Items extends AdminController
 					? $this->model->_curationModel->_manifest->params->require_doi : 0;
 
 		// Incoming updates
-		$title 			= trim(Request::getVar( 'title', '', 'post' ));
-		$title 			= htmlspecialchars($title);
-		$abstract 		= trim(Request::getVar( 'abstract', '', 'post' ));
-		$abstract 		= \Hubzero\Utility\Sanitize::clean(htmlspecialchars($abstract));
-		$description 	= trim(Request::getVar( 'description', '', 'post', 'none', 2 ));
-		$release_notes 	= stripslashes(trim(Request::getVar( 'release_notes', '', 'post', 'none', 2 )));
-		$group_owner	= Request::getInt( 'group_owner', 0, 'post' );
-		$published_up 	= trim(Request::getVar( 'published_up', '', 'post' ));
-		$published_down = trim(Request::getVar( 'published_down', '', 'post' ));
-		$state 			= Request::getInt( 'state', 0 );
-		$metadata 		= '';
-		$activity 		= '';
+		$title          = trim(Request::getVar('title', '', 'post'));
+		$title          = htmlspecialchars($title);
+		$abstract       = trim(Request::getVar('abstract', '', 'post'));
+		$abstract       = \Hubzero\Utility\Sanitize::clean(htmlspecialchars($abstract));
+		$description    = trim(Request::getVar('description', '', 'post', 'none', 2));
+		$release_notes  = stripslashes(trim(Request::getVar('release_notes', '', 'post', 'none', 2)));
+		$group_owner    = Request::getInt('group_owner', 0, 'post');
+		$published_up   = trim(Request::getVar('published_up', '', 'post'));
+		$published_down = trim(Request::getVar('published_down', '', 'post'));
+		$state          = Request::getInt('state', 0);
+		$metadata       = '';
+		$activity       = '';
 
 		// Save publication record
-		$this->model->publication->alias    = trim(Request::getVar( 'alias', '', 'post' ));
-		$this->model->publication->category = trim(Request::getInt( 'category', 0, 'post' ));
-		$this->model->publication->access   = trim(Request::getInt( 'access', 0, 'post' ));
+		$this->model->publication->alias    = trim(Request::getVar('alias', '', 'post'));
+		$this->model->publication->category = trim(Request::getInt('category', 0, 'post'));
+		$this->model->publication->access   = Request::getInt('access', 0, 'post');
 		if (!$project->get('owned_by_group'))
 		{
 			$this->model->publication->group_owner = $group_owner;
@@ -736,7 +739,7 @@ class Items extends AdminController
 				}
 			}
 
-			$nbtag = Request::getVar( 'nbtag', array(), 'request', 'array' );
+			$nbtag = Request::getVar('nbtag', array(), 'request', 'array');
 			foreach ($nbtag as $tagname => $tagcontent)
 			{
 				$tagcontent = trim(stripslashes($tagcontent));
@@ -764,18 +767,17 @@ class Items extends AdminController
 		$this->model->version->description  = $description;
 		$this->model->version->metadata     = $metadata;
 		$this->model->version->release_notes= $release_notes;
-		$this->model->version->license_text = trim(Request::getVar( 'license_text', '', 'post' ));
-		$this->model->version->license_type = Request::getInt( 'license_type', 0, 'post' );
-		$this->model->version->access       = Request::getInt( 'access', 0, 'post' );
+		$this->model->version->license_text = trim(Request::getVar('license_text', '', 'post'));
+		$this->model->version->license_type = Request::getInt('license_type', 0, 'post');
+		$this->model->version->access       = Request::getInt('access', 0, 'post');
 
 		// Get DOI service
 		$doiService = new Models\Doi($this->model);
 
 		// DOI manually entered?
-		$doi = trim(Request::getVar( 'doi', '', 'post' ));
-		if ($doi && (!$this->model->version->doi
-			|| !preg_match("/" . $doiService->_configs->shoulder
-			. "/", $this->model->version->doi)))
+		$doi = trim(Request::getVar('doi', '', 'post'));
+		if ($doi
+		 && (!$this->model->version->doi || !preg_match("/" . $doiService->_configs->shoulder . "/", $this->model->version->doi)))
 		{
 			$this->model->version->doi = $doi;
 		}
@@ -828,14 +830,14 @@ class Items extends AdminController
 		$rt->tag_object(User::get('id'), $id, $tags, 1, true);
 
 		// Email config
-		$pubtitle 	= \Hubzero\Utility\String::truncate($this->model->version->title, 100);
-		$subject 	= Lang::txt('Version') . ' ' . $this->model->version->version_label . ' '
+		$pubtitle = \Hubzero\Utility\String::truncate($this->model->version->title, 100);
+		$subject  = Lang::txt('Version') . ' ' . $this->model->version->version_label . ' '
 					. Lang::txt('COM_PUBLICATIONS_OF') . ' '
 					. strtolower(Lang::txt('COM_PUBLICATIONS_PUBLICATION'))
 					. ' "' . $pubtitle . '" ';
-		$sendmail 	= 0;
-		$message 	= rtrim(\Hubzero\Utility\Sanitize::clean(Request::getVar( 'message', '' )));
-		$output 	= Lang::txt('COM_PUBLICATIONS_SUCCESS_SAVED_ITEM');
+		$sendmail = 0;
+		$message  = rtrim(\Hubzero\Utility\Sanitize::clean(Request::getVar('message', '')));
+		$output   = Lang::txt('COM_PUBLICATIONS_SUCCESS_SAVED_ITEM');
 
 		// Admin actions
 		if ($action)
@@ -862,8 +864,7 @@ class Items extends AdminController
 					if ($doiService->on())
 					{
 						if ($this->model->version->doi
-							&& preg_match("/" . $doiService->_configs->shoulder
-							. "/", $this->model->version->doi))
+							&& preg_match("/" . $doiService->_configs->shoulder . "/", $this->model->version->doi))
 						{
 							// Update
 							$doiService->update($this->model->version->doi, true);
@@ -988,8 +989,7 @@ class Items extends AdminController
 						  . $pubtitle . '" ';
 
 				// Build return url
-				$link 	= '/projects/' . $project->get('alias') . '/publications/'
-						. $id . '/?version=' . $this->model->version->version_number;
+				$link = '/projects/' . $project->get('alias') . '/publications/' . $id . '/?version=' . $this->model->version->version_number;
 
 				if ($action != 'message' && !$this->getError())
 				{
@@ -1001,9 +1001,8 @@ class Items extends AdminController
 					// Append comment to activity
 					if ($message && $aid)
 					{
-						require_once( PATH_CORE . DS . 'components'
-							. DS . 'com_projects' . DS . 'tables' . DS . 'comment.php');
-						$objC = new \Components\Projects\Tables\Comment( $this->database );
+						require_once(PATH_CORE . DS . 'components' . DS . 'com_projects' . DS . 'tables' . DS . 'comment.php');
+						$objC = new \Components\Projects\Tables\Comment($this->database);
 
 						$comment = \Hubzero\Utility\String::truncate($message, 250);
 						$comment = \Hubzero\Utility\Sanitize::stripAll($comment);
@@ -1023,13 +1022,18 @@ class Items extends AdminController
 							$objC->checkin();
 						}
 
-						if ( $objC->id )
+						if ($objC->id)
 						{
 							$what = Lang::txt('COM_PROJECTS_AN_ACTIVITY');
 							$curl = Route::url($project->link('feed')) . '#tr_' . $aid; // same-page link
 							$caid = $project->recordActivity(
-							Lang::txt('COM_PROJECTS_COMMENTED') . ' ' . Lang::txt('COM_PROJECTS_ON')
-								. ' ' . $what, $objC->id, $what, $curl, 'quote', 0, 1
+								Lang::txt('COM_PROJECTS_COMMENTED') . ' ' . Lang::txt('COM_PROJECTS_ON') . ' ' . $what,
+								$objC->id,
+								$what,
+								$curl,
+								'quote',
+								0,
+								1
 							);
 
 							// Store activity ID
@@ -1083,16 +1087,14 @@ class Items extends AdminController
 		if ($redirect)
 		{
 			App::redirect(
-				Route::url('index.php?option=' . $this->_option . '&controller='
-					. $this->_controller . '&task=edit' . '&id[]=' . $id . '&version=' . $this->model->get('version_number'), false),
+				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=edit' . '&id[]=' . $id . '&version=' . $this->model->get('version_number'), false),
 				$output
 			);
 		}
 		else
 		{
 			App::redirect(
-				Route::url('index.php?option=' . $this->_option
-				. '&controller=' . $this->_controller, false),
+				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
 				$output
 			);
 		}
@@ -1103,10 +1105,13 @@ class Items extends AdminController
 	/**
 	 * Sends a message to authors (or creator) of a publication
 	 *
-	 * @return     void
+	 * @param   string  $subject
+	 * @param   string  $subject
+	 * @param   array   $authors
+	 * @param   string  $subject
+	 * @return  void
 	 */
-	private function _emailContributors($subject = '', $message = '',
-		$authors = array(), $action = 'publish')
+	private function _emailContributors($subject = '', $message = '', $authors = array(), $action = 'publish')
 	{
 		if (!$this->model->exists() || !$this->model->project()->exists())
 		{
@@ -1143,16 +1148,16 @@ class Items extends AdminController
 				'name'      => 'emails',
 				'layout'    => 'admin_plain'
 			));
-			$eview->option 			= $this->_option;
-			$eview->subject 		= $subject;
-			$eview->action 			= $action;
-			$eview->model 			= $this->model;
-			$eview->message			= $message;
-			$eview->project			= $this->model->project();
+			$eview->option  = $this->_option;
+			$eview->subject = $subject;
+			$eview->action  = $action;
+			$eview->model   = $this->model;
+			$eview->message = $message;
+			$eview->project = $this->model->project();
 
 			$body = array();
-			$body['plaintext'] 	= $eview->loadTemplate(false);
-			$body['plaintext'] 	= str_replace("\n", "\r\n", $body['plaintext']);
+			$body['plaintext'] = $eview->loadTemplate(false);
+			$body['plaintext'] = str_replace("\n", "\r\n", $body['plaintext']);
 
 			// HTML email
 			$eview->setLayout('admin_html');
@@ -1177,7 +1182,7 @@ class Items extends AdminController
 	/**
 	 * Displays versions of a publication
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function versionsTask()
 	{
@@ -1205,7 +1210,7 @@ class Items extends AdminController
 		$this->view->return['status'] = Request::getVar('status', '');
 
 		// Load publication model
-		$this->view->pub  = new Models\Publication( $id, 'default');
+		$this->view->pub = new Models\Publication($id, 'default');
 
 		if (!$this->view->pub)
 		{
@@ -1218,7 +1223,7 @@ class Items extends AdminController
 		}
 
 		// Get versions
-		$this->view->versions = $this->view->pub->version->getVersions( $id, $filters = array('withdev' => 1));
+		$this->view->versions = $this->view->pub->version->getVersions($id, $filters = array('withdev' => 1));
 
 		// Set any errors
 		if ($this->getError())
@@ -1234,7 +1239,7 @@ class Items extends AdminController
 	 * Removes a publication
 	 * Redirects to main listing
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function removeTask()
 	{
@@ -1256,27 +1261,25 @@ class Items extends AdminController
 			return;
 		}
 
-		$version = count($ids) == 1 ? Request::getVar( 'version', 'all' ) : 'all';
+		$version = count($ids) == 1 ? Request::getVar('version', 'all') : 'all';
 
-		require_once(PATH_CORE . DS . 'components'
-			. DS . 'com_projects' . DS . 'tables' . DS . 'activity.php');
+		require_once(PATH_CORE . DS . 'components' . DS . 'com_projects' . DS . 'tables' . DS . 'activity.php');
 
 		foreach ($ids as $id)
 		{
 			// Load publication
-			$objP = new Tables\Publication( $this->database );
+			$objP = new Tables\Publication($this->database);
 			if (!$objP->load($id))
 			{
 				throw new Exception(Lang::txt('COM_PUBLICATIONS_NOT_FOUND'), 404);
-				return;
 			}
 
 			$projectId = $objP->project_id;
 
-			$row = new Tables\Version( $this->database );
+			$row = new Tables\Version($this->database);
 
 			// Get versions
-			$versions = $row->getVersions( $id, $filters = array('withdev' => 1));
+			$versions = $row->getVersions($id, $filters = array('withdev' => 1));
 
 			if ($version != 'all' && count($versions) > 1)
 			{
@@ -1287,14 +1290,12 @@ class Items extends AdminController
 				if (!$row->loadVersion($id, $version))
 				{
 					throw new Exception(Lang::txt('COM_PUBLICATIONS_VERSION_NOT_FOUND'), 404);
-					return;
 				}
 
 				// Cannot delete main version if other versions exist
 				if ($row->main)
 				{
 					throw new Exception(Lang::txt('COM_PUBLICATIONS_VERSION_MAIN_ERROR_DELETE'), 404);
-					return;
 				}
 				if ($erase == 1)
 				{
@@ -1317,7 +1318,7 @@ class Items extends AdminController
 				$i = 0;
 				foreach ($versions as $v)
 				{
-					$objV = new Tables\Version( $this->database );
+					$objV = new Tables\Version($this->database);
 					if ($objV->loadVersion($id, $v->version_number))
 					{
 						if ($erase == 1)
@@ -1346,12 +1347,11 @@ class Items extends AdminController
 					$objP->deleteExistence($id);
 
 					// Delete related publishing activity from feed
-					$objAA = new \Components\Projects\Tables\Activity( $this->database );
+					$objAA = new \Components\Projects\Tables\Activity($this->database);
 					$objAA->deleteActivityByReference($projectId, $id, 'publication');
 
 					// Build publication path
-					$path    =  PATH_APP . DS . trim($this->config->get('webpath'), DS)
-							. DS . \Hubzero\Utility\String::pad( $id );
+					$path =  PATH_APP . DS . trim($this->config->get('webpath'), DS) . DS . \Hubzero\Utility\String::pad($id);
 
 					// Delete all files
 					if (is_dir($path))
@@ -1377,28 +1377,30 @@ class Items extends AdminController
 	/**
 	 * Deletes assoc with pub version
 	 *
-	 * @return     void
+	 * @param   integer  $vid
+	 * @param   integer  $pid
+	 * @return  void
 	 */
 	public function deleteVersionExistence($vid, $pid)
 	{
 		// Delete authors
-		$pa = new Tables\Author( $this->database );
+		$pa = new Tables\Author($this->database);
 		$authors = $pa->deleteAssociations($vid);
 
 		// Delete attachments
-		$pContent = new Tables\Attachment( $this->database );
+		$pContent = new Tables\Attachment($this->database);
 		$pContent->deleteAttachments($vid);
 
 		// Delete screenshots
-		$pScreenshot = new Tables\Screenshot( $this->database );
+		$pScreenshot = new Tables\Screenshot($this->database);
 		$pScreenshot->deleteScreenshots($vid);
 
 		// Delete access accosiations
-		$pAccess = new Tables\Access( $this->database );
+		$pAccess = new Tables\Access($this->database);
 		$pAccess->deleteGroups($vid);
 
 		// Delete audience
-		$pAudience = new Tables\Audience( $this->database );
+		$pAudience = new Tables\Audience($this->database);
 		$pAudience->deleteAudience($vid);
 
 		// Build publication path
@@ -1416,7 +1418,7 @@ class Items extends AdminController
 	/**
 	 * Checks in a checked-out publication and redirects
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function cancelTask()
 	{
@@ -1424,7 +1426,7 @@ class Items extends AdminController
 		Request::checkToken();
 
 		// Incoming
-		$id  = Request::getInt('id', 0);
+		$id = Request::getInt('id', 0);
 
 		// Checkin the resource
 		$row = new Tables\Publication($this->database);
@@ -1433,8 +1435,7 @@ class Items extends AdminController
 
 		// Redirect
 		App::redirect(
-			Route::url('index.php?option=' . $this->_option
-			. '&controller=' . $this->_controller, false)
+			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false)
 		);
 
 		return;
@@ -1444,7 +1445,7 @@ class Items extends AdminController
 	 * Resets the rating of a resource
 	 * Redirects to edit task for the resource
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function resetratingTask()
 	{
@@ -1469,9 +1470,7 @@ class Items extends AdminController
 
 		// Redirect
 		App::redirect(
-			Route::url('index.php?option=' . $this->_option
-			. '&controller=' . $this->_controller
-			. '&task=edit&id[]=' . $id, false),
+			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=edit&id[]=' . $id, false),
 			$this->_message
 		);
 	}
@@ -1480,7 +1479,7 @@ class Items extends AdminController
 	 * Resets the ranking of a resource
 	 * Redirects to edit task for the resource
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function resetrankingTask()
 	{
@@ -1504,9 +1503,7 @@ class Items extends AdminController
 
 		// Redirect
 		App::redirect(
-			Route::url('index.php?option=' . $this->_option
-			. '&controller=' . $this->_controller
-			. '&task=edit&id[]=' . $id, false),
+			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=edit&id[]=' . $id, false),
 			$this->_message
 		);
 	}
@@ -1515,14 +1512,14 @@ class Items extends AdminController
 	 * Produces archival package for publication
 	 * Redirects to edit task for the resource
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function archiveTask()
 	{
 		// Incoming
-		$pid 		= Request::getInt('pid', 0);
-		$vid 		= Request::getInt('vid', 0);
-		$version 	= Request::getVar( 'version', 'default' );
+		$pid     = Request::getInt('pid', 0);
+		$vid     = Request::getInt('vid', 0);
+		$version = Request::getVar('version', 'default');
 
 		// Load publication
 		$pub = new Models\Publication($pid, $version, $vid);
@@ -1530,11 +1527,9 @@ class Items extends AdminController
 		if (!$pub->exists())
 		{
 			throw new Exception(Lang::txt('COM_PUBLICATIONS_NOT_FOUND'), 404);
-			return;
 		}
 
-		$url = Route::url('index.php?option=' . $this->_option . '&controller='
-			. $this->_controller . '&task=edit' . '&id[]=' . $pid . '&version=' . $version, false);
+		$url = Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=edit' . '&id[]=' . $pid . '&version=' . $version, false);
 
 		// Get attachments
 		$pub->attachments();
@@ -1552,7 +1547,7 @@ class Items extends AdminController
 			$pub->publication->checkin();
 
 			// Redirect
-			App::redirect( $url, Lang::txt('COM_PUBLICATIONS_ERROR_ARCHIVAL'), 'error');
+			App::redirect($url, Lang::txt('COM_PUBLICATIONS_ERROR_ARCHIVAL'), 'error');
 			return;
 		}
 
@@ -1567,7 +1562,7 @@ class Items extends AdminController
 	 * Checks-in one or more resources
 	 * Redirects to the main listing
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function checkinTask()
 	{
@@ -1586,37 +1581,35 @@ class Items extends AdminController
 		}
 
 		// Redirect
-		App::redirect(Route::url('index.php?option=' . $this->_option
-			. '&controller=' . $this->_controller, false));
+		App::redirect(Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false));
 	}
 
 	/**
 	 * Builds the appropriate URL for redirction
 	 *
-	 * @return     string
+	 * @return  string
 	 */
 	private function buildRedirectURL()
 	{
-		$url  = Route::url('index.php?option=' . $this->_option
-			. '&controller=' . $this->_controller, false);
-
-		// Incoming
 		$id  = Request::getInt('id', 0);
+
+		$url  = Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false);
 		$url .= $id ? '&task=edit&id[]=' . $id : '';
+
 		return $url;
 	}
 
 	/**
 	 * Gets the full name of a user from their ID #
 	 *
-	 * @return     string
+	 * @return  string
 	 */
 	public function authorTask()
 	{
 		$u = Request::getInt('u', 0);
 
 		// Get the member's info
-		$profile = \Hubzero\User\Profile::getInstance($u);
+		$profile = User::getInstance($u);
 
 		if (!$profile->get('name'))
 		{
@@ -1629,6 +1622,6 @@ class Items extends AdminController
 			$name  = $profile->get('name');
 		}
 
-		echo $name . ' (' . $profile->get('uidNumber') . ')';
+		echo $name . ' (' . $profile->get('id') . ')';
 	}
 }

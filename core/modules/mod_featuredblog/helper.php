@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -33,7 +32,7 @@
 namespace Modules\Featuredblog;
 
 use Hubzero\Module\Module;
-use Components\Blog\Tables\Entry;
+use Components\Blog\Models\Entry;
 
 /**
  * Module class for displaying a random, featured blog entry
@@ -65,15 +64,11 @@ class Helper extends Module
 	{
 		include_once(\Component::path('com_blog') . DS . 'models' . DS . 'entry.php');
 
-		$database = \App::get('db');
-
 		$this->row = null;
 
 		$filters = array(
-			'limit'      => 1,
-			'show'       => trim($this->params->get('show')),
-			'start'      => 0,
-			'state'      => 'public',
+			'state'      => 1,
+			'access'     => 1,
 			'sort'       => "RAND()",
 			'sort_Dir'   => '',
 			'search'     => '',
@@ -82,10 +77,14 @@ class Helper extends Module
 			'authorized' => false
 		);
 
-		$mp = new Entry($database);
+		$row = Entry::all()
+			->whereEquals('scope', $filters['scope'])
+			->whereEquals('state', $filters['state'])
+			->whereEquals('access', $filters['access'])
+			->row();
 
 		// Did we have a result to display?
-		if ($row = $mp->find('one', $filters))
+		if ($row->get('id'))
 		{
 			$this->row = $row;
 			$this->cls = trim($this->params->get('moduleclass_sfx'));

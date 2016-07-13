@@ -25,16 +25,15 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Alissa Nedossekina <alisa@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
 
 namespace Components\Feedback\Site\Controllers;
 
-use Components\Feedback\Tables\Quote;
+use Components\Feedback\Models\Quote;
+use Components\Members\Models\Member;
 use Hubzero\Component\SiteController;
-use Hubzero\User\Profile;
 use Hubzero\Utility\Number;
 use Hubzero\Utility\String;
 use Hubzero\Utility\Sanitize;
@@ -48,6 +47,8 @@ use Route;
 use Lang;
 use User;
 use Date;
+
+include_once Component::path('com_members') . DS . 'models' . DS . 'member.php';
 
 /**
  * Feedback controller class
@@ -113,26 +114,24 @@ class Feedback extends SiteController
 	public function displayTask()
 	{
 		// Check if wishlistcomponent entry is there
-		$this->view->wishlist = Component::isEnabled('com_wishlist', true);
+		$wishlist = Component::isEnabled('com_wishlist', true);
 
 		// Check if poll component entry is there
-		$this->view->poll = Component::isEnabled('com_poll', true);
+		$poll = Component::isEnabled('com_poll', true);
 
 		// Set page title
 		$this->_buildTitle();
-		$this->view->title = $this->_title;
 
 		// Set the pathway
 		$this->_buildPathway();
 
-		// Set any messages
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
-		}
-
 		// Output HTML
-		$this->view->display();
+		$this->view
+			->set('poll', $poll)
+			->set('wishlist', $wishlist)
+			->set('title', $this->_title)
+			->setErrors($this->getErrors())
+			->display();
 	}
 
 	/**
@@ -143,30 +142,27 @@ class Feedback extends SiteController
 	public function quotesTask()
 	{
 		// Get quotes
-		$sq = new Quote($this->database);
-		$this->view->quotes = $sq->find('list', array(
-			'notable_quote' => 1
-		));
+		$quotes = Quote::all()
+			->whereEquals('notable_quote', 1)
+			->ordered()
+			->rows();
 
-		$this->view->path    = trim($this->config->get('uploadpath', '/site/quotes'), DS) . DS;
-		$this->view->quoteId = Request::getInt('quoteid', null);
+		$quoteId = Request::getInt('quoteid');
 
-		$this->view->display();
+		$this->view
+			->set('quotes', $quotes)
+			->set('quoteId', $quoteId)
+			->display();
 	}
 
 	/**
 	 * Show a form for sending a success story
 	 *
+	 * @param   object  $row
 	 * @return  void
 	 */
 	public function storyTask($row=null)
 	{
-		// Check to see if the user temp folder for holding pics is there, if so then remove it
-		if (is_dir($this->tmpPath() . DS . User::get('id')))
-		{
-			Filesystem::deleteDirectory($this->tmpPath() . DS . User::get('id'));
-		}
-
 		if (User::isGuest())
 		{
 			$here = Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=' . $this->_task);
@@ -175,41 +171,44 @@ class Feedback extends SiteController
 				Lang::txt('COM_FEEDBACK_STORY_LOGIN'),
 				'warning'
 			);
-			return;
+		}
+
+		// Check to see if the user temp folder for holding pics is there, if so then remove it
+		if (is_dir($this->tmpPath() . DS . User::get('id')))
+		{
+			Filesystem::deleteDirectory($this->tmpPath() . DS . User::get('id'));
 		}
 
 		// Incoming
-		$this->view->quote = array(
+		$quote = array(
 			'long'  => Request::getVar('quote', '', 'post'),
 			'short' => Request::getVar('short_quote', '', 'post')
 		);
 
 		// Set page title
 		$this->_buildTitle();
-		$this->view->title = $this->_title;
 
 		// Set the pathway
 		$this->_buildPathway();
 
-		$this->view->user = Profile::getInstance(User::get('id'));
+		// Get the curent user's profile
+		$user = Member::oneOrNew(User::get('id'));
 
-		if (!is_object($row))
+		// Create the object if we weren't passed one
+		if (!$row)
 		{
-			$row = new Quote($this->database);
-			$row->org      = $this->view->user->get('organization');
-			$row->fullname = $this->view->user->get('name');
-		}
-
-		$this->view->row = $row;
-
-		// Set error messages
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
+			$row = Quote::oneOrNew(0);
+			$row->set('org', $user->get('organization'));
+			$row->set('fullname', $user->get('name'));
 		}
 
 		// Output HTML
 		$this->view
+			->set('title', $this->_title)
+			->set('quote', $quote)
+			->set('row', $row)
+			->set('user', $user)
+			->setErrors($this->getErrors())
 			->setLayout('story')
 			->display();
 	}
@@ -223,19 +222,15 @@ class Feedback extends SiteController
 	{
 		// Set page title
 		$this->_buildTitle();
-		$this->view->title = $this->_title;
 
 		// Set the pathway
 		$this->_buildPathway();
 
-		// Set error messages
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
-		}
-
 		// Output HTML
-		$this->view->display();
+		$this->view
+			->set('title', $this->_title)
+			->setErrors($this->getErrors())
+			->display();
 	}
 
 	/**
@@ -247,10 +242,12 @@ class Feedback extends SiteController
 	{
 		if (User::isGuest())
 		{
+			$here = Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=' . $this->_task);
 			App::redirect(
-				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=' . $this->_task)
+				Route::url('index.php?option=com_users&view=login&return=' . base64_encode($here)),
+				Lang::txt('COM_FEEDBACK_STORY_LOGIN'),
+				'warning'
 			);
-			return;
 		}
 
 		Request::checkToken();
@@ -258,71 +255,47 @@ class Feedback extends SiteController
 		$fields = Request::getVar('fields', array(), 'post');
 		$fields = array_map('trim', $fields);
 
+		$fields['user_id'] = User::get('id');
+
 		// Initiate class and bind posted items to database fields
-		$row = new Quote($this->database);
-
-		$fields['user_id']   = User::get('id');
-		$fields['useremail'] = User::get('email');
-
-		$dir  = String::pad($fields['user_id']);
-		$path = $row->filespace(false) . DS . $dir;
-
-		if (!$row->bind($fields))
-		{
-			$this->setError($row->getError());
-			$this->storyTask($row);
-			return;
-		}
+		$row = Quote::oneOrNew(0)->set($fields);
 
 		// Check that a story was entered
-		if (!$row->quote)
+		if (!$row->get('quote'))
 		{
 			$this->setError(Lang::txt('COM_FEEDBACK_ERROR_MISSING_STORY'));
-			$this->storyTask($row);
-			return;
+			return $this->storyTask($row);
 		}
 
 		// Check for an author
-		if (!$row->fullname)
+		if (!$row->get('fullname'))
 		{
 			$this->setError(Lang::txt('COM_FEEDBACK_ERROR_MISSING_AUTHOR'));
-			$this->storyTask($row);
-			return;
+			return $this->storyTask($row);
 		}
 
 		// Check for an organization
-		if (!$row->org)
+		if (!$row->get('org'))
 		{
 			$this->setError(Lang::txt('COM_FEEDBACK_ERROR_MISSING_ORGANIZATION'));
-			$this->storyTask($row);
-			return;
+			return $this->storyTask($row);
 		}
 
 		// Code cleaner for xhtml transitional compliance
-		$row->quote = Sanitize::stripAll($row->quote);
-		$row->quote = str_replace('<br>', '<br />', $row->quote);
-		$row->date  = Date::toSql();
-
-		// Check content
-		if (!$row->check())
-		{
-			$this->setError($row->getError());
-			$this->storyTask($row);
-			return;
-		}
+		$row->set('quote', Sanitize::stripAll($row->get('quote')));
+		$row->set('quote', str_replace('<br>', '<br />', $row->get('quote')));
+		$row->set('date', Date::toSql());
 
 		// Store new content
-		if (!$row->store())
+		if (!$row->save())
 		{
 			$this->setError($row->getError());
-			$this->storyTask($row);
-			return;
+			return $this->storyTask($row);
 		}
 
-		$files = $_FILES;
 		$addedPictures = array();
 
-		$path = $row->filespace() . DS . $row->id;
+		$path = $row->filespace() . DS . $row->get('id');
 		if (!is_dir($path))
 		{
 			if (!Filesystem::makeDirectory($path))
@@ -366,29 +339,21 @@ class Feedback extends SiteController
 			Filesystem::deleteDirectory($tempDir);
 		}
 
-		$this->view->addedPictures = $addedPictures;
-		$this->view->path   = ltrim($row->filespace(), DS) . DS . $row->id;
-
-		// Output HTML
-		$this->view->user   = User::getRoot();
-		$this->view->row    = $row;
-		$this->view->config = $this->config;
+		$path = substr($row->filespace(), strlen(PATH_ROOT)) . DS . $row->get('id');
 
 		// Set page title
 		$this->_buildTitle();
-		$this->view->title = $this->_title;
 
 		// Set the pathway
 		$this->_buildPathway();
 
-		// Set error messages
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
-		}
-
 		// Output HTML
 		$this->view
+			->set('row', $row)
+			->set('path', $path)
+			->set('addedPictures', $addedPictures)
+			->set('title', $this->_title)
+			->setErrors($this->getErrors())
 			->setLayout('thanks')
 			->display();
 	}
@@ -443,7 +408,7 @@ class Feedback extends SiteController
 		}
 
 		// Define upload directory and make sure its writable
-		$path = $this->tmpPath() . DS . User::get('id');
+		$path = rtrim($this->tmpPath(), DS) . DS . User::get('id');
 
 		if (!is_dir($path))
 		{
@@ -525,7 +490,7 @@ class Feedback extends SiteController
 		echo json_encode(array(
 			'success'    => true,
 			'file'       => $filename . '.' . $ext,
-			'directory'  => str_replace(PATH_APP, '', $path),
+			'directory'  => str_replace(PATH_ROOT, '', $path),
 		));
 	}
 
@@ -536,7 +501,6 @@ class Feedback extends SiteController
 	 */
 	protected function tmpPath()
 	{
-		return Config::get('tmp_path') . DS . 'feedback';
+		return Config::get('tmp_path', PATH_APP . DS . '/tmp') . DS . 'feedback';
 	}
 }
-

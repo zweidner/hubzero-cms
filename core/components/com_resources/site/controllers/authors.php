@@ -32,19 +32,15 @@
 
 namespace Components\Resources\Site\Controllers;
 
-use Components\Resources\Tables\Resource;
-use Components\Resources\Tables\Contributor;
-use Components\Resources\Tables\Contributor\Role;
-use Components\Resources\Tables\Contributor\RoleType;
-use Components\Resources\Helpers\Helper;
+use Components\Resources\Models\Orm\Resource;
+use Components\Resources\Models\Author;
 use Hubzero\Component\SiteController;
-use Hubzero\User\Profile;
+use Request;
+use User;
+use Lang;
+use App;
 
-require_once(dirname(dirname(__DIR__)) . DS . 'tables' . DS . 'resource.php');
-require_once(dirname(dirname(__DIR__)) . DS . 'tables' . DS . 'type.php');
-require_once(dirname(dirname(__DIR__)) . DS . 'tables' . DS . 'assoc.php');
-require_once(dirname(dirname(__DIR__)) . DS . 'tables' . DS . 'contributor.php');
-require_once(dirname(dirname(__DIR__)) . DS . 'helpers' . DS . 'helper.php');
+include_once(dirname(dirname(__DIR__)) . DS . 'models' . DS . 'orm' . DS . 'resource.php');
 
 /**
  * Controller class for contributing a tool
@@ -54,19 +50,14 @@ class Authors extends SiteController
 	/**
 	 * Determines task being called and attempts to execute it
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function execute()
 	{
 		if (User::isGuest())
 		{
-			App::abort(403, Lang::txt('You must be logged in to access.'));
-			return;
+			App::abort(403, Lang::txt('COM_RESOURCES_ALERTLOGIN_REQUIRED'));
 		}
-
-		// Load the com_resources component config
-		$rconfig = Component::params('com_resources');
-		$this->rconfig = $rconfig;
 
 		parent::execute();
 	}
@@ -74,10 +65,10 @@ class Authors extends SiteController
 	/**
 	 * Save one or more authors
 	 *
-	 * @param      integer $show       Display author list when done?
-	 * @param      integer $id         Resource ID
-	 * @param      array   $authorsNew Authors to add
-	 * @return     void
+	 * @param   integer  $show        Display author list when done?
+	 * @param   integer  $id          Resource ID
+	 * @param   array    $authorsNew  Authors to add
+	 * @return  void
 	 */
 	public function saveTask($show = 1, $id = 0, $authorsNew = array())
 	{
@@ -97,64 +88,69 @@ class Authors extends SiteController
 		}
 
 		// Incoming authors
-		$authid = Request::getInt('authid', 0, 'post');
 		$authorsNewstr = trim(Request::getVar('new_authors', '', 'post'));
-		$role = Request::getVar('role', '', 'post');
+		$authid   = Request::getInt('authid', 0, 'post');
+		$username = Request::getVar('author', '', 'post');
+		$role     = Request::getVar('role', '', 'post');
 
 		// Turn the string into an array of usernames
 		$authorsNew = empty($authorsNew) ? explode(',', $authorsNewstr) : $authorsNew;
 
 		// Instantiate a resource/contributor association object
-		$rc = new Contributor($this->database);
-		$rc->subtable = 'resources';
-		$rc->subid = $id;
+		$author = Author::blank();
+		$author->set('subtable', 'resources');
+		$author->set('subid', $id);
 
 		// Get the last child in the ordering
-		$order = $rc->getLastOrder($id, 'resources');
-		$order = $order + 1; // new items are always last
+		//$order = $rc->getLastOrder($id, 'resources');
+		//$order = $order + 1; // new items are always last
 
-		if (!$authid && isset($_POST['author']))
+		if (!$authid && $username)
 		{
-			$this->database->setQuery('SELECT id FROM `#__users` WHERE username = ' . $this->database->quote($_POST['author']));
-			$authid = $this->database->loadResult();
+			$profile = User::getInstance($username);
+
+			if (!$profile)
+			{
+				$this->setError(Lang::txt('CONTRIBUTE_NO_ID'));
+				if ($show)
+				{
+					$this->displayTask($id);
+				}
+				return;
+			}
+
+			$authid = $profile->get('id');
 		}
 
 		// Was there an ID? (this will come from the author <select>)
 		if ($authid)
 		{
 			// Check if they're already linked to this resource
-			$rc->loadAssociation($authid, $id, 'resources');
-			if ($rc->authorid)
+			$existing = Author::oneByRelationship($id, $authid);
+
+			if ($existing->get('id'))
 			{
 				$this->setError(Lang::txt('COM_CONTRIBUTE_USER_IS_ALREADY_AUTHOR', $rc->name));
 			}
 			else
 			{
 				// Perform a check to see if they have a contributors page. If not, we'll need to make one
-				$xprofile = new Profile();
-				$xprofile->load($authid);
-				if ($xprofile)
+				$profile = User::getInstance($authid);
+
+				if ($profile)
 				{
-					$this->_authorCheck($authid);
-
-					// New record
-					$rc->authorid = $authid;
-					$rc->ordering = $order;
-					$rc->name = addslashes($xprofile->get('name'));
-					$rc->role = addslashes($role);
-					$rc->organization = addslashes($xprofile->get('organization'));
-					$rc->createAssociation();
-
-					$order++;
+					$author->set('authorid', $authid);
+					$author->set('name', (string)$profile->get('name'));
+					$author->set('role', (string)$role);
+					$author->set('organization', (string)$profile->get('organization'));
+					$author->save();
 				}
 			}
 		}
-		$xprofile = null;
+
 		// Do we have new authors?
 		if (!empty($authorsNew))
 		{
-			jimport('joomla.user.helper');
-
 			// loop through each one
 			for ($i=0, $n=count($authorsNew); $i < $n; $i++)
 			{
@@ -166,81 +162,86 @@ class Authors extends SiteController
 				}
 				else
 				{
-					// Find the user's account info
-					$uid = \JUserHelper::getUserId(strtolower($cid));
-					if (!$uid)
-					{
-						$cid = addslashes(trim($cid));
-						// No account
-						// This should mean we have an author that is not a site member
-						$rcc = new Contributor($this->database);
-						// Check to see if they're already an author
-						$rcc->loadAssociation($cid, $id, 'resources');
-						if ($rcc->authorid)
-						{
-							$this->setError(Lang::txt('COM_CONTRIBUTE_USER_IS_ALREADY_AUTHOR', $cid));
-							continue;
-						}
-						// No name. Can't save record, so pass over it.
-						if (!trim($cid))
-						{
-							continue;
-						}
+					// Zero defaults to current logged-in user
+					$uid = -99999999;
+				}
 
-						$rcc->subtable = 'resources';
-						$rcc->subid    = $id;
-						$rcc->authorid = $rcc->getUserId($cid);
-						$rcc->ordering = $order;
-						$rcc->name     = $cid;
-						$rcc->role     = addslashes($role);
-						$rcc->createAssociation();
-						//$this->setError(Lang::txt('COM_CONTRIBUTE_UNABLE_TO_FIND_USER_ACCOUNT', $cid));
-						$order++;
+				$profile = User::getInstance($uid);
+
+				// Find the user's account info
+				if (!$profile->get('id'))
+				{
+					// No account
+					// This should mean we have an author that is not a site member
+
+					$cid = trim($cid);
+
+					// No name. Can't save record, so pass over it.
+					if (!$cid)
+					{
 						continue;
 					}
-				}
 
-				// We should only get to this part if the author is also a site member
-				$user = User::getInstance($uid);
-				if (!is_object($user))
+					// Check to see if they're already an author
+					$author = Author::oneByName($id, $cid);
+
+					if ($author->get('id'))
+					{
+						$this->setError(Lang::txt('COM_CONTRIBUTE_USER_IS_ALREADY_AUTHOR', $cid));
+						continue;
+					}
+
+					$authorid     = $author->getUserId($cid);
+					$name         = $cid;
+					$organization = '';
+				}
+				else
 				{
-					$this->setError(Lang::txt('COM_CONTRIBUTE_UNABLE_TO_FIND_USER_ACCOUNT', $cid));
-					continue;
+					// Check to see if they're already an author
+					$author = Author::oneByRelationship($id, $profile->get('id'));
+
+					if ($author->get('id'))
+					{
+						$this->setError(Lang::txt('COM_CONTRIBUTE_USER_IS_ALREADY_AUTHOR', $author->get('name')));
+						continue;
+					}
+
+					$authorid     = $profile->get('id');
+					$name         = $profile->get('name');
+					$organization = $profile->get('organization');
 				}
 
-				$uid = $user->get('id');
+				$author->set('subtable', 'resources');
+				$author->set('subid', $id);
+				$author->set('authorid', $authorid);
+				$author->set('name', (string)$name);
+				$author->set('organization', (string)$organization);
+				$author->set('role', (string)$role);
+				$author->save();
 
-				if (!$uid)
+				// Log activity
+				if ($authorid > 0)
 				{
-					$this->setError(Lang::txt('COM_CONTRIBUTE_UNABLE_TO_FIND_USER_ACCOUNT', $cid));
-					continue;
+					$resource = Resource::oneOrFail($id);
+
+					Event::trigger('system.logActivity', [
+						'activity' => [
+							'action'      => 'updated',
+							'scope'       => 'resource',
+							'scope_id'    => $resource->get('id'),
+							'description' => Lang::txt('COM_RESOURCES_ACTIVITY_ENTRY_AUTHOR_ADDED', $name, '<a href="' . Route::url('index.php?option=com_resources&id=' . $resource->get('id')) . '">' . $resource->get('title') . '</a>'),
+							'details'     => array(
+								'title' => $resource->get('title'),
+								'url'   => Route::url('index.php?option=com_resources&id=' . $resource->get('id'))
+							)
+						],
+						'recipients' => array(
+							['resource', $resource->get('id')],
+							['user', $resource->get('created_by')],
+							['user', $authorid]
+						)
+					]);
 				}
-
-				// Check if they're already linked to this resource
-				$rcc = new Contributor($this->database);
-				$rcc->loadAssociation($uid, $id, 'resources');
-				if ($rcc->authorid)
-				{
-					$this->setError(Lang::txt('COM_CONTRIBUTE_USER_IS_ALREADY_AUTHOR', $rcc->name));
-					continue;
-				}
-
-				$this->_authorCheck($uid);
-
-				$xprofile = Profile::getInstance($uid);
-				$rcc->subtable     = 'resources';
-				$rcc->subid        = $id;
-				$rcc->authorid     = $uid;
-				$rcc->ordering     = $order;
-				$rcc->name         = $xprofile->get('name');
-				$rcc->role         = $role;
-				$rcc->organization = $xprofile->get('organization');
-				if (!$rcc->createAssociation())
-				{
-					$this->setError($rcc->getError());
-				}
-
-				$order++;
 			}
 		}
 
@@ -252,35 +253,9 @@ class Authors extends SiteController
 	}
 
 	/**
-	 * Split a user's name into its parts if not already done
-	 *
-	 * @param      integer $id User ID
-	 * @return     void
-	 */
-	private function _authorCheck($id)
-	{
-		$xprofile = Profile::getInstance($id);
-		if ($xprofile->get('givenName') == ''
-		 && $xprofile->get('middleName') == ''
-		 && $xprofile->get('surname') == '')
-		{
-			$bits = explode(' ', $xprofile->get('name'));
-			$xprofile->set('surname', array_pop($bits));
-			if (count($bits) >= 1)
-			{
-				$xprofile->set('givenName', array_shift($bits));
-			}
-			if (count($bits) >= 1)
-			{
-				$xprofile->set('middleName', implode(' ', $bits));
-			}
-		}
-	}
-
-	/**
 	 * Remove an author from an item
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function removeTask()
 	{
@@ -292,17 +267,43 @@ class Authors extends SiteController
 		if (!$pid)
 		{
 			$this->setError(Lang::txt('CONTRIBUTE_NO_ID'));
-			$this->displayTask();
-			return;
+			return $this->displayTask();
 		}
 
 		// Ensure we have the contributor's ID ($id)
 		if ($id)
 		{
-			$rc = new Contributor($this->database);
-			if (!$rc->deleteAssociation($id, $pid, 'resources'))
+			$author = Author::oneByRelationship($pid, $id);
+
+			if (!$author->destroy())
 			{
-				$this->setError($rc->getError());
+				$this->setError($author->getError());
+			}
+			else
+			{
+				// Log activity
+				if ($author->get('authorid') > 0)
+				{
+					$resource = Resource::oneOrFail($pid);
+
+					Event::trigger('system.logActivity', [
+						'activity' => [
+							'action'      => 'updated',
+							'scope'       => 'resource',
+							'scope_id'    => $resource->get('id'),
+							'description' => Lang::txt('COM_RESOURCES_ACTIVITY_ENTRY_AUTHOR_REMOVED', $author->get('name'), '<a href="' . Route::url('index.php?option=com_resources&id=' . $resource->get('id')) . '">' . $resource->get('title') . '</a>'),
+							'details'     => array(
+								'title' => $resource->get('title'),
+								'url'   => Route::url('index.php?option=com_resources&id=' . $resource->get('id'))
+							)
+						],
+						'recipients' => array(
+							['resource', $resource->get('id')],
+							['user', $resource->get('created_by')],
+							['user', $author->get('authorid')]
+						)
+					]);
+				}
 			}
 		}
 
@@ -313,7 +314,7 @@ class Authors extends SiteController
 	/**
 	 * Update information for a resource author
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function updateTask()
 	{
@@ -325,8 +326,7 @@ class Authors extends SiteController
 		if (!$pid)
 		{
 			$this->setError(Lang::txt('COM_CONTRIBUTE_NO_ID'));
-			$this->displayTask();
-			return;
+			return $this->displayTask();
 		}
 
 		// Ensure we have the contributor's ID ($id)
@@ -334,11 +334,19 @@ class Authors extends SiteController
 		{
 			foreach ($ids as $id => $data)
 			{
-				$rc = new Contributor($this->database);
-				$rc->loadAssociation($id, $pid, 'resources');
-				$rc->organization = $data['organization'];
-				$rc->role = $data['role'];
-				$rc->updateAssociation();
+				$author = Author::oneByRelationship($pid, $id);
+
+				if (!$author->get('id'))
+				{
+					continue;
+				}
+
+				$author->set('organization', $data['organization']);
+				$author->set('role', $data['role']);
+				if (!$author->save())
+				{
+					$this->setError($author->getError());
+				}
 			}
 		}
 
@@ -349,63 +357,47 @@ class Authors extends SiteController
 	/**
 	 * Reorder the list of authors
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function reorderTask()
 	{
 		// Incoming
 		$id   = Request::getInt('id', 0);
 		$pid  = Request::getInt('pid', 0);
-		$move = 'order' . Request::getVar('move', 'down');
+		$move = Request::getVar('move', 'down');
 
 		// Ensure we have an ID to work with
 		if (!$id)
 		{
 			$this->setError(Lang::txt('COM_CONTRIBUTE_NO_CHILD_ID'));
-			$this->displayTask($pid);
-			return;
+			return $this->displayTask($pid);
 		}
 
 		// Ensure we have a parent ID to work with
 		if (!$pid)
 		{
 			$this->setError(Lang::txt('COM_CONTRIBUTE_NO_ID'));
-			$this->displayTask($pid);
-			return;
+			return $this->displayTask($pid);
 		}
-
-		// Get the element moving down - item 1
-		$author1 = new Contributor($this->database);
-		$author1->loadAssociation($id, $pid, 'resources');
-
-		// Get the element directly after it in ordering - item 2
-		$author2 = clone($author1);
-		$author2->getNeighbor($move);
 
 		switch ($move)
 		{
-			case 'orderup':
-				// Switch places: give item 1 the position of item 2, vice versa
-				$orderup = $author2->ordering;
-				$orderdn = $author1->ordering;
-
-				$author1->ordering = $orderup;
-				$author2->ordering = $orderdn;
+			case 'up':
+				$move = -1;
 			break;
 
-			case 'orderdown':
-				// Switch places: give item 1 the position of item 2, vice versa
-				$orderup = $author1->ordering;
-				$orderdn = $author2->ordering;
-
-				$author1->ordering = $orderdn;
-				$author2->ordering = $orderup;
+			case 'down':
+				$move = 1;
 			break;
 		}
 
+		$author = Author::oneByRelationship($pid, $id);
+
 		// Save changes
-		$author1->updateAssociation();
-		$author2->updateAssociation();
+		if (!$author->move($move))
+		{
+			$this->setError($author->getError());
+		}
 
 		// Push through to the attachments view
 		$this->displayTask($pid);
@@ -414,13 +406,11 @@ class Authors extends SiteController
 	/**
 	 * Display a list of authors
 	 *
-	 * @param      integer $id Resource ID
-	 * @return     void
+	 * @param   integer  $id  Resource ID
+	 * @return  void
 	 */
 	public function displayTask($id=null)
 	{
-		$this->view->setLayout('display');
-
 		// Incoming
 		if (!$id)
 		{
@@ -430,36 +420,27 @@ class Authors extends SiteController
 		// Ensure we have an ID to work with
 		if (!$id)
 		{
-			throw new Exception(Lang::txt('CONTRIBUTE_NO_ID'), 500);
+			App::abort(404, Lang::txt('CONTRIBUTE_NO_ID'));
 		}
 
 		// Get all contributors of this resource
-		$helper = new Helper($id, $this->database);
-		$helper->getCons();
+		$resource = Resource::oneOrFail($id);
 
-		// Get a list of all existing contributors
-		include_once(PATH_CORE . DS . 'components' . DS . 'com_members' . DS . 'tables' . DS . 'profile.php');
-		include_once(PATH_CORE . DS . 'components' . DS . 'com_members' . DS . 'tables' . DS . 'association.php');
+		$authors = $resource->authors()
+			->ordered()
+			->rows();
 
-		include_once(dirname(dirname(__DIR__)) . DS . 'tables' . DS . 'contributor' . DS . 'roletype.php');
+		// Get all roles for this resoruce type
+		$roles = $resource->type()->roles()->rows();
 
-		$resource = new Resource($this->database);
-		$resource->load($id);
-
-		$rt = new RoleType($this->database);
-
-		// Output HTML
-		$this->view->config = $this->config;
-		$this->view->contributors = $helper->_contributors;
-		$this->view->id = $id;
-
-		$this->view->roles = $rt->getRolesForType($resource->type);
-
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
-		}
-
-		$this->view->display();
+		// Output view
+		$this->view
+			->set('config', $this->config)
+			->set('id', $id)
+			->set('contributors', $authors)
+			->set('roles', $roles)
+			->setErrors($this->getErrors())
+			->setLayout('display')
+			->display();
 	}
 }

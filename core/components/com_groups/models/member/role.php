@@ -32,7 +32,6 @@
 namespace Components\Groups\Models\Member;
 
 use Hubzero\Database\Relational;
-use Hubzero\User\Profile;
 
 /**
  * Group member role
@@ -51,7 +50,7 @@ class Role extends Relational
 	 *
 	 * @var string
 	 */
-	public $orderBy = 'name';
+	public $orderBy = 'id';
 
 	/**
 	 * Default order direction for select queries
@@ -87,11 +86,7 @@ class Role extends Relational
 	 */
 	public function member()
 	{
-		if ($profile = Profile::getInstance($this->get('uidNumber')))
-		{
-			return $profile;
-		}
-		return new Profile;
+		return $this->belongsToOne('Hubzero\User\User', 'uidNumber');
 	}
 
 	/**
@@ -106,5 +101,50 @@ class Role extends Relational
 			->whereEquals('roleid', $roleid)
 			->row();
 	}
-}
 
+	/**
+	 * Remove records by user ID
+	 *
+	 * @param   integer  $user_id
+	 * @return  boolean  False if error, True on success
+	 */
+	public static function destroyByUser($user_id)
+	{
+		$rows = self::all()
+			->whereEquals('uidNumber', $user_id)
+			->rows();
+
+		foreach ($rows as $row)
+		{
+			if (!$row->destroy())
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Remove records by role ID
+	 *
+	 * @param   integer  $role_id
+	 * @return  boolean  False if error, True on success
+	 */
+	public static function destroyByRole($role_id)
+	{
+		$rows = self::all()
+			->whereEquals('roleid', $role_id)
+			->rows();
+
+		foreach ($rows as $row)
+		{
+			if (!$row->destroy())
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+}

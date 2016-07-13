@@ -32,7 +32,7 @@
 
 namespace Components\Wishlist\Models;
 
-use Hubzero\User\Profile;
+use Components\Members\Models\Member;
 use Hubzero\Utility\String;
 use Lang;
 use Date;
@@ -67,7 +67,7 @@ class Plan extends Base
 	protected $_attachment = null;
 
 	/**
-	 * Hubzero\User\Profile
+	 * User
 	 *
 	 * @var object
 	 */
@@ -168,20 +168,15 @@ class Plan extends Base
 	 */
 	public function creator($property=null, $default=null)
 	{
-		if (!($this->_creator instanceof Profile))
+		if (!($this->_creator instanceof \Hubzero\User\User))
 		{
-			$this->_creator = Profile::getInstance($this->get('created_by'));
-			if (!$this->_creator)
-			{
-				$this->_creator = new Profile();
-			}
+			$this->_creator = \User::getInstance($this->get('created_by'));
 		}
 		if ($property)
 		{
-			$property = ($property == 'id') ? 'uidNumber' : $property;
 			if ($property == 'picture')
 			{
-				return $this->_creator->getPicture($this->get('anonymous'));
+				return $this->_creator->picture($this->get('anonymous'));
 			}
 			return $this->_creator->get($property, $default);
 		}

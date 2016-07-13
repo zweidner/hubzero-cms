@@ -68,10 +68,10 @@ class Helper extends Module
 	 */
 	public function media($path)
 	{
-		$this->tpl_path = substr(App::get('template')->path, strlen(PATH_ROOT)) . '/html/mod_incremental_registration';
-		$b = rtrim(Request::base(true), '/');
+		$this->tpl_path = App::get('template')->path . '/html/mod_incremental_registration';
 
-		return file_exists(PATH_ROOT . $this->tpl_path . $path) ? $b . $this->tpl_path . $path : $b . $this->mod_path . $path;
+		$b = rtrim(Request::base(true), '/');
+		return file_exists(PATH_APP . $this->tpl_path . $path) ? $b . $this->tpl_path . $path : $b . $this->mod_path . $path;
 	}
 
 	/**
@@ -325,7 +325,7 @@ class Helper extends Module
 
 						if ($award)
 						{
-							$BTL = new \Hubzero\Bank\Teller($dbh, $uid);
+							$BTL = new \Hubzero\Bank\Teller($uid);
 							$BTL->deposit($award, Lang::txt('MOD_INCREMENTAL_REGISTRATION_PROFILE_COMPLETION_AWARD'), 'registration', 0);
 						}
 

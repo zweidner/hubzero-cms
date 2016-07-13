@@ -162,7 +162,8 @@ class plgCronResources extends \Hubzero\Plugin\Plugin
 	{
 		$processed = array();
 
-		$params = $job->get('params');
+		$params = $job->params;
+
 		$limit  = $params->get('resource_limit', 100);
 
 		if (!is_numeric($limit) || $limit <= 0 || $limit > 1000)
@@ -278,7 +279,7 @@ class plgCronResources extends \Hubzero\Plugin\Plugin
 	 */
 	public function auditResourceData(\Components\Cron\Models\Job $job)
 	{
-		$params = $job->get('params');
+		$params = $job->params;
 
 		// Determine parameters
 		$limit    = intval($params->get('audit_limit', 500));

@@ -130,7 +130,7 @@ function submitbutton(pressbutton)
 							</li>
 						</ol>
 					</td>
-					<td width="20%">
+					<td>
 						<ol class="attention-actions">
 							<?php if ($needsAttention->version()->get('checked_errors') && $needsAttention->version()->get('scanned')) : ?>
 								<li class="approve">
@@ -170,8 +170,8 @@ function submitbutton(pressbutton)
 				</td>
 				<td>
 					<a href="<?php echo Route::url('index.php?option=' . $this->option . '&controller=' . $this->controller . '&task=edit&gid=' . $this->group->cn . '&id=' . $page->get('id')); ?>">
-						<?php echo $this->escape(stripslashes($page->get('title'))); ?> <br />
-					</a>
+						<?php echo $this->escape(stripslashes($page->get('title'))); ?>
+					</a><br />
 					<?php
 						// add /groups/{{group_cname}}
 						$segments = array('groups', $this->group->get('cn'));

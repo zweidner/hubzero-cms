@@ -107,21 +107,25 @@ class plgAuthenticationHubzero extends \Hubzero\Plugin\Plugin
 
 		$result = $db->loadObjectList();
 
-		if (is_array($result) && (empty($result) || count($result) > 1))
+		if (is_array($result) && count($result) > 1)
 		{
 			$response->status = \Hubzero\Auth\Status::FAILURE;
-			$response->error_message = (strpos($credentials['username'], '@')
-							? Lang::txt('PLG_AUTHENTICATION_HUBZERO_UNKNOWN_USER')
-							: Lang::txt('PLG_AUTHENTICATION_HUBZERO_AUTHENTICATION_FAILED'));
+			$response->error_message = Lang::txt('PLG_AUTHENTICATION_HUBZERO_UNKNOWN_USER');
 			return false;
 		}
 		elseif (is_array($result) && isset($result[0]))
 		{
 			$result = $result[0];
 		}
+		else
+		{
+			$response->status = \Hubzero\Auth\Status::FAILURE;
+			$response->error_message = Lang::txt('PLG_AUTHENTICATION_HUBZERO_AUTHENTICATION_FAILED');
+			return false;
+		}
 
 		// Now make sure they haven't made too many failed login attempts
-		if (\Hubzero\User\User::oneOrFail($result->id)->hasExceededLoginLimit())
+		if ($this->hasExceededLoginLimit(\Hubzero\User\User::oneOrFail($result->id)))
 		{
 			$response->status = \Hubzero\Auth\Status::FAILURE;
 			$response->error_message = Lang::txt('PLG_AUTHENTICATION_HUBZERO_TOO_MANY_ATTEMPTS');
@@ -134,15 +138,17 @@ class plgAuthenticationHubzero extends \Hubzero\Plugin\Plugin
 			{
 				$user = User::getInstance($result->id);
 
-				$response->username      = $user->username;
-				$response->email         = $user->email;
-				$response->fullname      = $user->name;
+				$response->username      = $user->get('username');
+				$response->email         = $user->get('email');
+				$response->fullname      = $user->get('name');
 				$response->status        = \Hubzero\Auth\Status::SUCCESS;
 				$response->error_message = '';
 
 				// Check validity and age of password
-				$password_rules = \Hubzero\Password\Rule::getRules();
-				$msg = \Hubzero\Password\Rule::validate($credentials['password'], $password_rules, $result->username);
+				$password_rules = \Hubzero\Password\Rule::all()
+					->whereEquals('enabled', 1)
+					->rows();
+				$msg = \Hubzero\Password\Rule::verify($credentials['password'], $password_rules, $result->username);
 				if (is_array($msg) && !empty($msg[0]))
 				{
 					App::get('session')->set('badpassword', '1');
@@ -155,7 +161,7 @@ class plgAuthenticationHubzero extends \Hubzero\Plugin\Plugin
 				// Set cookie with login preference info
 				$prefs = array(
 					'user_id'       => $user->get('id'),
-					'user_img'      => \Hubzero\User\Profile::getInstance($user->get('id'))->getPicture(0, false),
+					'user_img'      => $user->picture(0, false),
 					'authenticator' => 'hubzero'
 				);
 
@@ -175,5 +181,36 @@ class plgAuthenticationHubzero extends \Hubzero\Plugin\Plugin
 			$response->status = \Hubzero\Auth\Status::FAILURE;
 			$response->error_message = Lang::txt('PLG_AUTHENTICATION_HUBZERO_AUTHENTICATION_FAILED');
 		}
+	}
+
+	/**
+	 * Checks to see if the current user has exceeded the site
+	 * login attempt limit for a given time period
+	 *
+	 * @param		$user \Hubzero\User\User 
+	 *
+	 * @return  bool
+	 */
+	private function hasExceededLoginLimit($user)
+	{
+		$params    = \Component::params('com_members');
+		$limit     = (int)$params->get('login_attempts_limit', 10);
+		$timeframe = (int)$params->get('login_attempts_timeframe', 1);
+		$result    = true;
+
+		// Get the user's tokens
+		$threshold = date("Y-m-d H:i:s", strtotime(\Date::toSql() . " {$timeframe} hours ago"));
+		$auths     = new \Hubzero\User\Log\Auth;
+
+		$auths->whereEquals('username', $user->username)
+		      ->whereEquals('status', 'failure')
+		      ->where('logged', '>=', $threshold);
+
+		if ($auths->count() < $limit)
+		{
+			$result = false;
+		}
+
+		return $result;
 	}
 }

@@ -42,20 +42,20 @@ $base = 'index.php?option=' . $this->option . '&cn=' . $this->group->get('cn') .
 		<div class="creator attribution clearfix">
 			<?php if ($item->get('type') == 'file' || $item->get('type') == 'collection') { ?>
 				<?php
-				$name = $this->escape(stripslashes($item->creator('name')));
+				$name = $this->escape(stripslashes($item->creator()->get('name')));
 
-				if ($item->creator('public')) { ?>
-					<a href="<?php echo Route::url($item->creator()->getLink()); ?>" title="<?php echo $name; ?>" class="img-link">
-						<img src="<?php echo $item->creator()->getPicture(); ?>" alt="<?php echo Lang::txt('PLG_GROUPS_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
+				if (in_array($item->creator()->get('access'), User::getAuthorisedViewLevels())) { ?>
+					<a href="<?php echo Route::url($item->creator()->link()); ?>" title="<?php echo $name; ?>" class="img-link">
+						<img src="<?php echo $item->creator()->picture(); ?>" alt="<?php echo Lang::txt('PLG_GROUPS_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
 					</a>
 				<?php } else { ?>
 					<span class="img-link">
-						<img src="<?php echo $item->creator()->getPicture(); ?>" alt="<?php echo Lang::txt('PLG_GROUPS_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
+						<img src="<?php echo $item->creator()->picture(); ?>" alt="<?php echo Lang::txt('PLG_GROUPS_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
 					</span>
 				<?php } ?>
 				<p>
-					<a href="<?php echo Route::url($item->creator()->getLink()); ?>">
-						<?php echo $this->escape(stripslashes($item->creator('name'))); ?>
+					<a href="<?php echo Route::url($item->creator()->link()); ?>">
+						<?php echo $this->escape(stripslashes($item->creator()->get('name'))); ?>
 					</a> created this post <br />
 					<span class="entry-date">
 						<span class="entry-date-at">@</span>
@@ -127,15 +127,15 @@ $base = 'index.php?option=' . $this->option . '&cn=' . $this->group->get('cn') .
 		</div><!-- / .meta -->
 <?php //if ($this->post->created_by != $this->post->created_by) { ?>
 		<div class="convo attribution clearfix">
-			<a href="<?php echo Route::url($this->post->creator()->getLink()); ?>" title="<?php echo $this->escape(stripslashes($this->post->creator()->get('name'))); ?>" class="img-link">
-				<img src="<?php echo $this->post->creator()->getPicture(); ?>" alt="Profile picture of <?php echo $this->escape(stripslashes($this->post->creator()->get('name'))); ?>" />
+			<a href="<?php echo Route::url($this->post->creator()->link()); ?>" title="<?php echo $this->escape(stripslashes($this->post->creator()->get('name'))); ?>" class="img-link">
+				<img src="<?php echo $this->post->creator()->picture(); ?>" alt="Profile picture of <?php echo $this->escape(stripslashes($this->post->creator()->get('name'))); ?>" />
 			</a>
 			<p>
 				<?php
-				$who = $this->escape(stripslashes($this->post->creator('name')));
-				if ($this->post->creator('public'))
+				$who = $this->escape(stripslashes($this->post->creator()->get('name')));
+				if (in_array($this->post->creator()->get('access'), User::getAuthorisedViewLevels()))
 				{
-					$who = '<a href="' . Route::url($this->post->creator()->getLink()) . '">' . $name . '</a>';
+					$who = '<a href="' . Route::url($this->post->creator()->link()) . '">' . $name . '</a>';
 				}
 
 				$where = '<a href="' . Route::url($base . '&task=' . $this->collection->get('alias')) . '">' . $this->escape(stripslashes($this->collection->get('title'))) . '</a>';
@@ -151,35 +151,36 @@ $base = 'index.php?option=' . $this->option . '&cn=' . $this->group->get('cn') .
 				</span>
 			</p>
 		</div><!-- / .attribution -->
-<?php
-if ($item->get('comments'))
-{
-	foreach ($item->comments() as $comment)
+	<?php
+	if ($item->get('comments'))
 	{
-		$cuser = \Hubzero\User\Profile::getInstance($comment->created_by);
-?>
-		<div class="commnts">
-			<div class="comment convo clearfix" id="c<?php echo $comment->id; ?>">
-				<a href="<?php echo Route::url('index.php?option=com_members&id=' . $comment->created_by); ?>" class="img-link">
-					<img src="<?php echo \Hubzero\User\Profile\Helper::getMemberPhoto($cuser, $comment->anonymous); ?>" class="profile user_image" alt="Profile picture of <?php echo $this->escape(stripslashes($cuser->get('name'))); ?>" />
-				</a>
-				<p>
-					<a href="<?php echo Route::url('index.php?option=com_members&id=' . $comment->created_by); ?>"><?php echo $this->escape(stripslashes($cuser->get('name'))); ?></a> said <br />
-					<span class="entry-date">
-						<span class="entry-date-at">@</span>
-						<span class="time"><time datetime="<?php echo $comment->created; ?>"><?php echo Date::of($comment->created)->toLocal(Lang::txt('TIME_FORMAT_HZ1')); ?></time></span>
-						<span class="entry-date-on">on</span>
-						<span class="date"><time datetime="<?php echo $comment->created; ?>"><?php echo Date::of($comment->created)->toLocal(Lang::txt('DATE_FORMAT_HZ1')); ?></time></span>
-					</span>
-				</p>
-				<blockquote>
-					<p><?php echo stripslashes($comment->content); ?></p>
-				</blockquote>
+		foreach ($item->comments() as $comment)
+		{
+			$cuser = $comment->creator();
+			?>
+			<div class="commnts">
+				<div class="comment convo clearfix" id="c<?php echo $comment->get('id'); ?>">
+					<a href="<?php echo Route::url($cuser->link()); ?>" class="img-link">
+						<img src="<?php echo $cuser->picture($comment->get('anonymous')); ?>" class="profile user_image" alt="Profile picture of <?php echo $this->escape(stripslashes($cuser->get('name'))); ?>" />
+					</a>
+					<p>
+						<a href="<?php echo Route::url($cuser->link()); ?>"><?php echo $this->escape(stripslashes($cuser->get('name'))); ?></a> said <br />
+						<span class="entry-date">
+							<span class="entry-date-at">@</span>
+							<span class="time"><time datetime="<?php echo $comment->get('created'); ?>"><?php echo $comment->created('time'); ?></time></span>
+							<span class="entry-date-on">on</span>
+							<span class="date"><time datetime="<?php echo $comment->get('created'); ?>"><?php echo $comment->created('date'); ?></time></span>
+						</span>
+					</p>
+					<blockquote>
+						<p><?php echo stripslashes($comment->content); ?></p>
+					</blockquote>
+				</div>
 			</div>
-		</div>
-<?php
+			<?php
+		}
 	}
-}
+
 	if (!User::isGuest())
 	{
 		$now = Date::of('now');
@@ -187,7 +188,7 @@ if ($item->get('comments'))
 		<div class="commnts">
 			<div class="comment convo clearfix">
 				<a href="<?php echo Route::url('index.php?option=com_members&id=' . User::get('id')); ?>" class="img-link">
-					<img src="<?php echo \Hubzero\User\Profile\Helper::getMemberPhoto(User::getRoot(), 0); ?>" class="profile user_image" alt="Profile picture of <?php echo $this->escape(stripslashes(User::get('name'))); ?>" />
+					<img src="<?php echo User::picture(0); ?>" class="profile user_image" alt="Profile picture of <?php echo $this->escape(stripslashes(User::get('name'))); ?>" />
 				</a>
 				<p>
 					<a href="<?php echo Route::url('index.php?option=com_members&id=' . User::get('id')); ?>"><?php echo $this->escape(stripslashes(User::get('name'))); ?></a> will say <br />

@@ -33,7 +33,7 @@
 // No direct access
 defined('_HZEXEC_') or die();
 
-$base = $this->member->getLink() . '&active=' . $this->name;
+$base = $this->member->link() . '&active=' . $this->name;
 
 $this->css()
      ->js('jquery.masonry', 'com_collections')
@@ -124,6 +124,11 @@ $this->css()
 				     ->set('collection', $row)
 				     ->display();
 				?>
+				<?php if ($tags = $row->item()->tags('cloud')) { ?>
+					<div class="tags-wrap">
+						<?php echo $tags; ?>
+					</div>
+				<?php } ?>
 				<div class="meta">
 					<p class="stats">
 						<span class="likes">
@@ -174,18 +179,18 @@ $this->css()
 				<div class="convo attribution clearfix">
 					<?php
 					$name = $this->escape(stripslashes($row->creator('name')));
-					if ($row->creator('public')) { ?>
-						<a href="<?php echo Route::url($row->creator()->getLink()); ?>" title="<?php echo $name; ?>" class="img-link">
-							<img src="<?php echo $row->creator()->getPicture(); ?>" alt="<?php echo Lang::txt('PLG_MEMBERS_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
+					if (in_array($row->creator()->get('access'), User::getAuthorisedViewLevels())) { ?>
+						<a href="<?php echo Route::url($row->creator()->link()); ?>" title="<?php echo $name; ?>" class="img-link">
+							<img src="<?php echo $row->creator()->picture(); ?>" alt="<?php echo Lang::txt('PLG_MEMBERS_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
 						</a>
 					<?php } else { ?>
 						<span class="img-link">
-							<img src="<?php echo $row->creator()->getPicture(); ?>" alt="<?php echo Lang::txt('PLG_MEMBERS_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
+							<img src="<?php echo $row->creator()->picture(); ?>" alt="<?php echo Lang::txt('PLG_MEMBERS_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
 						</span>
 					<?php } ?>
 					<p>
-						<?php if ($row->creator('public')) { ?>
-							<a href="<?php echo Route::url($row->creator()->getLink()); ?>">
+						<?php if (in_array($row->creator()->get('access'), User::getAuthorisedViewLevels())) { ?>
+							<a href="<?php echo Route::url($row->creator()->link()); ?>">
 								<?php echo $name; ?>
 							</a>
 						<?php } else { ?>
@@ -213,7 +218,7 @@ $this->css()
 			$this->filters['start'],
 			$this->filters['limit']
 		);
-		$pageNav->setAdditionalUrlParam('id', $this->member->get('uidNumber'));
+		$pageNav->setAdditionalUrlParam('id', $this->member->get('id'));
 		$pageNav->setAdditionalUrlParam('active', 'collections');
 		$pageNav->setAdditionalUrlParam('task', 'all');
 		echo $pageNav->render();

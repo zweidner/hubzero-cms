@@ -86,14 +86,14 @@ class Entry extends Model
 	private $_creator = NULL;
 
 	/**
-	 * Hubzero\User\Profile
+	 * Hubzero\User\User
 	 *
 	 * @var object
 	 */
 	private $_owner = null;
 
 	/**
-	 * Hubzero\User\Profile
+	 * Hubzero\User\User
 	 *
 	 * @var object
 	 */
@@ -282,20 +282,16 @@ class Entry extends Model
 	 */
 	public function creator($property=null, $default=null)
 	{
-		if (!($this->_creator instanceof \Hubzero\User\Profile))
+		if (!($this->_creator instanceof \Hubzero\User\User))
 		{
-			$this->_creator = \Hubzero\User\Profile::getInstance($this->get('created_by'));
-			if (!$this->_creator)
-			{
-				$this->_creator = new \Hubzero\User\Profile();
-			}
+			$this->_creator = \Hubzero\User\User::oneOrNew($this->get('created_by'));
 		}
 		if ($property)
 		{
-			$property = ($property == 'id') ? 'uidNumber' : $property;
+			$property = ($property == 'uidNumber') ? 'id' : $property;
 			if ($property == 'picture')
 			{
-				return $this->_creator->getPicture();
+				return $this->_creator->pcture();
 			}
 			return $this->_creator->get($property, $default);
 		}
@@ -315,20 +311,15 @@ class Entry extends Model
 	 */
 	public function owner($property=null, $default=null)
 	{
-		if (!($this->_owner instanceof \Hubzero\User\Profile))
+		if (!($this->_owner instanceof \Hubzero\User\User))
 		{
-			$this->_owner = \Hubzero\User\Profile::getInstance($this->get('assigned_to'));
-			if (!$this->_owner)
-			{
-				$this->_owner = new \Hubzero\User\Profile();
-			}
+			$this->_owner = \User::getInstance($this->get('assigned_to'));
 		}
 		if ($property)
 		{
-			$property = ($property == 'id') ? 'uidNumber' : $property;
 			if ($property == 'picture')
 			{
-				return $this->_owner->getPicture();
+				return $this->_owner->picture();
 			}
 			return $this->_owner->get($property, $default);
 		}
@@ -348,20 +339,15 @@ class Entry extends Model
 	 */
 	public function closer($property=null, $default=null)
 	{
-		if (!($this->_closer instanceof \Hubzero\User\Profile))
+		if (!($this->_closer instanceof \Hubzero\User\User))
 		{
-			$this->_closer = \Hubzero\User\Profile::getInstance($this->get('closed_by'));
-			if (!$this->_closer)
-			{
-				$this->_closer = new \Hubzero\User\Profile();
-			}
+			$this->_closer = \User::getInstance($this->get('closed_by'));
 		}
 		if ($property)
 		{
-			$property = ($property == 'id') ? 'uidNumber' : $property;
 			if ($property == 'picture')
 			{
-				return $this->_closer->getPicture();
+				return $this->_closer->picture();
 			}
 			return $this->_closer->get($property, $default);
 		}

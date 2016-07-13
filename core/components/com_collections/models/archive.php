@@ -35,7 +35,6 @@ namespace Components\Collections\Models;
 use Components\Collections\Tables;
 use Hubzero\Base\Object;
 use Hubzero\Base\ItemList;
-use Hubzero\User\Profile;
 use Hubzero\Plugin\Params;
 use User;
 use Lang;
@@ -443,7 +442,7 @@ class Archive extends Object
 	 */
 	public function mine($type='')
 	{
-		$user = User::getRoot();
+		$user = User::getInstance();
 
 		$tbl = new Tables\Collection($this->_db);
 
@@ -453,10 +452,8 @@ class Archive extends Object
 			case 'groups':
 				$collections = array();
 
-				$member = Profile::getInstance($user->get('id'));
-
-				$usergroups = $member->getGroups('members');
-				$usergroups_manager = $member->getGroups('managers');
+				$usergroups = $user->groups('members');
+				$usergroups_manager = $user->groups('managers');
 
 				if ($usergroups)
 				{
@@ -484,8 +481,7 @@ class Archive extends Object
 						{
 							if (!isset($usergroup->params) || !is_object($usergroup->params))
 							{
-								$p = new Params($this->_db);
-								$usergroup->params = $p->getCustomParams($usergroup->gidNumber, 'groups', 'collections');
+								$usergroup->params = Params::getCustomParams($usergroup->gidNumber, 'groups', 'collections');
 							}
 							foreach ($groups as $s)
 							{

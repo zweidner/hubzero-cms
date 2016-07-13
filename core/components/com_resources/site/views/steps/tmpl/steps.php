@@ -34,28 +34,24 @@
 defined('_HZEXEC_') or die();
 
 $attachments = 0;
-$authors = 0;
-$tags = array();
-$state = 'draft';
-if ($this->resource->id)
-{
-	$database = App::get('db');
-	$ra = new \Components\Resources\Tables\Assoc($database);
-	$rc = new \Components\Resources\Tables\Contributor($database);
-	$rt = new \Components\Resources\Helpers\Tags($this->resource->id);
+$authors     = 0;
+$tags        = array();
+$state       = 'draft';
 
-	switch ($this->resource->published)
+if ($this->resource->get('id'))
+{
+	switch ($this->resource->get('published'))
 	{
 		case 1: $state = 'published';  break;  // published
 		case 2: $state = 'draft';      break;  // draft
 		case 3: $state = 'pending';    break;  // pending
+		case 0:
+		default: $state = 'unpublished';  break;  // unpublished
 	}
 
-	$attachments = $ra->getCount($this->resource->id);
-
-	$authors = $rc->getCount($this->resource->id, 'resources');
-
-	$tags = $rt->tags('count');
+	$attachments = $this->resource->children()->total();
+	$authors =  $this->resource->authors()->total();
+	$tags = count($this->resource->tags());
 }
 ?>
 <div class="meta-container">
@@ -74,19 +70,19 @@ if ($this->resource->id)
 		<tbody>
 			<tr>
 				<td>
-					<?php echo ($this->resource->getTypeTitle()) ? $this->escape(stripslashes($this->resource->getTypeTitle())) : Lang::txt('COM_CONTRIBUTE_NONE'); ?>
+					<?php echo $this->resource->type()->get('type', Lang::txt('COM_CONTRIBUTE_NONE')); ?>
 				</td>
 				<td>
-					<?php echo ($this->resource->title) ? $this->escape(\Hubzero\Utility\String::truncate(stripslashes($this->resource->title), 150)) : Lang::txt('COM_CONTRIBUTE_NONE'); ?>
+					<?php echo ($this->resource->get('title') ? $this->escape(\Hubzero\Utility\String::truncate(stripslashes($this->resource->get('title')), 150)) : Lang::txt('COM_CONTRIBUTE_NONE')); ?>
 				</td>
 				<td>
-					<?php echo $attachments; ?> attachment(s)
+					<?php echo Lang::txt('%s attachment(s)', $attachments); ?>
 				</td>
 				<td>
-					<?php echo $authors; ?> author(s)
+					<?php echo Lang::txt('%s author(s)', $authors); ?>
 				</td>
 				<td>
-					<?php echo $tags; ?> tag(s)
+					<?php echo Lang::txt('%s tag(s)', $tags); ?>
 				</td>
 				<td>
 					<span class="<?php echo $state; ?> status"><?php echo $state; ?></span>
@@ -111,41 +107,41 @@ if ($this->resource->id)
 			<?php echo Lang::txt('COM_CONTRIBUTE_START'); ?>
 		</a>
 	</li>
-<?php
-$laststep = (count($this->steps) - 1);
+	<?php
+	$laststep = (count($this->steps) - 1);
 
-$html  = '';
-for ($i=1, $n=count( $this->steps ); $i < $n; $i++)
-{
-	$html .= "\t".'<li';
-	if ($this->step == $i) {
-		$html .= ' class="active"';
-	} elseif ($this->progress[$this->steps[$i]] == 1) {
-		$html .= ' class="completed"';
-	}
-	$html .= '>';
-	if ($this->step == $i)
+	$html  = '';
+	for ($i=1, $n=count($this->steps); $i < $n; $i++)
 	{
-		$html .= '<strong>' . Lang::txt('COM_CONTRIBUTE_STEP_'.strtoupper($this->steps[$i])) . '</strong>';
-	}
-	elseif ($this->progress[$this->steps[$i]] == 1 || $this->step > $i)
-	{
-		$html .= '<a href="'. Route::url('index.php?option='.$this->option.'&task=draft&step='.$i.'&id='.$this->id) .'">'.Lang::txt('COM_CONTRIBUTE_STEP_'.strtoupper($this->steps[$i])).'</a>';
-	}
-	else
-	{
-		if ($this->progress['submitted'] == 1)
+		$html .= "\t".'<li';
+		if ($this->step == $i) {
+			$html .= ' class="active"';
+		} elseif ($this->progress[$this->steps[$i]] == 1) {
+			$html .= ' class="completed"';
+		}
+		$html .= '>';
+		if ($this->step == $i)
+		{
+			$html .= '<strong>' . Lang::txt('COM_CONTRIBUTE_STEP_'.strtoupper($this->steps[$i])) . '</strong>';
+		}
+		elseif ($this->progress[$this->steps[$i]] == 1 || $this->step > $i)
 		{
 			$html .= '<a href="'. Route::url('index.php?option='.$this->option.'&task=draft&step='.$i.'&id='.$this->id) .'">'.Lang::txt('COM_CONTRIBUTE_STEP_'.strtoupper($this->steps[$i])).'</a>';
 		}
 		else
 		{
-			$html .= '<span>' . $this->steps[$i] . '</span>';
+			if ($this->progress['submitted'] == 1)
+			{
+				$html .= '<a href="'. Route::url('index.php?option='.$this->option.'&task=draft&step='.$i.'&id='.$this->id) .'">'.Lang::txt('COM_CONTRIBUTE_STEP_'.strtoupper($this->steps[$i])).'</a>';
+			}
+			else
+			{
+				$html .= '<span>' . $this->steps[$i] . '</span>';
+			}
 		}
+		$html .= '</li>'."\n";
 	}
-	$html .= '</li>'."\n";
-}
-echo $html;
-?>
+	echo $html;
+	?>
 </ol>
 <div class="clear"></div>

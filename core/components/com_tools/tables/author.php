@@ -33,7 +33,7 @@
 namespace Components\Tools\Tables;
 
 use Components\Tools\Helpers\Utils;
-use Hubzero\User\Profile;
+use User;
 use Lang;
 
 /**
@@ -273,8 +273,7 @@ class Author extends \JTable
 				$rc->loadAssociation($authid, $rid, 'resources');
 				if (!$rc->authorid)
 				{
-					$xprofile = new Profile();
-					$xprofile->load($authid);
+					$xprofile = User::getInstance($authid);
 
 					// New record
 					$rc->authorid = $authid;
@@ -329,8 +328,7 @@ class Author extends \JTable
 					// If we still don't have it, try to grab it from the profile
 					if (!$name || !$organization)
 					{
-						$xprofile = new Profile();
-						$xprofile->load($authid);
+						$xprofile = User::getInstance($authid);
 
 						$name         = $name ?: $xprofile->get('name');
 						$organization = $organization ?: $xprofile->get('organization');
@@ -359,7 +357,7 @@ class Author extends \JTable
 	 */
 	private function _author_check($id)
 	{
-		$xprofile = Profile::getInstance($id);
+		$xprofile = User::getInstance($id);
 		if ($xprofile->get('givenName') == ''
 		 && $xprofile->get('middleName') == ''
 		 && $xprofile->get('surname') == '')

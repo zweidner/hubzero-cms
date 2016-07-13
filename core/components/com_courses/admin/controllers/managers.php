@@ -71,8 +71,6 @@ class Managers extends AdminController
 
 		$mbrs = explode(',', $m);
 
-		jimport('joomla.user.helper');
-
 		$users = array();
 		foreach ($mbrs as $mbr)
 		{
@@ -91,7 +89,7 @@ class Managers extends AdminController
 			// Username
 			else
 			{
-				$uid = \JUserHelper::getUserId($mbr);
+				$uid = \Hubzero\User\User::oneByUsername($mbr)->get('id');
 			}
 
 			// Ensure we found an account
@@ -234,7 +232,7 @@ class Managers extends AdminController
 	/**
 	 * Display a list of 'manager' for a specific course
 	 *
-	 * @param   object  $profile  \Hubzero\User\Profile
+	 * @param   object  $course
 	 * @return  void
 	 */
 	public function displayTask($course=null)

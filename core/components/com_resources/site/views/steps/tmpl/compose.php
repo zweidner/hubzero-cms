@@ -35,8 +35,7 @@ defined('_HZEXEC_') or die();
 
 $this->row->fulltxt = ($this->row->fulltxt) ? stripslashes($this->row->fulltxt): stripslashes($this->row->introtext);
 
-$type = new \Components\Resources\Tables\Type($this->database);
-$type->load($this->row->type);
+$type = $this->row->type();
 
 $data = array();
 preg_match_all("#<nb:(.*?)>(.*?)</nb:(.*?)>#s", $this->row->fulltxt, $matches, PREG_SET_ORDER);
@@ -44,7 +43,7 @@ if (count($matches) > 0)
 {
 	foreach ($matches as $match)
 	{
-		$data[$match[1]] = \Components\Resources\Site\Controllers\Create::_txtUnpee($match[2]);
+		$data[$match[1]] = trim($match[2]);
 	}
 }
 
@@ -53,7 +52,7 @@ $this->row->fulltxt = trim($this->row->fulltxt);
 
 include_once(PATH_CORE . DS . 'components' . DS . 'com_resources' . DS . 'models' . DS . 'elements.php');
 
-$elements = new \Components\Resources\Models\Elements($data, $type->customFields);
+$elements = new \Components\Resources\Models\Elements($data, $type->get('customFields'));
 $fields = $elements->render();
 
 $this->css('create.css')
@@ -98,12 +97,12 @@ $this->css('create.css')
 
 			<label for="field-title">
 				<?php echo Lang::txt('COM_CONTRIBUTE_COMPOSE_TITLE'); ?>: <span class="required"><?php echo Lang::txt('JOPTION_REQUIRED'); ?></span>
-				<input type="text" name="title" id="field-title" maxlength="250" value="<?php echo $this->escape(stripslashes($this->row->title)); ?>" />
+				<input type="text" name="fields[title]" id="field-title" maxlength="250" value="<?php echo $this->escape(stripslashes($this->row->title)); ?>" />
 			</label>
 
 			<label for="field-fulltxt">
 				<?php echo Lang::txt('COM_CONTRIBUTE_COMPOSE_ABSTRACT'); ?>:
-				<?php echo $this->editor('fulltxt', $this->escape(stripslashes($this->row->fulltxt)), 50, 20, 'field-fulltxt'); ?>
+				<?php echo $this->editor('fields[fulltxt]', $this->escape(stripslashes($this->row->fulltxt)), 50, 20, 'field-fulltxt'); ?>
 			</label>
 
 			<fieldset>
@@ -126,15 +125,16 @@ $this->css('create.css')
 			</fieldset><div class="clear"></div>
 		<?php } ?>
 
-		<input type="hidden" name="published" value="<?php echo $this->row->published; ?>" />
-		<input type="hidden" name="standalone" value="1" />
+		<input type="hidden" name="fields[published]" value="<?php echo $this->row->published; ?>" />
+		<input type="hidden" name="fields[standalone]" value="1" />
+		<input type="hidden" name="fields[id]" value="<?php echo $this->row->id; ?>" />
 		<input type="hidden" name="id" value="<?php echo $this->row->id; ?>" />
-		<input type="hidden" name="type" value="<?php echo $this->row->type; ?>" />
-		<input type="hidden" name="created" value="<?php echo $this->row->created; ?>" />
-		<input type="hidden" name="created_by" value="<?php echo $this->row->created_by; ?>" />
-		<input type="hidden" name="publish_up" value="<?php echo $this->row->publish_up; ?>" />
-		<input type="hidden" name="publish_down" value="<?php echo $this->row->publish_down; ?>" />
-		<input type="hidden" name="group_owner" value="<?php echo $this->row->group_owner; ?>" />
+		<input type="hidden" name="fields[type]" value="<?php echo $this->row->type; ?>" />
+		<input type="hidden" name="fields[created]" value="<?php echo $this->row->created; ?>" />
+		<input type="hidden" name="fields[created_by]" value="<?php echo $this->row->created_by; ?>" />
+		<input type="hidden" name="fields[publish_up]" value="<?php echo $this->row->publish_up; ?>" />
+		<input type="hidden" name="fields[publish_down]" value="<?php echo $this->row->publish_down; ?>" />
+		<input type="hidden" name="fields[group_owner]" value="<?php echo $this->row->group_owner; ?>" />
 
 		<input type="hidden" name="option" value="<?php echo $this->option; ?>" />
 		<input type="hidden" name="controller" value="<?php echo $this->controller; ?>" />

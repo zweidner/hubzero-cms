@@ -33,6 +33,8 @@
 namespace Components\Members\Site\Controllers;
 
 use Hubzero\Component\SiteController;
+use Components\Members\Models\Profile\Field;
+use Components\Members\Models\Member;
 use Component;
 use Pathway;
 use Session;
@@ -45,6 +47,7 @@ use Date;
 use App;
 
 include_once(dirname(dirname(__DIR__)) . DS . 'models' . DS . 'registration.php');
+include_once(dirname(dirname(__DIR__)) . DS . 'models' . DS . 'member.php');
 
 /**
  * Controller class for member registration
@@ -84,7 +87,7 @@ class Register extends SiteController
 			return App::abort(500, Lang::txt('COM_MEMBERS_REGISTER_ERROR_GUEST_SESSION_EDITING'));
 		}
 
-		$xprofile = \Hubzero\User\Profile::getInstance(User::get('id'));
+		$xprofile = User::getInstance();
 
 		// Get the return URL
 		$return = base64_decode(Request::getVar('return', '',  'method', 'base64'));
@@ -100,10 +103,8 @@ class Register extends SiteController
 
 		$username = Request::getVar('username',$xprofile->get('username'),'get');
 
-		$target_xprofile = \Hubzero\User\Profile::getInstance($username);
-
-		$admin = User::authorize($this->_option, 'manage');
-		$self = ($xprofile->get('username') == $username);
+		$admin = User::authorise('core.manage', $this->_option);
+		$self  = ($xprofile->get('username') == $username);
 
 		if (!$admin && !$self)
 		{
@@ -127,7 +128,7 @@ class Register extends SiteController
 		else
 		{
 			// Load data from the user object
-			$xregistration->loadProfile($target_xprofile);
+			$xregistration->loadProfile($xprofile);
 			return $this->_show_registration_form($xregistration, 'edit');
 		}
 
@@ -141,7 +142,7 @@ class Register extends SiteController
 			return $this->_show_registration_form($xregistration, 'edit');
 		}
 
-		$target_xprofile->loadRegistration($xregistration);
+		$xprofile->loadRegistration($xregistration);
 
 		$params = Component::params('com_members');
 
@@ -149,38 +150,36 @@ class Register extends SiteController
 
 		$updateEmail     = false;
 
-		if ($target_xprofile->get('homeDirectory') == '')
+		if ($xprofile->get('homeDirectory') == '')
 		{
-			$target_xprofile->set('homeDirectory', $hubHomeDir . '/' . $target_xprofile->get('username'));
+			$xprofile->set('homeDirectory', $hubHomeDir . '/' . $xprofile->get('username'));
 		}
 
-		if ($target_xprofile->get('regIP') == '')
+		if ($xprofile->get('regIP') == '')
 		{
-			$target_xprofile->set('regIP', Request::getVar('REMOTE_ADDR','','server'));
+			$xprofile->set('regIP', Request::getVar('REMOTE_ADDR','','server'));
 		}
 
-		if ($target_xprofile->get('regHost') == '')
+		if ($xprofile->get('regHost') == '')
 		{
 			if (isset($_SERVER['REMOTE_HOST']))
 			{
-				$target_xprofile->set('regHost', Request::getVar('REMOTE_HOST','','server'));
+				$xprofile->set('regHost', Request::getVar('REMOTE_HOST','','server'));
 			}
 		}
 
-		if ($target_xprofile->get('registerDate') == '')
+		if ($xprofile->get('registerDate') == '')
 		{
-			$target_xprofile->set('registerDate', Date::toSql());
+			$xprofile->set('registerDate', Date::toSql());
 		}
 
-		if ($xregistration->get('email') != $target_xprofile->get('email'))
+		if ($xregistration->get('email') != $xprofile->get('email'))
 		{
-			$target_xprofile->set('emailConfirmed', -rand(1, pow(2, 31)-1));
+			$xprofile->set('emailConfirmed', -rand(1, pow(2, 31)-1));
 			$updateEmail = true;
 		}
 
-		$target_xprofile->loadRegistration($xregistration);
-
-		$target_xprofile->update();
+		$xprofile->save();
 
 		if ($self)
 		{
@@ -315,16 +314,14 @@ class Register extends SiteController
 		}
 
 		// Instantiate a new view
-		$this->view->setLayout('update');
-		$this->view->title = Lang::txt('COM_MEMBERS_REGISTER_UPDATE');
-		$this->view->sitename = Config::get('sitename');
-		$this->view->xprofile = $target_xprofile;
-		$this->view->self = $self;
-		if ($this->getError())
-		{
-			$this->view->setError($this->getError());
-		}
-		$this->view->display();
+		$this->view
+			->set('title', Lang::txt('COM_MEMBERS_REGISTER_UPDATE'))
+			->set('sitename', Config::get('sitename'))
+			->set('xprofile', $xprofile)
+			->set('isSelf', $self)
+			->setLayout('update')
+			->setErrors($this->getErrors())
+			->display();
 	}
 
 	/**
@@ -352,13 +349,13 @@ class Register extends SiteController
 		// Instantiate a new registration object
 		$xregistration = new \Components\Members\Models\Registration();
 
-		$xprofile = \Hubzero\User\Profile::getInstance(User::get('id'));
+		$xprofile = Member::oneOrFail(User::get('id'));
 
 		$hzal = \Hubzero\Auth\Link::find_by_id(User::get('auth_link_id'));
 
 		// Get users component config options, specifically whether or not 'simple' registration is enabled
 		$method             = Request::getMethod();
-		$usersConfig        = Component::params('com_users');
+		$usersConfig        = Component::params('com_members');
 		$simpleRegistration = $usersConfig->get('simple_registration', false);
 
 		if ($method == 'POST')
@@ -369,21 +366,15 @@ class Register extends SiteController
 		else
 		{
 			// Load data from the user object
-			if (is_object($xprofile))
-			{
-				$xregistration->loadProfile($xprofile);
-			}
-			else
-			{
-				$xregistration->loadAccount(User::getRoot());
-			}
+			$xregistration->loadProfile($xprofile);
 
 			$username = User::get('username');
 			$email    = User::get('email');
 
 			if ($username[0] == '-' && is_object($hzal))
 			{
-				$tmp_username = Session::get('auth_link.tmp_username', '');
+				$sub_email    = explode('@', (string) $hzal->email, 2);
+				$tmp_username = Session::get('auth_link.tmp_username', $sub_email[0]);
 				$xregistration->set('login', $tmp_username);
 				$xregistration->set('orcid', Session::get('auth_link.tmp_orcid', ''));
 				$xregistration->set('email', $hzal->email);
@@ -437,28 +428,27 @@ class Register extends SiteController
 				}
 			}
 
-			//$params = Component::params('com_members');
-			$hubHomeDir = rtrim($this->config->get('homedir'),'/');
+			$hubHomeDir = rtrim($this->config->get('homedir'), DS);
 
-			$updateEmail     = false;
+			$updateEmail = false;
 
 			if ($xprofile->get('homeDirectory') == '')
 			{
-				$xprofile->set('homeDirectory', $hubHomeDir . '/' . $xprofile->get('username'));
+				$xprofile->set('homeDirectory', $hubHomeDir . DS . $xprofile->get('username'));
 			}
 
-			if ($xprofile->get('regIP') == '')
+			if ($xprofile->get('registerIP') == '')
 			{
-				$xprofile->set('regIP', Request::getVar('REMOTE_ADDR','','server'));
+				$xprofile->set('registerIP', Request::getVar('REMOTE_ADDR','','server'));
 			}
 
-			if ($xprofile->get('regHost') == '')
+			/*if ($xprofile->get('registerHost') == '')
 			{
 				if (isset($_SERVER['REMOTE_HOST']))
 				{
-					$xprofile->set('regHost', Request::getVar('REMOTE_HOST','','server'));
+					$xprofile->set('registerHost', Request::getVar('REMOTE_HOST','','server'));
 				}
-			}
+			}*/
 
 			if ($xprofile->get('registerDate') == '')
 			{
@@ -469,35 +459,36 @@ class Register extends SiteController
 			{
 				if (is_object($hzal) && $xregistration->get('email') == $hzal->email)
 				{
-					$xprofile->set('emailConfirmed',3);
+					$xprofile->set('activation', 3);
 				}
 				else
 				{
-					$xprofile->set('emailConfirmed', -rand(1, pow(2, 31)-1));
+					$xprofile->set('activation', -rand(1, pow(2, 31)-1));
 					$updateEmail = true;
 				}
 			}
 
 			if ($xregistration->get('login') != $xprofile->get('username'))
 			{
-				$xprofile->set('homeDirectory', $hubHomeDir . '/' . $xregistration->get('login'));
+				$xprofile->set('homeDirectory', $hubHomeDir . DS . $xregistration->get('login'));
 			}
 
-			$xprofile->loadRegistration($xregistration);
-			$xprofile->update();
+			$keys = array('email', 'name', 'surname', 'givenName', 'middleName', 'usageAgreement', 'sendEmail', 'password');
+			foreach ($keys as $key)
+			{
+				if ($xregistration->get($key) !== null)
+				{
+					$xprofile->set($key, $xregistration->get($key));
+				}
+			}
+			$xprofile->set('username', $xregistration->get('login'));
 
-			// Update user table
-			// TODO: only update if changed
-			$myuser = User::getInstance($xprofile->get('uidNumber'));
-			$myuser->set('username', $xprofile->get('username'));
-			$myuser->set('email', $xprofile->get('email'));
-			$myuser->set('name', $xprofile->get('name'));
-			$myuser->save();
+			$xprofile->save();
 
 			// Update current session if appropriate
 			// TODO: update all session of this user
 			// TODO: only update if changed
-			if ($myuser->get('id') == User::get('id'))
+			if ($xprofile->get('id') == User::get('id'))
 			{
 				$suser = Session::get('user');
 				$suser->set('username', $xprofile->get('username'));
@@ -575,33 +566,28 @@ class Register extends SiteController
 			if (!$updateEmail)
 			{
 				$suri = Request::getVar('REQUEST_URI', '/', 'server');
+
 				if ($suri == '/register/update' || $suri == '/members/update' || $suri == '/members/register/update')
 				{
-					App::redirect(
-						Route::url('index.php?option=' . $this->_option . '&task=myaccount')
-					);
+					$suri = Route::url('index.php?option=' . $this->_option . '&task=myaccount');
 				}
-				else
-				{
-					App::redirect(
-						$suri
-					);
-				}
+
+				App::redirect(
+					$suri
+				);
 				return;
 			}
 			else
 			{
 				// Instantiate a new view
-				$this->view->title = Lang::txt('COM_MEMBERS_REGISTER_UPDATE');
-				$this->view->sitename = Config::get('sitename');
-				$this->view->xprofile = $xprofile;
-				$this->view->self = true;
-				$this->view->updateEmail = $updateEmail;
-				if ($this->getError())
-				{
-					$this->view->setError($this->getError());
-				}
-				$this->view->display();
+				$this->view
+					->set('title', Lang::txt('COM_MEMBERS_REGISTER_UPDATE'))
+					->set('sitename', Config::get('sitename'))
+					->set('xprofile', $xprofile)
+					->set('isSelf', true)
+					->set('updateEmail', $updateEmail)
+					->setErrors($this->getErrors())
+					->display();
 			}
 
 			return true;
@@ -611,11 +597,9 @@ class Register extends SiteController
 	}
 
 	/**
-	 * Short description for 'create'
+	 * Show a form for registering
 	 *
-	 * Long description (if any) ...
-	 *
-	 * @return     mixed Return description (if any) ...
+	 * @return  void
 	 */
 	public function createTask()
 	{
@@ -626,7 +610,6 @@ class Register extends SiteController
 				Lang::txt('COM_MEMBERS_REGISTER_ERROR_NONGUEST_SESSION_CREATION'),
 				'warning'
 			);
-			return;
 		}
 
 		if (!isset($this->_taskMap[$this->_task]))
@@ -635,13 +618,8 @@ class Register extends SiteController
 			Request::setVar('task', 'create');
 		}
 
-		// Set the pathway
-		$this->_buildPathway();
-
-		// Set the page title
-		$this->_buildTitle();
-
-		$usersConfig = Component::params('com_users');
+		// If user registration is not allowed, show 403 not authorized.
+		$usersConfig = Component::params('com_members');
 		if ($usersConfig->get('allowUserRegistration') == '0')
 		{
 			return App::abort(404, Lang::txt('JGLOBAL_RESOURCE_NOT_FOUND'));
@@ -665,18 +643,71 @@ class Register extends SiteController
 			$xregistration->loadPost();
 
 			// Perform field validation
-			if ($xregistration->check('create'))
+			$result = $xregistration->check('create');
+
+			// Incoming profile edits
+			$profile = Request::getVar('profile', array(), 'post', 'none', 2);
+
+			// Compile profile data
+			foreach ($profile as $key => $data)
+			{
+				if (isset($profile[$key]) && is_array($profile[$key]))
+				{
+					$profile[$key] = array_filter($profile[$key]);
+				}
+				if (isset($profile[$key . '_other']) && trim($profile[$key . '_other']))
+				{
+					if (is_array($profile[$key]))
+					{
+						$profile[$key][] = $profile[$key . '_other'];
+					}
+					else
+					{
+						$profile[$key] = $profile[$key . '_other'];
+					}
+
+					unset($profile[$key . '_other']);
+				}
+			}
+
+			// Validate profile data
+			$fields = \Components\Members\Models\Profile\Field::all()
+				->including(['options', function ($option){
+					$option
+						->select('*');
+				}])
+				->where('action_create', '!=', \Components\Members\Models\Profile\Field::STATE_HIDDEN)
+				->ordered()
+				->rows();
+
+			// Validate profile fields
+			if ($fields->count())
+			{
+				$form = new \Hubzero\Form\Form('profile', array('control' => 'profile'));
+				$form->load(\Components\Members\Models\Profile\Field::toXml($fields, 'create', $profile));
+				$form->bind(new \Hubzero\Config\Registry($profile));
+
+				if (!$form->validate($profile))
+				{
+					$result = false;
+
+					foreach ($form->getErrors() as $key => $error)
+					{
+						if ($error instanceof \Hubzero\Form\Exception\MissingData)
+						{
+							$xregistration->_missing[$key] = $error;
+						}
+
+						$xregistration->_invalid[$key] = $error;
+					}
+				}
+			}
+
+			// Passed validation?
+			if ($result)
 			{
 				// Get required system objects
-				$user      = clone(User::getRoot());
-				$authorize = \JFactory::getACL();
-
-				// If user registration is not allowed, show 403 not authorized.
-				if ($usersConfig->get('allowUserRegistration') == '0')
-				{
-					App::abort(403, Lang::txt('Access Forbidden'));
-					return;
-				}
+				$user = clone(User::getInstance());
 
 				// Initialize new usertype setting
 				$newUsertype = $usersConfig->get('new_usertype');
@@ -693,20 +724,65 @@ class Register extends SiteController
 
 				$user->set('username', $xregistration->get('login'));
 				$user->set('name', $xregistration->get('name'));
+				$user->set('givenName', $xregistration->get('givenName'));
+				$user->set('middleName', $xregistration->get('middleName'));
+				$user->set('surname', $xregistration->get('surname'));
 				$user->set('email', $xregistration->get('email'));
-				/*
-				// Bind the post array to the user object
-				if (!$user->bind(Request::get('post'), 'usertype')) {
-					App::abort(500, $user->getError());
+				$user->set('usageAgreement', $xregistration->get('usageAgreement'));
+				$user->set('sendEmail', -1);
+				if ($xregistration->get('sendEmail') >= 0)
+				{
+					$user->set('sendEmail', (int)$xregistration->get('sendEmail'));
 				}
-				*/
+
+				// Set home directory
+				$hubHomeDir = rtrim($this->config->get('homedir'),'/');
+				if (!$hubHomeDir)
+				{
+					// try to deduce a viable home directory based on sitename or live_site
+					$sitename = strtolower(Config::get('sitename'));
+					$sitename = preg_replace('/^http[s]{0,1}:\/\//','',$sitename,1);
+					$sitename = trim($sitename,'/ ');
+					$sitename_e = explode('.', $sitename, 2);
+					if (isset($sitename_e[1]))
+					{
+						$sitename = $sitename_e[0];
+					}
+					if (!preg_match("/^[a-zA-Z]+[\-_0-9a-zA-Z\.]+$/i", $sitename))
+					{
+						$sitename = '';
+					}
+					if (empty($sitename))
+					{
+						$sitename = strtolower(Request::base());
+						$sitename = preg_replace('/^http[s]{0,1}:\/\//','',$sitename,1);
+						$sitename = trim($sitename,'/ ');
+						$sitename_e = explode('.', $sitename, 2);
+						if (isset($sitename_e[1]))
+						{
+							$sitename = $sitename_e[0];
+						}
+						if (!preg_match("/^[a-zA-Z]+[\-_0-9a-zA-Z\.]+$/i", $sitename))
+						{
+							$sitename = '';
+						}
+					}
+
+					$hubHomeDir = DS . 'home';
+
+					if (!empty($sitename))
+					{
+						$hubHomeDir .= DS . $sitename;
+					}
+				}
+				$user->set('homeDirectory', $hubHomeDir . DS . $user->get('username'));
+				$user->set('loginShell', '/bin/bash');
+				$user->set('ftpShell', '/usr/lib/sftp-server');
 
 				// Set some initial user values
 				$user->set('id', 0);
-				$user->set('groups', array($newUsertype));
-
-				$date = Date::of('now');
-				$user->set('registerDate', $date->toSql());
+				$user->set('accessgroups', array($newUsertype));
+				$user->set('registerDate', Date::toSql());
 
 				// Check user activation setting
 				// 0 = automatically confirmed
@@ -720,88 +796,64 @@ class Register extends SiteController
 					$user->set('approved', 0);
 				}
 
-				// If there was an error with registration, set the message and display form
+				$user->set('access', 5);
+				$user->set('activation', -rand(1, pow(2, 31)-1));
+
+				if (is_object($hzal))
+				{
+					if ($user->get('email') == $hzal->email)
+					{
+						$user->set('activation', 3);
+					}
+					/*else
+					{
+						$user->set('activation', -rand(1, pow(2, 31)-1));
+					}*/
+				}
+				else if ($useractivation == 0)
+				{
+					$user->set('activation', 1);
+					$user->set('access', $this->config->get('privacy', 1));
+				}
+
+				$user->set('password', \Hubzero\User\Password::getPasshash($xregistration->get('password')));
+
+				// Do we have a return URL?
+				$regReturn = Request::getVar('return', '');
+
+				if ($regReturn)
+				{
+					$user->setParam('return', $regReturn);
+				}
+
+				// If we managed to create a user
 				if ($user->save())
 				{
-					/*
-					// Send registration confirmation mail
-					$password = Request::getString('password', '', 'post', JREQUEST_ALLOWRAW);
-					$password = preg_replace('/[\x00-\x1F\x7F]/', '', $password); //Disallow control chars in the email
-					UserController::_sendMail($user, $password);
-
-					// Everything went fine, set relevant message depending upon user activation state and display message
-					if ($useractivation == 1)
+					$access = array();
+					foreach ($fields as $field)
 					{
-						$message  = Lang::txt('REG_COMPLETE_ACTIVATE');
-					}
-					else
-					{
-						$message = Lang::txt('REG_COMPLETE');
+						$access[$field->get('name')] = $field->get('access');
 					}
 
-					App::redirect(Route::url('index.php'), $message);
-					*/
+					$profile = $xregistration->_registration['_profile'];
 
-					// Get some settings
-					$params = Component::params('com_members');
-					$hubHomeDir = rtrim($params->get('homedir'), '/');
+					// Save profile data
+					$member = Member::oneOrNew($user->get('id'));
 
-					// Attempt to get the new user
-					$xprofile = \Hubzero\User\Profile::getInstance($user->get('id'));
-
-					$result = is_object($xprofile);
-
-					// Did we successfully create an account?
-					if ($result)
+					if (!$member->saveProfile($profile, $access))
 					{
-						$xprofile->loadRegistration($xregistration);
-
-						$xprofile->set('public', 0);
-
-						if (is_object($hzal))
-						{
-							if ($xprofile->get('email') == $hzal->email)
-							{
-								$xprofile->set('emailConfirmed', 3);
-							}
-							else
-							{
-								$xprofile->set('emailConfirmed', -rand(1, pow(2, 31)-1));
-							}
-						}
-						else if ($useractivation == 0)
-						{
-							$xprofile->set('emailConfirmed', 1);
-							$xprofile->set('public', $this->config->get('privacy', 0));
-						}
-
-						// Do we have a return URL?
-						$regReturn = Request::getVar('return', '');
-
-						if ($regReturn)
-						{
-							$xprofile->setParam('return', $regReturn);
-						}
-
-						// Unset password here so that change password below can be in charge of setting it initially
-						$xprofile->set('password', '');
-						$result = $xprofile->update();
+						$this->setError($member->getError());
+						$result = false;
 					}
+				}
 
-					// add member interests
-					$interests = $xregistration->get('interests');
-					$mt = new \Components\Members\Models\Tags($xprofile->get('uidNumber'));
-					if (!empty($interests))
-					{
-						$mt->setTags($interests, $xprofile->get('uidNumber'));
-					}
+				// If everything is OK so far...
+				if ($result)
+				{
+					$result = \Hubzero\User\Password::changePassword($user->get('id'), $xregistration->get('password'));
 
-					if ($result)
-					{
-						$result = \Hubzero\User\Password::changePassword($xprofile->get('uidNumber'), $xregistration->get('password'));
-						// Set password back here in case anything else down the line is looking for it
-						$xprofile->set('password', $xregistration->get('password'));
-					}
+					// Set password back here in case anything else down the line is looking for it
+					$user->set('password', $xregistration->get('password'));
 
 					// Did we successfully create/update an account?
 					if (!$result)
@@ -809,9 +861,9 @@ class Register extends SiteController
 						return App::abort(500, Lang::txt('COM_MEMBERS_REGISTER_ERROR_CREATING_ACCOUNT'));
 					}
 
-					if ($xprofile->get('emailConfirmed') < 0)
+					// Send confirmation email
+					if ($user->get('activation') < 0)
 					{
-						// Notify the user
 						$subject  = Config::get('sitename').' '.Lang::txt('COM_MEMBERS_REGISTER_EMAIL_CONFIRMATION');
 
 						$eview = new \Hubzero\Mail\View(array(
@@ -821,13 +873,13 @@ class Register extends SiteController
 						$eview->option        = $this->_option;
 						$eview->controller    = $this->_controller;
 						$eview->sitename      = Config::get('sitename');
-						$eview->xprofile      = $xprofile;
+						$eview->xprofile      = $user;
 						$eview->baseURL       = $this->baseURL;
 						$eview->xregistration = $xregistration;
 
 						$msg = new \Hubzero\Mail\Message();
 						$msg->setSubject($subject)
-						    ->addTo($xprofile->get('email'), $xprofile->get('name'))
+						    ->addTo($user->get('email'), $user->get('name'))
 						    ->addFrom(Config::get('mailfrom'), Config::get('sitename') . ' Administrator')
 						    ->addHeader('X-Component', $this->_option);
 
@@ -859,7 +911,7 @@ class Register extends SiteController
 						$eview->option     = $this->_option;
 						$eview->controller = $this->_controller;
 						$eview->sitename   = Config::get('sitename');
-						$eview->xprofile   = $xprofile;
+						$eview->xprofile   = $user;
 						$eview->baseUrl    = $this->baseURL;
 
 						$plain = $eview->loadTemplate(false);
@@ -890,17 +942,13 @@ class Register extends SiteController
 					}
 
 					// Instantiate a new view
-					$this->view->setLayout('create');
-					$this->view->title = Lang::txt('COM_MEMBERS_REGISTER_CREATE_ACCOUNT');
-					$this->view->sitename = Config::get('sitename');
-					$this->view->xprofile = $xprofile;
-
-					if ($this->getError())
-					{
-						$this->view->setError($this->getError());
-					}
-
-					$this->view->display();
+					$this->view
+						->set('title', Lang::txt('COM_MEMBERS_REGISTER_CREATE_ACCOUNT'))
+						->set('sitename', Config::get('sitename'))
+						->set('xprofile', $user)
+						->setErrors($this->getErrors())
+						->setLayout('create')
+						->display();
 
 					if (is_object($hzal))
 					{
@@ -927,7 +975,7 @@ class Register extends SiteController
 		{
 			if (User::get('tmp_user'))
 			{
-				$xregistration->loadAccount(User::getRoot());
+				$xregistration->loadAccount(User::getInstance());
 
 				$username = $xregistration->get('login');
 				$email = $xregistration->get('email');
@@ -940,201 +988,111 @@ class Register extends SiteController
 			}
 		}
 
-		return $this->_show_registration_form($xregistration, 'create');
-	}
-
-	/**
-	 * Display race/ethnicity info
-	 *
-	 * @return     void
-	 */
-	public function raceethnicTask()
-	{
 		// Set the pathway
 		$this->_buildPathway();
 
 		// Set the page title
 		$this->_buildTitle();
 
-		// Instantiate a new view
-		$this->view->title = Lang::txt('COM_MEMBERS_REGISTER_SELECT_METHOD');
-		$this->view->sitename = Config::get('sitename');
-		if ($this->getError())
-		{
-			$this->view->setError($this->getError());
-		}
-		$this->view->display();
-	}
-
-	/**
-	 * Short description for '_registrationField'
-	 *
-	 * Long description (if any) ...
-	 *
-	 * @param      unknown $name Parameter description (if any) ...
-	 * @param      unknown $default Parameter description (if any) ...
-	 * @param      string $task Parameter description (if any) ...
-	 * @return     unknown Return description (if any) ...
-	 */
-	private function _registrationField($name, $default, $task='create')
-	{
-		switch ($task)
-		{
-			case 'register':
-			case 'create':      $index = 0; break;
-			case 'proxy':       $index = 1; break;
-			case 'proxycreate': $index = 1; break;
-			case 'update':      $index = 2; break;
-			case 'edit':        $index = 3; break;
-			default:            $index = 0; break;
-		}
-
-		$default = str_pad($default, 4, '-');
-		$configured = $this->config->get($name);
-		if (empty($configured))
-		{
-			$configured = $default;
-		}
-		$length = strlen($configured);
-		if ($length > $index)
-		{
-			$value = substr($configured, $index, 1);
-		}
-		else
-		{
-			$value = substr($default, $index, 1);
-		}
-
-		switch ($value)
-		{
-			case 'R': return(REG_REQUIRED);
-			case 'O': return(REG_OPTIONAL);
-			case 'H': return(REG_HIDE);
-			case '-': return(REG_HIDE);
-			case 'U': return(REG_READONLY);
-			default : return(REG_HIDE);
-		}
+		return $this->_show_registration_form($xregistration, 'create');
 	}
 
 	/**
 	 * Display the form for registering an account
 	 *
-	 * @param      object &$xregistration
-	 * @param      string $task
-	 * @return     void
+	 * @param   object  &$xregistration
+	 * @param   string  $task
+	 * @return  void
 	 */
 	private function _show_registration_form(&$xregistration=null, $task='create')
 	{
-		$this->view->setLayout('default');
-		$this->view->title = Lang::txt('COM_MEMBERS_REGISTER');
-		$this->view->sitename = Config::get('sitename');
-
 		$username = Request::getVar('username', User::get('username'),'get');
-		$this->view->self = (User::get('username') == $username);
+		$isSelf = (User::get('username') == $username);
 
 		// Get the registration object
 		if (!is_object($xregistration))
 		{
-			$this->view->xregistration = new \Components\Members\Models\Registration();
-		}
-		else
-		{
-			$this->view->xregistration = $xregistration;
+			$xregistration = new \Components\Members\Models\Registration();
 		}
 
 		// Push some values to the view
+		$rules = \Hubzero\Password\Rule::all()
+			->whereEquals('enabled', 1)
+			->rows();
 
-		$password_rules = \Hubzero\Password\Rule::getRules();
+		$password_rules = array();
 
-		$this->view->password_rules = array();
-
-		foreach ($password_rules as $rule)
+		foreach ($rules as $rule)
 		{
 			if (!empty($rule['description']))
 			{
-				$this->view->password_rules[] = $rule['description'];
+				$password_rules[] = $rule['description'];
 			}
 		}
 
-		$this->view->showMissing = true;
-		$this->view->registration = $this->view->xregistration->_registration;
-		$this->view->registrationUsername = $this->_registrationField('registrationUsername','RROO',$task);
-		$this->view->registrationPassword = $this->_registrationField('registrationPassword','RRHH',$task);
-		$this->view->registrationConfirmPassword = $this->_registrationField('registrationConfirmPassword','RRHH',$task);
-		$this->view->registrationFullname = $this->_registrationField('registrationFullname','RRRR',$task);
-		$this->view->registrationEmail = $this->_registrationField('registrationEmail','RRRR',$task);
-		$this->view->registrationConfirmEmail = $this->_registrationField('registrationConfirmEmail','RRRR',$task);
-		$this->view->registrationURL = $this->_registrationField('registrationURL','HHHH',$task);
-		$this->view->registrationPhone = $this->_registrationField('registrationPhone','HHHH',$task);
-		$this->view->registrationEmployment = $this->_registrationField('registrationEmployment','HHHH',$task);
-		$this->view->registrationOrganization = $this->_registrationField('registrationOrganization','HHHH',$task);
-		$this->view->registrationCitizenship = $this->_registrationField('registrationCitizenship','HHHH',$task);
-		$this->view->registrationResidency = $this->_registrationField('registrationResidency','HHHH',$task);
-		$this->view->registrationSex = $this->_registrationField('registrationSex','HHHH',$task);
-		$this->view->registrationDisability = $this->_registrationField('registrationDisability','HHHH',$task);
-		$this->view->registrationHispanic = $this->_registrationField('registrationHispanic','HHHH',$task);
-		$this->view->registrationRace = $this->_registrationField('registrationRace','HHHH',$task);
-		$this->view->registrationInterests = $this->_registrationField('registrationInterests','HHHH',$task);
-		$this->view->registrationReason = $this->_registrationField('registrationReason','HHHH',$task);
-		$this->view->registrationOptIn = $this->_registrationField('registrationOptIn','HHHH',$task);
-		$this->view->registrationCAPTCHA = $this->_registrationField('registrationCAPTCHA','HHHH',$task);
-		$this->view->registrationTOU = $this->_registrationField('registrationTOU','HHHH',$task);
-		$this->view->registrationORCID = $this->_registrationField('registrationORCID','OOOO',$task);
+		$this->view->registrationUsername = Field::state('registrationUsername','RROO',$task);
+		$this->view->registrationPassword = Field::state('registrationPassword','RRHH',$task);
+		$this->view->registrationConfirmPassword = Field::state('registrationConfirmPassword','RRHH',$task);
+		$this->view->registrationFullname     = Field::state('registrationFullname','RRRR',$task);
+		$this->view->registrationEmail        = Field::state('registrationEmail','RRRR',$task);
+		$this->view->registrationConfirmEmail = Field::state('registrationConfirmEmail','RRRR',$task);
+		$this->view->registrationOptIn = Field::state('registrationOptIn','HHHH',$task);
+		$this->view->registrationCAPTCHA = Field::state('registrationCAPTCHA','HHHH',$task);
+		$this->view->registrationTOU = Field::state('registrationTOU','HHHH',$task);
 
-		if ($this->view->task == 'update')
+		if ($task == 'update')
 		{
 			if (empty($this->view->xregistration->login))
 			{
-				$this->view->registrationUsername = REG_REQUIRED;
+				$this->view->registrationUsername = Field::STATE_REQUIRED;
 			}
 			else
 			{
-				$this->view->registrationUsername = REG_READONLY;
+				$this->view->registrationUsername = Field::STATE_READONLY;
 			}
 
-			$this->view->registrationPassword = REG_HIDE;
-			$this->view->registrationConfirmPassword = REG_HIDE;
+			$this->view->registrationPassword = Field::STATE_HIDDEN;
+			$this->view->registrationConfirmPassword = Field::STATE_HIDDEN;
 		}
 
-		if ($this->view->task == 'edit')
+		if ($task == 'edit')
 		{
-			$this->view->registrationUsername = REG_READONLY;
-			$this->view->registrationPassword = REG_HIDE;
-			$this->view->registrationConfirmPassword = REG_HIDE;
+			$this->view->registrationUsername = Field::STATE_READONLY;
+			$this->view->registrationPassword = Field::STATE_HIDDEN;
+			$this->view->registrationConfirmPassword = Field::STATE_HIDDEN;
 		}
 
-		if (User::get('auth_link_id') && $this->view->task == 'create')
+		if (User::get('auth_link_id') && $task == 'create')
 		{
-			$this->view->registrationPassword = REG_HIDE;
-			$this->view->registrationConfirmPassword = REG_HIDE;
+			$this->view->registrationPassword = Field::STATE_HIDDEN;
+			$this->view->registrationConfirmPassword = Field::STATE_HIDDEN;
 		}
 
-		/*
-		if ($this->view->registrationEmail == REG_REQUIRED || $this->view->registrationEmail == REG_OPTIONAL)
-		{
-			if (!empty($this->view->xregistration->email))
-			{
-				$this->view->registration['email'] = $this->view->xregistration->_encoded['email'];
-			}
-		}
-
-		if ($this->view->registrationConfirmEmail == REG_REQUIRED || $this->view->registrationConfirmEmail == REG_OPTIONAL)
-		{
-			if (!empty($this->view->xregistration->_encoded['email']))
-			{
-				$this->view->registration['confirmEmail'] = $this->view->xregistration->_encoded['email'];
-			}
-		}
-		*/
+		$fields = Field::all()
+			->including(['options', function ($option){
+				$option
+					->select('*')
+					->ordered();
+			}])
+			->where('action_' . $task, '!=', Field::STATE_HIDDEN)
+			->ordered()
+			->rows();
 
 		// Display the view
-		if ($this->getError())
-		{
-			$this->view->setError($this->getError());
-		}
-		$this->view->config = $this->config;
-
-		$this->view->display();
+		$this->view
+			->set('title', Lang::txt('COM_MEMBERS_REGISTER'))
+			->set('sitename', Config::get('sitename'))
+			->set('config', $this->config)
+			->set('task', $task)
+			->set('fields', $fields)
+			->set('showMissing', true)
+			->set('isSelf', $isSelf)
+			->set('password_rules', $password_rules)
+			->set('xregistration', $xregistration)
+			->set('registration', $xregistration->_registration)
+			->setLayout('default')
+			->setErrors($this->getErrors())
+			->display();
 	}
 
 	/**
@@ -1212,16 +1170,10 @@ class Register extends SiteController
 	/**
 	 * Resend Email (account confirmation)
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function resendTask()
 	{
-		// Set the pathway
-		$this->_buildPathway();
-
-		// Set the page title
-		$this->_buildTitle();
-
 		// Check if the user is logged in
 		if (User::isGuest())
 		{
@@ -1231,10 +1183,9 @@ class Register extends SiteController
 				Lang::txt('COM_MEMBERS_REGISTER_ERROR_LOGIN_TO_RESEND'),
 				'warning'
 			);
-			return;
 		}
 
-		$xprofile = \Hubzero\User\Profile::getInstance(User::get('id'));
+		$xprofile = User::getInstance();
 		$login = $xprofile->get('username');
 		$email = $xprofile->get('email');
 		$email_confirmed = $xprofile->get('emailConfirmed');
@@ -1242,84 +1193,79 @@ class Register extends SiteController
 		// Incoming
 		$return = urldecode(Request::getVar('return', '/'));
 
-		if (($email_confirmed != 1) && ($email_confirmed != 3))
+		// If already confirmed?
+		if ($email_confirmed == 1 || $email_confirmed == 3)
 		{
-			$confirm = \Components\Members\Helpers\Utility::genemailconfirm();
-
-			$xprofile = new \Hubzero\User\Profile();
-			$xprofile->load($login);
-			$xprofile->set('emailConfirmed', $confirm);
-			$xprofile->update();
-
-			$subject  = Config::get('sitename').' '.Lang::txt('COM_MEMBERS_REGISTER_EMAIL_CONFIRMATION');
-
-			$eview = new \Hubzero\Mail\View(array(
-				'name'   => 'emails',
-				'layout' => 'confirm'
-			));
-			$eview->option     = $this->_option;
-			$eview->controller = $this->_controller;
-			$eview->sitename   = Config::get('sitename');
-			$eview->login      = $login;
-			$eview->name       = $xprofile->get('name');
-			$eview->registerDate = $xprofile->get('registerDate');
-			$eview->baseURL    = $this->baseURL;
-			$eview->confirm    = $confirm;
-
-			$msg = new \Hubzero\Mail\Message();
-			$msg->setSubject($subject)
-			    ->addTo($email)
-			    ->addFrom(Config::get('mailfrom'), Config::get('sitename') . ' Administrator')
-			    ->addHeader('X-Component', $this->_option);
-
-			$message = $eview->loadTemplate(false);
-			$message = str_replace("\n", "\r\n", $message);
-
-			$msg->addPart($message, 'text/plain');
-
-			$eview->setLayout('confirm_html');
-			$message = $eview->loadTemplate();
-			$message = str_replace("\n", "\r\n", $message);
-
-			$msg->addPart($message, 'text/html');
-
-			if (!$msg->send())
-			{
-				$this->setError(Lang::txt('COM_MEMBERS_REGISTER_ERROR_EMAILING_CONFIRMATION', $email));
-			}
-
-			$this->view->setLayout('send');
-			$this->view->title = Lang::txt('COM_MEMBERS_REGISTER_RESEND');
-			$this->view->login = $login;
-			$this->view->email = $email;
-			$this->view->return = $return;
-			$this->view->show_correction_faq = true;
-			$this->view->hubName = Config::get('sitename');
-			if ($this->getError())
-			{
-				$this->view->setError($this->getError());
-			}
-			$this->view->display();
+			App::redirect($return);
 		}
-		else
+
+		$confirm = \Components\Members\Helpers\Utility::genemailconfirm();
+
+		$xprofile->set('activation', $confirm);
+		$xprofile->save();
+
+		$subject  = Config::get('sitename').' '.Lang::txt('COM_MEMBERS_REGISTER_EMAIL_CONFIRMATION');
+
+		$eview = new \Hubzero\Mail\View(array(
+			'name'   => 'emails',
+			'layout' => 'confirm'
+		));
+		$eview->option     = $this->_option;
+		$eview->controller = $this->_controller;
+		$eview->sitename   = Config::get('sitename');
+		$eview->login      = $login;
+		$eview->name       = $xprofile->get('name');
+		$eview->registerDate = $xprofile->get('registerDate');
+		$eview->baseURL    = $this->baseURL;
+		$eview->confirm    = $confirm;
+
+		$msg = new \Hubzero\Mail\Message();
+		$msg->setSubject($subject)
+		    ->addTo($email)
+		    ->addFrom(Config::get('mailfrom'), Config::get('sitename') . ' Administrator')
+		    ->addHeader('X-Component', $this->_option);
+
+		$message = $eview->loadTemplate(false);
+		$message = str_replace("\n", "\r\n", $message);
+
+		$msg->addPart($message, 'text/plain');
+
+		$eview->setLayout('confirm_html');
+		$message = $eview->loadTemplate();
+		$message = str_replace("\n", "\r\n", $message);
+
+		$msg->addPart($message, 'text/html');
+
+		if (!$msg->send())
 		{
-			header("Location: " . urlencode($return));
+			$this->setError(Lang::txt('COM_MEMBERS_REGISTER_ERROR_EMAILING_CONFIRMATION', $email));
 		}
-	}
 
-	/**
-	 * Change registered email
-	 *
-	 * @return     void
-	 */
-	public function changeTask()
-	{
 		// Set the pathway
 		$this->_buildPathway();
 
 		// Set the page title
 		$this->_buildTitle();
 
+		$this->view
+			->set('title', Lang::txt('COM_MEMBERS_REGISTER_RESEND'))
+			->set('login', $login)
+			->set('email', $email)
+			->set('return', $return)
+			->set('show_correction_faq', true)
+			->set('hubName', Config::get('sitename'))
+			->setLayout('send')
+			->setErrors($this->getErrors())
+			->display();
+	}
+
+	/**
+	 * Change registered email
+	 *
+	 * @return  void
+	 */
+	public function changeTask()
+	{
 		// Check if the user is logged in
 		if (User::isGuest())
 		{
@@ -1329,25 +1275,17 @@ class Register extends SiteController
 				Lang::txt('COM_MEMBERS_REGISTER_ERROR_LOGIN_TO_UPDATE'),
 				'warning'
 			);
-			return;
 		}
 
-		$xprofile = \Hubzero\User\Profile::getInstance(User::get('id'));
+		$xprofile = User::getInstance();
 		$login = $xprofile->get('username');
 		$email = $xprofile->get('email');
-		$email_confirmed = $xprofile->get('emailConfirmed');
+		$email_confirmed = $xprofile->get('activation');
 
-		// Instantiate a new view
-		$this->view->title = Lang::txt('COM_MEMBERS_REGISTER_CHANGE');
-		$this->view->login = $login;
-		$this->view->email = $email;
-		$this->view->email_confirmed = $email_confirmed;
-		$this->view->success = false;
+		$success = false;
 
 		// Incoming
 		$return = urldecode(Request::getVar('return', '/'));
-
-		$this->view->return = $return;
 
 		// Check if a new email was submitted
 		$pemail = Request::getVar('email', '', 'post');
@@ -1359,6 +1297,7 @@ class Register extends SiteController
 			{
 				$this->setError(Lang::txt('COM_MEMBERS_REGISTER_ERROR_INVALID_EMAIL'));
 			}
+
 			if ($pemail && \Components\Members\Helpers\Utility::validemail($pemail) /*&& ($newemail != $email)*/)
 			{
 				// Check if the email address was actually changed
@@ -1370,19 +1309,11 @@ class Register extends SiteController
 				else
 				{
 					// New email submitted - attempt to save it
-					$xprofile = \Hubzero\User\Profile::getInstance($login);
-					if ($xprofile)
+					if ($xprofile->get('id'))
 					{
-						$dtmodify = Date::toSql();
-						$xprofile->set('email',$pemail);
-						$xprofile->set('modifiedDate',$dtmodify);
-						if ($xprofile->update())
-						{
-							$user = User::getInstance($login);
-							$user->set('email', $pemail);
-							$user->save();
-						}
-						else
+						$xprofile->set('email', $pemail);
+
+						if (!$xprofile->save())
 						{
 							$this->setError(Lang::txt('COM_MEMBERS_REGISTER_ERROR_UPDATING_ACCOUNT'));
 						}
@@ -1442,7 +1373,7 @@ class Register extends SiteController
 						}
 
 						// Show the success form
-						$this->view->success = true;
+						$success = true;
 					}
 				}
 			}
@@ -1452,19 +1383,33 @@ class Register extends SiteController
 			}
 		}
 
-		// Output the view
 		if ($this->getError())
 		{
-			$this->view->email = $pemail;
-			$this->view->setError($this->getError());
+			$email = $pemail;
 		}
-		$this->view->display();
+
+		// Set the pathway
+		$this->_buildPathway();
+
+		// Set the page title
+		$this->_buildTitle();
+
+		// Output the view
+		$this->view
+			->set('title', Lang::txt('COM_MEMBERS_REGISTER_CHANGE'))
+			->set('login', $login)
+			->set('success', $success)
+			->set('email', $email)
+			->set('return', $return)
+			->set('email_confirmed', $email_confirmed)
+			->setErrors($this->getErrors())
+			->display();
 	}
 
 	/**
-	 * Conform user's registration code
+	 * Confirm user's registration code
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function confirmTask()
 	{
@@ -1484,20 +1429,13 @@ class Register extends SiteController
 				Lang::txt('Please login in so we can confirm your account.'),
 				'warning'
 			);
-			return;
 		}
 
-		// Set the pathway
-		$this->_buildPathway();
+		$xprofile = User::getInstance();
 
-		// Set the page title
-		$this->_buildTitle();
+		$email_confirmed = $xprofile->get('activation');
 
-		$xprofile = \Hubzero\User\Profile::getInstance(User::get('id'));
-
-		$email_confirmed = $xprofile->get('emailConfirmed');
-
-		if (($email_confirmed == 1) || ($email_confirmed == 3))
+		if ($email_confirmed == 1 || $email_confirmed == 3)
 		{
 			// The current user is confirmed - check to see if the incoming code is valid at all
 			if (\Components\Members\Helpers\Utility::isActiveCode($code))
@@ -1523,26 +1461,22 @@ class Register extends SiteController
 				$return = $cReturn;
 			}
 
-			//load user profile
-			$profile = new \Hubzero\User\Profile();
-			$profile->load($xprofile->get('username'));
-
 			//check to see if we have a return param
-			$pReturn = base64_decode(urldecode($profile->getParam('return')));
+			$pReturn = base64_decode(urldecode($xprofile->getParam('return')));
 			if ($pReturn)
 			{
 				$return = $pReturn;
-				$profile->setParam('return','');
+				$xprofile->setParam('return','');
 			}
 
 			// make as confirmed
-			$profile->set('emailConfirmed', 1);
+			$xprofile->set('activation', 1);
 
 			// set public setting
-			$profile->set('public', $this->config->get('privacy', '0'));
+			$xprofile->set('access', $this->config->get('privacy', 1));
 
 			// upload profile
-			if (!$profile->update())
+			if (!$xprofile->save())
 			{
 				$this->setError(Lang::txt('COM_MEMBERS_REGISTER_ERROR_CONFIRMING'));
 			}
@@ -1559,6 +1493,7 @@ class Register extends SiteController
 			{
 				$r = $this->config->get('ConfirmationReturn');
 				$return = ($r) ? $r : Route::url('index.php?option=com_members&task=myaccount');
+
 				// consume cookie (yum) if available to return to whatever action prompted registration
 				if (isset($_COOKIE['return']))
 				{
@@ -1574,75 +1509,74 @@ class Register extends SiteController
 			$this->setError(Lang::txt('COM_MEMBERS_REGISTER_ERROR_INVALID_CONFIRMATION'));
 		}
 
+		// Set the pathway
+		$this->_buildPathway();
+
+		// Set the page title
+		$this->_buildTitle();
+
 		// Instantiate a new view
-		$this->view->title    = Lang::txt('COM_MEMBERS_REGISTER_CONFIRM');
-		$this->view->login    = $xprofile->get('username');
-		$this->view->email    = $xprofile->get('email');
-		$this->view->code     = $code;
-		$this->view->redirect = (isset($return) ? $return : '');
-		$this->view->sitename = Config::get('sitename');
-		if ($this->getError())
-		{
-			$this->view->setError($this->getError());
-		}
-		$this->view->display();
+		$this->view
+			->set('title', Lang::txt('COM_MEMBERS_REGISTER_CONFIRM'))
+			->set('login', $xprofile->get('username'))
+			->set('email', $xprofile->get('email'))
+			->set('code', $code)
+			->set('redirect', (isset($return) ? $return : ''))
+			->set('sitename', Config::get('sitename'))
+			->setErrors($this->getErrors())
+			->display();
 	}
 
 	/**
 	 * Show a "registration unconfirmed" message
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function unconfirmedTask()
 	{
-		$xprofile = \Hubzero\User\Profile::getInstance(User::get('id'));
-		$email_confirmed = $xprofile->get('emailConfirmed');
+		$xprofile = User::getInstance();
+		$email_confirmed = $xprofile->get('activation');
 
 		// Incoming
 		$return = Request::getVar('return', urlencode('/'));
 
 		// Check if the email has been confirmed
-		if (($email_confirmed != 1) && ($email_confirmed != 3))
+		if ($email_confirmed == 1 || $email_confirmed == 3)
 		{
-			// Set the pathway
-			$this->_buildPathway();
-
-			// Set the page title
-			$this->_buildTitle();
-
-			// Check if the user is logged in
-			if (User::isGuest())
-			{
-				$return = base64_encode(Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=' . $this->_task, false, true));
-				App::redirect(
-					Route::url('index.php?option=com_users&view=login&return=' . $return, false),
-					Lang::txt('COM_MEMBERS_REGISTER_ERROR_LOGIN_TO_CONFIRM'),
-					'warning'
-				);
-				return;
-			}
-
-			// Instantiate a new view
-			$this->view->title    = Lang::txt('COM_MEMBERS_REGISTER_UNCONFIRMED');
-			$this->view->email    = $xprofile->get('email');
-			$this->view->return   = $return;
-			$this->view->sitename = Config::get('sitename');
-			if ($this->getError())
-			{
-				$this->view->setError($this->getError());
-			}
-			$this->view->display();
+			App::redirect(urldecode($return));
 		}
-		else
+
+		// Check if the user is logged in
+		if (User::isGuest())
 		{
-			header("Location: " . urldecode($return));
+			$return = base64_encode(Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&task=' . $this->_task, false, true));
+			App::redirect(
+				Route::url('index.php?option=com_users&view=login&return=' . $return, false),
+				Lang::txt('COM_MEMBERS_REGISTER_ERROR_LOGIN_TO_CONFIRM'),
+				'warning'
+			);
 		}
+
+		// Set the pathway
+		$this->_buildPathway();
+
+		// Set the page title
+		$this->_buildTitle();
+
+		// Instantiate a new view
+		$this->view
+			->set('title', Lang::txt('COM_MEMBERS_REGISTER_UNCONFIRMED'))
+			->set('email', $xprofile->get('email'))
+			->set('return', $return)
+			->set('sitename', Config::get('sitename'))
+			->setErrors($this->getErrors())
+			->display();
 	}
 
 	/**
 	 * Build pathway (breadcrumbs)
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	protected function _buildPathway()
 	{
@@ -1665,7 +1599,7 @@ class Register extends SiteController
 	/**
 	 * Set the document title
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	protected function _buildTitle()
 	{
@@ -1683,9 +1617,9 @@ class Register extends SiteController
 	/**
 	 * Determine if cookies are enabled
 	 *
-	 * @return     boolean True if cookies are enabled
+	 * @return  boolean  True if cookies are enabled
 	 */
-	private function _cookie_check()
+	/*private function _cookie_check()
 	{
 		$jcookie = Session::getName();
 
@@ -1712,6 +1646,5 @@ class Register extends SiteController
 		}
 
 		return true;
-	}
+	}*/
 }
-

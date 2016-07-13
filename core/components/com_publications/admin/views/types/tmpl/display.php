@@ -32,11 +32,24 @@
 // No direct access
 defined('_HZEXEC_') or die();
 
+$canDo = \Components\Publications\Helpers\Permissions::getActions('type');
+
 Toolbar::title(Lang::txt('COM_PUBLICATIONS_PUBLICATIONS') . ': ' . Lang::txt('COM_PUBLICATIONS_MASTER_TYPES'));
-Toolbar::addNew();
-Toolbar::editList();
-Toolbar::spacer();
-Toolbar::deleteList();
+if ($canDo->get('core.create'))
+{
+	Toolbar::addNew();
+}
+if ($canDo->get('core.edit'))
+{
+	Toolbar::editList();
+}
+if ($canDo->get('core.delete'))
+{
+	Toolbar::spacer();
+	Toolbar::deleteList();
+}
+Toolbar::divider();
+Toolbar::help('types');
 ?>
 <form action="<?php echo Route::url('index.php?option=' . $this->option . '&controller=' . $this->controller); ?>" method="post" name="adminForm" id="adminForm">
 	<table class="adminlist">

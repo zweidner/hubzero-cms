@@ -64,19 +64,19 @@ if (!$no_html) {
 					<div class="creator attribution cf">
 						<?php if ($item->get('type') == 'file' || $item->get('type') == 'collection') { ?>
 							<?php
-							$name = $this->escape(stripslashes($item->creator('name')));
+							$name = $this->escape(stripslashes($item->creator()->get('name')));
 
-							if ($item->creator('public')) { ?>
-								<a href="<?php echo Route::url($item->creator()->getLink()); ?>" title="<?php echo $name; ?>" class="img-link">
-									<img src="<?php echo $item->creator()->getPicture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
+							if (in_array($item->creator()->get('access'), User::getAuthorisedViewLevels())) { ?>
+								<a href="<?php echo Route::url($item->creator()->link()); ?>" title="<?php echo $name; ?>" class="img-link">
+									<img src="<?php echo $item->creator()->picture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
 								</a>
 							<?php } else { ?>
 								<span class="img-link">
-									<img src="<?php echo $item->creator()->getPicture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
+									<img src="<?php echo $item->creator()->picture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
 								</span>
 							<?php } ?>
 							<p>
-								<?php echo Lang::txt('COM_COLLECTIONS_USER_CREATED_POST', ($item->creator('public') ? '<a href="' . Route::url($item->creator()->getLink()) . '">' : '') . $this->escape(stripslashes($item->creator()->get('name'))) . ($item->creator('public') ? '</a>' : '')); ?>
+								<?php echo Lang::txt('COM_COLLECTIONS_USER_CREATED_POST', (in_array($item->creator()->get('access'), User::getAuthorisedViewLevels()) ? '<a href="' . Route::url($item->creator()->link()) . '">' : '') . $this->escape(stripslashes($item->creator()->get('name'))) . (in_array($item->creator()->get('access'), User::getAuthorisedViewLevels()) ? '</a>' : '')); ?>
 								<br />
 								<span class="entry-date">
 									<span class="entry-date-at"><?php echo Lang::txt('COM_COLLECTIONS_AT'); ?></span>
@@ -119,23 +119,23 @@ if (!$no_html) {
 					</div><!-- / .meta -->
 					<div class="convo attribution">
 						<?php
-						$name = $this->escape(stripslashes($this->post->creator('name')));
+						$name = $this->escape(stripslashes($this->post->creator()->get('name')));
 
-						if ($this->post->creator('public')) { ?>
-							<a href="<?php echo Route::url($this->post->creator()->getLink()); ?>" title="<?php echo $name; ?>" class="img-link">
-								<img src="<?php echo $this->post->creator()->getPicture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
+						if (in_array($this->post->creator()->get('access'), User::getAuthorisedViewLevels())) { ?>
+							<a href="<?php echo Route::url($this->post->creator()->link()); ?>" title="<?php echo $name; ?>" class="img-link">
+								<img src="<?php echo $this->post->creator()->picture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
 							</a>
 						<?php } else { ?>
 							<span class="img-link">
-								<img src="<?php echo $this->post->creator()->getPicture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
+								<img src="<?php echo $this->post->creator()->picture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
 							</span>
 						<?php } ?>
 						<p>
 							<?php
 							$who = $name;
-							if ($this->post->creator('public'))
+							if (in_array($this->post->creator()->get('access'), User::getAuthorisedViewLevels()))
 							{
-								$who = '<a href="' . Route::url($this->post->creator()->getLink() . '&active=collections') . '">' . $name . '</a>';
+								$who = '<a href="' . Route::url($this->post->creator()->link() . '&active=collections') . '">' . $name . '</a>';
 							}
 
 							$where = '<a href="' . Route::url($base . '&task=' . $this->collection->get('alias')) . '">' . $this->escape(stripslashes($this->collection->get('title'))) . '</a>';
@@ -160,18 +160,18 @@ if (!$no_html) {
 					<?php
 					foreach ($item->comments() as $comment)
 					{
-						$cuser = \Hubzero\User\Profile::getInstance($comment->created_by);
+						$cuser = Components\Members\Models\Member::oneOrNew($comment->created_by);
 						$cname = $this->escape(stripslashes($cuser->get('name')));
 					?>
 						<li class="comment" id="c<?php echo $comment->id; ?>">
 							<p class="comment-member-photo">
-								<img src="<?php echo $cuser->getPicture($comment->anonymous); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $cname); ?>" />
+								<img src="<?php echo $cuser->picture($comment->anonymous); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $cname); ?>" />
 							</p>
 							<div class="comment-content">
 								<p class="comment-title">
 									<strong>
-										<?php if ($cuser->get('public')) { ?>
-											<a href="<?php echo Route::url($cuser->getLink()); ?>">
+										<?php if (in_array($cuser->get('access'), User::getAuthorisedViewLevels())) { ?>
+											<a href="<?php echo Route::url($cuser->link()); ?>">
 												<?php echo $cname; ?>
 											</a>
 										<?php } else { ?>
@@ -198,7 +198,7 @@ if (!$no_html) {
 				<?php if (!User::isGuest()) { ?>
 					<form action="<?php echo Route::url($base . '&post=' . $this->post->get('id') . '&task=savecomment' . ($this->no_html ? '&no_html=' . $this->no_html  : '')); ?>" method="post" id="commentform" enctype="multipart/form-data">
 						<p class="comment-member-photo">
-							<img src="<?php echo \Hubzero\User\Profile\Helper::getMemberPhoto(User::getRoot(), 0); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $this->escape(stripslashes(User::get('name')))); ?>" />
+							<img src="<?php echo User::picture(0); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $this->escape(stripslashes(User::get('name')))); ?>" />
 						</p>
 
 						<fieldset>
@@ -256,6 +256,11 @@ if (!$no_html) {
 						     ->set('row', $this->collection)
 						     ->display();
 					?>
+					<?php if ($tags = $this->collection->item()->tags('cloud')) { ?>
+							<div class="tags-wrap">
+								<?php echo $tags; ?>
+							</div>
+						<?php } ?>
 					<div class="meta">
 						<p class="stats">
 							<span class="likes">
@@ -307,18 +312,18 @@ if (!$no_html) {
 						<?php
 						$name = $this->escape(stripslashes($this->collection->creator('name')));
 
-						if ($this->collection->creator('public')) { ?>
-							<a href="<?php echo Route::url($this->collection->creator()->getLink()); ?>" title="<?php echo $name; ?>" class="img-link">
-								<img src="<?php echo $this->collection->creator()->getPicture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
+						if (in_array($this->collection->creator()->get('access'), User::getAuthorisedViewLevels())) { ?>
+							<a href="<?php echo Route::url($this->collection->creator()->link()); ?>" title="<?php echo $name; ?>" class="img-link">
+								<img src="<?php echo $this->collection->creator()->picture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
 							</a>
 						<?php } else { ?>
 							<span class="img-link">
-								<img src="<?php echo $this->collection->creator()->getPicture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
+								<img src="<?php echo $this->collection->creator()->picture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
 							</span>
 						<?php } ?>
 						<p>
-							<?php if ($this->collection->creator('public')) { ?>
-								<a href="<?php echo Route::url($this->collection->creator()->getLink()); ?>">
+							<?php if (in_array($this->collection->creator()->get('access'), User::getAuthorisedViewLevels())) { ?>
+								<a href="<?php echo Route::url($this->collection->creator()->link()); ?>">
 									<?php echo $name; ?>
 								</a>
 							<?php } else { ?>
@@ -353,6 +358,11 @@ if (!$no_html) {
 						     ->set('row', $collection)
 						     ->display();
 						?>
+						<?php if ($tags = $collection->item()->tags('cloud')) { ?>
+							<div class="tags-wrap">
+								<?php echo $tags; ?>
+							</div>
+						<?php } ?>
 						<div class="meta">
 							<p class="stats">
 								<span class="likes">
@@ -402,20 +412,20 @@ if (!$no_html) {
 						</div><!-- / .meta -->
 						<div class="convo attribution">
 							<?php
-							$name = $this->escape(stripslashes($collection->creator('name')));
+							$name = $this->escape(stripslashes($collection->creator()->get('name')));
 
-							if ($collection->creator('public')) { ?>
-								<a href="<?php echo Route::url($collection->creator()->getLink() . '&active=collections'); ?>" title="<?php echo $name; ?>" class="img-link">
-									<img src="<?php echo $collection->creator()->getPicture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
+							if (in_array($collection->creator()->get('access'), User::getAuthorisedViewLevels())) { ?>
+								<a href="<?php echo Route::url($collection->creator()->link() . '&active=collections'); ?>" title="<?php echo $name; ?>" class="img-link">
+									<img src="<?php echo $collection->creator()->picture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
 								</a>
 							<?php } else { ?>
 								<span class="img-link">
-									<img src="<?php echo $collection->creator()->getPicture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
+									<img src="<?php echo $collection->creator()->picture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
 								</span>
 							<?php } ?>
 							<p>
-								<?php if ($collection->creator('public')) { ?>
-									<a href="<?php echo Route::url($collection->creator()->getLink() . '&active=collections'); ?>">
+								<?php if (in_array($collection->creator()->get('access'), User::getAuthorisedViewLevels())) { ?>
+									<a href="<?php echo Route::url($collection->creator()->link() . '&active=collections'); ?>">
 										<?php echo $name; ?>
 									</a>
 								<?php } else { ?>

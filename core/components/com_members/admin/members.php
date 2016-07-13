@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -34,18 +33,12 @@ namespace Components\Members\Admin;
 
 if (!\User::authorise('core.manage', 'com_members'))
 {
-	return \App::abort(404, \Lang::txt('JERROR_ALERTNOAUTHOR'));
+	return \App::abort(403, \Lang::txt('JERROR_ALERTNOAUTHOR'));
 }
 
 // Include scripts
-require_once(dirname(__DIR__) . DS . 'helpers' . DS . 'imghandler.php');
-require_once(dirname(__DIR__) . DS . 'tables' . DS . 'profile.php');
-require_once(dirname(__DIR__) . DS . 'tables' . DS . 'association.php');
-require_once(dirname(__DIR__) . DS . 'tables' . DS . 'password_rules.php');
-require_once(dirname(__DIR__) . DS . 'tables' . DS . 'password_blacklist.php');
-require_once(dirname(__DIR__) . DS . 'tables' . DS . 'quotas_classes.php');
-require_once(dirname(__DIR__) . DS . 'tables' . DS . 'users_quotas.php');
-require_once(dirname(__DIR__) . DS . 'helpers' . DS . 'permissions.php');
+require_once(dirname(__DIR__) . DS . 'models' . DS . 'member.php');
+require_once(dirname(__DIR__) . DS . 'helpers' . DS . 'admin.php');
 
 $controllerName = \Request::getCmd('controller', 'members');
 if (!file_exists(__DIR__ . DS . 'controllers' . DS . $controllerName . '.php'))
@@ -53,7 +46,8 @@ if (!file_exists(__DIR__ . DS . 'controllers' . DS . $controllerName . '.php'))
 	$controllerName = 'members';
 }
 
-$canDo = \Components\Members\Helpers\Permissions::getActions('component');
+// Build sub-menu
+$canDo = \Components\Members\Helpers\Admin::getActions();
 
 \Submenu::addEntry(
 	\Lang::txt('COM_MEMBERS'),
@@ -61,15 +55,20 @@ $canDo = \Components\Members\Helpers\Permissions::getActions('component');
 	$controllerName == 'members'
 );
 \Submenu::addEntry(
-	\Lang::txt('COM_MEMBERS_MENU_ONLINE'),
-	\Route::url('index.php?option=com_members&controller=whosonline'),
-	$controllerName == 'whosonline'
+	\Lang::txt('COM_MEMBERS_MENU_NOTES'),
+	\Route::url('index.php?option=com_members&controller=notes'),
+	$controllerName == 'notes'
 );
 \Submenu::addEntry(
+	\Lang::txt('COM_MEMBERS_MENU_ACCESS'),
+	\Route::url('index.php?option=com_members&controller=accessgroups'),
+	($controllerName == 'accessgroups' || $controllerName == 'accesslevels')
+);
+/*\Submenu::addEntry(
 	\Lang::txt('COM_MEMBERS_MENU_MESSAGING'),
 	\Route::url('index.php?option=com_members&controller=messages'),
 	$controllerName == 'messages'
-);
+);*/
 if (\Component::params('com_members')->get('bankAccounts'))
 {
 	\Submenu::addEntry(
@@ -78,21 +77,14 @@ if (\Component::params('com_members')->get('bankAccounts'))
 		$controllerName == 'points'
 	);
 }
-\Submenu::addEntry(
-	\Lang::txt('COM_MEMBERS_MENU_PLUGINS'),
-	\Route::url('index.php?option=com_members&controller=plugins'),
-	$controllerName == 'plugins'
-);
-
 if ($canDo->get('core.admin'))
 {
 	\Submenu::addEntry(
-		\Lang::txt('COM_MEMBERS_PASSWORDS'),
+		\Lang::txt('COM_MEMBERS_MENU_PASSWORDS'),
 		\Route::url('index.php?option=com_members&controller=passwordrules'),
 		($controllerName == 'passwordrules' || $controllerName == 'passwordblacklist')
 	);
 }
-
 \Submenu::addEntry(
 	\Lang::txt('COM_MEMBERS_MENU_QUOTAS'),
 	\Route::url('index.php?option=com_members&controller=quotas'),
@@ -108,10 +100,20 @@ if ($canDo->get('core.admin'))
 {
 	\Submenu::addEntry(
 		\Lang::txt('COM_MEMBERS_MENU_IMPORT'),
-		\Route::url('index.php?option=com_members&controller=import'),
-		($controllerName == 'import' || $controllerName == 'importhooks')
+		\Route::url('index.php?option=com_members&controller=imports'),
+		($controllerName == 'imports' || $controllerName == 'importhooks')
+	);
+	\Submenu::addEntry(
+		\Lang::txt('COM_MEMBERS_MENU_EXPORT'),
+		\Route::url('index.php?option=com_members&controller=exports'),
+		($controllerName == 'exports')
 	);
 }
+\Submenu::addEntry(
+	\Lang::txt('COM_MEMBERS_MENU_PLUGINS'),
+	\Route::url('index.php?option=com_members&controller=plugins'),
+	$controllerName == 'plugins'
+);
 
 require_once(__DIR__ . DS . 'controllers' . DS . $controllerName . '.php');
 $controllerName = __NAMESPACE__ . '\\Controllers\\' . ucfirst($controllerName);
@@ -119,5 +121,3 @@ $controllerName = __NAMESPACE__ . '\\Controllers\\' . ucfirst($controllerName);
 // Instantiate controller
 $controller = new $controllerName();
 $controller->execute();
-$controller->redirect();
-

@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -38,10 +37,10 @@ defined('_HZEXEC_') or die();
 	$name = Lang::txt('COM_FORUM_ANONYMOUS');
 	if (!$this->comment->get('anonymous'))
 	{
-		$name = $this->escape(stripslashes($this->comment->creator()->get('name', $name)));
-		if ($this->comment->creator()->get('public'))
+		$name = $this->escape(stripslashes($this->comment->creator->get('name', $name)));
+		if (in_array($this->comment->creator->get('access'), User::getAuthorisedViewLevels()))
 		{
-			$name = '<a href="' . Route::url($this->comment->creator()->getLink()) . '">' . $name . '</a>';
+			$name = '<a href="' . Route::url($this->comment->creator->link()) . '">' . $name . '</a>';
 		}
 	}
 
@@ -53,12 +52,12 @@ defined('_HZEXEC_') or die();
 	}
 	else
 	{
-		$comment = $this->comment->content('parsed');
+		$comment = $this->comment->comment;
 	}
 ?>
 	<li class="comment <?php echo $cls; ?><?php if (!$this->comment->get('parent')) { echo ' start'; } ?>" id="c<?php echo $this->comment->get('id'); ?>">
 		<p class="comment-member-photo">
-			<img src="<?php echo $this->comment->creator()->getPicture($this->comment->get('anonymous')); ?>" alt="" />
+			<img src="<?php echo $this->comment->creator->picture($this->comment->get('anonymous')); ?>" alt="" />
 		</p>
 		<div class="comment-content">
 			<p class="comment-title">
@@ -80,6 +79,37 @@ defined('_HZEXEC_') or die();
 			<div class="comment-body">
 				<?php echo $comment; ?>
 			</div>
+			<div class="comment-attachments">
+				<?php
+				foreach ($this->comment->attachments()->whereEquals('state', Components\Forum\Models\Attachment::STATE_PUBLISHED)->rows() as $attachment)
+				{
+					if (!trim($attachment->get('description')))
+					{
+						$attachment->set('description', $attachment->get('filename'));
+					}
+
+					$link = $this->comment->link() . '&post=' . $attachment->get('post_id') . '&file=' . $attachment->get('filename');
+
+					if ($attachment->isImage())
+					{
+						if ($attachment->width() > 400)
+						{
+							$html = '<p><a href="' . Route::url($link) . '"><img src="' . Route::url($link) . '" alt="' . $this->escape($attachment->get('description')) . '" width="400" /></a></p>';
+						}
+						else
+						{
+							$html = '<p><img src="' . Route::url($link) . '" alt="' . $this->escape($attachment->get('description')) . '" /></p>';
+						}
+					}
+					else
+					{
+						$html = '<p class="attachment"><a href="' . Route::url($link) . '" title="' . $this->escape($attachment->get('description')) . '">' . $attachment->get('description') . '</a></p>';
+					}
+
+					echo $html;
+				}
+				?>
+			</div><!-- / .comment-attachments -->
 			<?php if (
 						$this->config->get('access-manage-thread')
 						||

@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -36,9 +35,9 @@ use Hubzero\Component\AdminController;
 use Components\Wiki\Models\Book;
 use Components\Wiki\Models\Page;
 use Components\Wiki\Models\Comment;
-use Components\Wiki\Tables;
 use Request;
 use Config;
+use Notify;
 use User;
 use Lang;
 use Date;
@@ -71,10 +70,10 @@ class Comments extends AdminController
 	 */
 	public function displayTask()
 	{
-		$this->view->filters = array(
-			'pageid' => Request::getState(
-				$this->_option . '.' . $this->_controller . '.pageid',
-				'pageid',
+		$filters = array(
+			'page_id' => Request::getState(
+				$this->_option . '.' . $this->_controller . '.page_id',
+				'page_id',
 				0,
 				'int'
 			),
@@ -109,27 +108,36 @@ class Comments extends AdminController
 			)
 		);
 
-		$this->view->entry = new Page($this->view->filters['pageid']);
+		$page = Page::oneOrFail($filters['page_id']);
 
-		// Instantiate our HelloEntry object
-		$obj = new Tables\Comment($this->database);
+		$comments = Comment::all();
 
-		// Get records
-		$rows = $obj->find('list', $this->view->filters);
+		if ($filters['search'])
+		{
+			$comments->whereLike('ctext', strtolower((string)$filters['search']));
+		}
 
-		$levellimit = ($this->view->filters['limit'] == 0) ? 500 : $this->view->filters['limit'];
+		if ($filters['page_id'])
+		{
+			$comments->whereEquals('page_id', $filters['page_id']);
+		}
 
-		$list = array();
-		$children = array();
+		$rows = $comments
+			->ordered('filter_order', 'filter_order_Dir')
+			->rows();
+
+		$levellimit = ($filters['limit'] == 0) ? 500 : $filters['limit'];
+		$list       = array();
+		$children   = array();
+
 		if ($rows)
 		{
 			// First pass - collect children
-			foreach ($rows as $v)
+			foreach ($rows as $k)
 			{
-				//$v->name = '';
-				$pt = $v->parent;
+				$pt = $k->get('parent');
 				$list = @$children[$pt] ? $children[$pt] : array();
-				array_push($list, $v);
+				array_push($list, $k);
 				$children[$pt] = $list;
 			}
 
@@ -137,19 +145,13 @@ class Comments extends AdminController
 			$list = $this->treeRecurse(0, '', array(), $children, max(0, $levellimit-1));
 		}
 
-		// Get record count
-		$this->view->total = count($list);
-
-		$this->view->rows = array_slice($list, $this->view->filters['start'], $this->view->filters['limit']);
-
-		// Set any errors
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
-		}
-
 		// Output the HTML
-		$this->view->display();
+		$this->view
+			->set('filters', $filters)
+			->set('page', $page)
+			->set('total', count($list))
+			->set('rows', array_slice($list, $filters['start'], $filters['limit']))
+			->display();
 	}
 
 	/**
@@ -170,7 +172,7 @@ class Comments extends AdminController
 		{
 			foreach ($children[$id] as $v)
 			{
-				$id = $v->id;
+				$id = $v->get('id');
 
 				if ($type)
 				{
@@ -183,28 +185,7 @@ class Comments extends AdminController
 					$spacer = '&nbsp;&nbsp;';
 				}
 
-				if (!is_a($v, 'stdClass'))
-				{
-					$data = $v->toArray();
-				}
-				else
-				{
-					foreach (get_object_vars($v) as $key => $val)
-					{
-						if (substr($key, 0, 1) != '_')
-						{
-							$data[$key] = $val;
-						}
-					}
-				}
-
-				$k = new \stdClass;
-				foreach ($data as $key => $val)
-				{
-					$k->$key = $val;
-				}
-
-				if ($v->parent == 0)
+				if ($v->get('parent') == 0)
 				{
 					$txt = '';
 				}
@@ -212,11 +193,11 @@ class Comments extends AdminController
 				{
 					$txt = $pre;
 				}
-				$pt = $v->parent;
+				$pt = $v->get('parent');
 
-				$list[$id] = $k;
-				$list[$id]->treename = "$indent$txt";
-				$list[$id]->children = count(@$children[$id]);
+				$list[$id] = $v;
+				$list[$id]->set('treename', "$indent$txt");
+				$list[$id]->set('children', count(@$children[$id]));
 				$list = $this->treeRecurse($id, $indent . $spacer, $list, $children, $maxlevel, $level+1, $type);
 			}
 		}
@@ -226,11 +207,17 @@ class Comments extends AdminController
 	/**
 	 * Show a form for editing an entry
 	 *
-	 * @param   object  $row  WikiModelComment
+	 * @param   object  $row
 	 * @return  void
 	 */
 	public function editTask($row=null)
 	{
+		if (!User::authorise('core.edit', $this->_option)
+		 && !User::authorise('core.create', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		Request::setVar('hidemainmenu', 1);
 
 		if (!is_object($row))
@@ -243,26 +230,20 @@ class Comments extends AdminController
 			}
 
 			// Load the article
-			$row = new Comment($id);
+			$row = Comment::oneOrNew($id);
 		}
 
-		$this->view->row = $row;
-
-		if (!$this->view->row->exists())
+		if ($row->isNew())
 		{
-			$this->view->row->set('pageid', Request::getInt('pageid', 0));
-			$this->view->row->set('created_by', User::get('id'));
-			$this->view->row->set('created', Date::toSql());  // use gmdate() ?
-		}
-
-		// Set any errors
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
+			$row->set('page_id', Request::getInt('page_id', 0));
+			$row->set('created_by', User::get('id'));
+			$row->set('created', Date::toSql());
+			$row->set('state', 1);
 		}
 
 		// Output the HTML
 		$this->view
+			->set('row', $row)
 			->setLayout('edit')
 			->display();
 	}
@@ -277,26 +258,27 @@ class Comments extends AdminController
 		// Check for request forgeries
 		Request::checkToken();
 
+		if (!User::authorise('core.edit', $this->_option)
+		 && !User::authorise('core.create', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		// Incoming
 		$fields = Request::getVar('fields', array(), 'post', 'none', 2);
 		$fields = array_map('trim', $fields);
 
 		// Initiate extended database class
-		$row = new Comment($fields['id']);
-		if (!$row->bind($fields))
-		{
-			$this->setError($row->getError());
-			$this->editTask($row);
-			return;
-		}
+		$row = Comment::oneOrNew($fields['id'])->set($fields);
 
 		// Store new content
-		if (!$row->store(true))
+		if (!$row->save())
 		{
-			$this->setError($row->getError());
-			$this->editTask($row);
-			return;
+			Notify::error($row->getError());
+			return $this->editTask($row);
 		}
+
+		Notify::success(Lang::txt('COM_WIKI_COMMENT_SAVED'));
 
 		if ($this->getTask() == 'apply')
 		{
@@ -305,8 +287,7 @@ class Comments extends AdminController
 
 		// Set the redirect
 		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&pageid=' . $fields['pageid'], false),
-			Lang::txt('COM_WIKI_COMMENT_SAVED')
+			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&page_id=' . $fields['page_id'], false)
 		);
 	}
 
@@ -320,29 +301,42 @@ class Comments extends AdminController
 		// Check for request forgeries
 		Request::checkToken();
 
+		if (!User::authorise('core.delete', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		// Incoming
 		$ids = Request::getVar('id', array());
 		$ids = (!is_array($ids) ? array($ids) : $ids);
 
 		if (count($ids) > 0)
 		{
+			$removed = 0;
+
 			// Loop through all the IDs
 			foreach ($ids as $id)
 			{
-				$entry = new Comment(intval($id));
 				// Delete the entry
-				if (!$entry->delete())
+				$entry = Comment::oneOrFail(intval($id));
+
+				if (!$entry->destroy())
 				{
-					\Notify::error($entry->getError());
+					Notify::error($entry->getError());
+					continue;
 				}
+
+				$removed++;
 			}
 		}
 
+		if ($removed)
+		{
+			Notify::success(Lang::txt('COM_WIKI_COMMENTS_DELETED'));
+		}
+
 		// Set the redirect
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&pageid=' . Request::getInt('pageid', 0), false),
-			Lang::txt('COM_WIKI_COMMENTS_DELETED', count($ids))
-		);
+		$this->cancelTask();
 	}
 
 	/**
@@ -355,52 +349,62 @@ class Comments extends AdminController
 		// Check for request forgeries
 		Request::checkToken(['get', 'post']);
 
-		$state = $this->getTask() == 'unpublish' ? 2 : 0;
+		if (!User::authorise('core.edit.state', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
+		$state = $this->getTask() == 'unpublish' ? Comment::STATE_UNPUBLISHED : Comment::STATE_PUBLISHED;
 
 		// Incoming
 		$ids    = Request::getVar('id', array());
 		$ids    = (!is_array($ids) ? array($ids) : $ids);
-		$pageid = Request::getInt('pageid', 0);
+		$pageid = Request::getInt('page_id', 0);
 
 		// Check for an ID
 		if (count($ids) < 1)
 		{
-			$action = ($state == 1) ? Lang::txt('COM_WIKI_UNPUBLISH') : Lang::txt('COM_WIKI_PUBLISH');
+			$action = ($state == Comment::STATE_PUBLISHED) ? Lang::txt('COM_WIKI_UNPUBLISH') : Lang::txt('COM_WIKI_PUBLISH');
 
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&pageid=' . $pageid, false),
-				Lang::txt('COM_WIKI_ERROR_SELECT_TO', $action),
-				'error'
-			);
-			return;
+			Notify::warning(Lang::txt('COM_WIKI_ERROR_SELECT_TO', $action));
+
+			return $this->cancelTask();
 		}
 
 		// Loop through all the IDs
+		$i = 0;
+
 		foreach ($ids as $id)
 		{
-			$entry = new Comment(intval($id));
-			$entry->set('status', $state);
-			if (!$entry->store())
+			$comment = Comment::oneOrFail(intval($id));
+			$comment->set('state', $state);
+
+			if (!$comment->save())
 			{
-				\Notify::error($entry->getError());
+				Notify::error($comment->getError());
+				continue;
 			}
+
+			$i++;
 		}
 
 		// Set message
-		if ($state == 1)
+		if ($i)
 		{
-			$message = Lang::txt('COM_WIKI_ITEMS_PUBLISHED', count($ids));
-		}
-		else
-		{
-			$message = Lang::txt('COM_WIKI_ITEMS_UNPUBLISHED', count($ids));
+			if ($state == Comment::STATE_PUBLISHED)
+			{
+				$message = Lang::txt('COM_WIKI_ITEMS_PUBLISHED', $i);
+			}
+			else
+			{
+				$message = Lang::txt('COM_WIKI_ITEMS_UNPUBLISHED', $i);
+			}
+
+			Notify::success($message);
 		}
 
 		// Set redirect
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&pageid=' . $pageid, false),
-			$message
-		);
+		$this->cancelTask();
 	}
 
 	/**
@@ -412,8 +416,7 @@ class Comments extends AdminController
 	{
 		// Set the redirect
 		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&pageid=' . Request::getInt('pageid', 0), false)
+			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller . '&page_id=' . Request::getInt('page_id', 0), false)
 		);
 	}
 }
-

@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -45,7 +44,7 @@ class plgContentAntispam extends \Hubzero\Plugin\Plugin
 	 * Method is called right after the content is saved
 	 *
 	 * @param   string   $context  The context of the content passed to the plugin (added in 1.6)
-	 * @param   object   $article  A JTableContent object
+	 * @param   object   $article  Model
 	 * @param   boolean  $isNew    If the content is just about to be created
 	 * @return  void
 	 * @since   2.5
@@ -57,7 +56,7 @@ class plgContentAntispam extends \Hubzero\Plugin\Plugin
 			return;
 		}
 
-		if ($article instanceof \Hubzero\Base\Object)
+		if ($article instanceof \Hubzero\Base\Object || $article instanceof \Hubzero\Database\Relational)
 		{
 			$key = $this->_key($context);
 
@@ -75,25 +74,33 @@ class plgContentAntispam extends \Hubzero\Plugin\Plugin
 		$content = preg_replace('/^<!-- \{FORMAT:.*\} -->/i', '', $content);
 		$content = trim($content);
 
-		if (!$content) return;
+		if (!$content)
+		{
+			return;
+		}
 
 		// Get the detector manager
 		$service = new \Hubzero\Spam\Checker();
 
 		foreach (Event::trigger('antispam.onAntispamDetector') as $detector)
 		{
-			if (!$detector) continue;
+			if (!$detector)
+			{
+				continue;
+			}
 
 			$service->registerDetector($detector);
 		}
 
 		// Check content
 		$data = array(
-			'name'     => User::get('name'),
-			'email'    => User::get('email'),
-			'username' => User::get('username'),
-			'id'       => User::get('id'),
-			'text'     => $content
+			'name'       => User::get('name'),
+			'email'      => User::get('email'),
+			'username'   => User::get('username'),
+			'id'         => User::get('id'),
+			'ip'         => Request::ip(),
+			'user_agent' => Request::getVar('HTTP_USER_AGENT', null, 'server'),
+			'text'       => $content
 		);
 		$result = $service->check($data);
 
@@ -117,6 +124,11 @@ class plgContentAntispam extends \Hubzero\Plugin\Plugin
 
 			// Increment spam hits count...go to spam jail!
 			\Hubzero\User\User::oneOrFail(User::get('id'))->reputation->incrementSpamCount();
+
+			if ($this->params->get('log_spam'))
+			{
+				$this->log($result->isSpam(), $data);
+			}
 
 			return false;
 		}
@@ -148,5 +160,42 @@ class plgContentAntispam extends \Hubzero\Plugin\Plugin
 			$key = $parts[2];
 		}
 		return $key;
+	}
+
+	/**
+	 * Log results of the check
+	 *
+	 * @param   string  $isSpam  Spam detection result
+	 * @param   array   $data    Data being checked
+	 * @return  void
+	 */
+	private function log($isSpam, $data)
+	{
+		if (!App::has('log'))
+		{
+			return;
+		}
+
+		$request = App::get('request');
+
+		$fallback  = 'option=' . $request->getCmd('option');
+		$fallback .= '&controller=' . $request->getCmd('controller');
+		$fallback .= '&task=' . $request->getCmd('task');
+
+		$from = $request->getVar('REQUEST_URI', $fallback, 'server');
+		$from = $from ?: $fallback;
+
+		$info = array(
+			($isSpam ? 'spam' : 'ham'),
+			$data['ip'],
+			$data['id'],
+			$data['username'],
+			md5($data['text']),
+			$from
+		);
+
+		App::get('log')
+			->logger('spam')
+			->info(implode(' ', $info));
 	}
 }

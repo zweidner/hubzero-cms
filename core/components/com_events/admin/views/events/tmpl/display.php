@@ -74,7 +74,6 @@ function submitbutton(pressbutton)
 
 		<input type="submit" name="submitsearch" value="<?php echo Lang::txt('COM_EVENTS_SEARCH_GO'); ?>" />
 	</fieldset>
-	<div class="clr"></div>
 
 	<table class="adminlist">
 		<thead>

@@ -33,7 +33,7 @@
 // No direct access
 defined('_HZEXEC_') or die();
 
-$base = $this->member->getLink() . '&active=' . $this->name;
+$base = $this->member->link() . '&active=' . $this->name;
 
 $this->css()
      ->js('jquery.masonry', 'com_collections')
@@ -138,22 +138,22 @@ $this->css()
 
 					<div class="convo attribution reposted">
 						<?php
-						$name = $this->escape(stripslashes($row->creator('name')));
-						if ($row->creator('public')) { ?>
-							<a href="<?php echo Route::url($row->creator()->getLink()); ?>" title="<?php echo $name; ?>" class="img-link">
-								<img src="<?php echo $row->creator()->getPicture(); ?>" alt="<?php echo Lang::txt('PLG_MEMBERS_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
+						$name = $this->escape(stripslashes($row->creator()->get('name')));
+						if (in_array($row->creator()->get('access'), User::getAuthorisedViewLevels())) { ?>
+							<a href="<?php echo Route::url($row->creator()->link()); ?>" title="<?php echo $name; ?>" class="img-link">
+								<img src="<?php echo $row->creator()->picture(); ?>" alt="<?php echo Lang::txt('PLG_MEMBERS_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
 							</a>
 						<?php } else { ?>
 							<span class="img-link">
-								<img src="<?php echo $row->creator()->getPicture(); ?>" alt="<?php echo Lang::txt('PLG_MEMBERS_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
+								<img src="<?php echo $row->creator()->picture(); ?>" alt="<?php echo Lang::txt('PLG_MEMBERS_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
 							</span>
 						<?php } ?>
 						<p>
 							<?php
 							$who = $name;
-							if ($row->creator('public'))
+							if (in_array($row->creator()->get('access'), User::getAuthorisedViewLevels()))
 							{
-								$who = '<a href="' . Route::url($row->creator()->getLink()) . '">' . $name . '</a>';
+								$who = '<a href="' . Route::url($row->creator()->link()) . '">' . $name . '</a>';
 							}
 
 							$where = '<a href="' . Route::url($row->link()) . '">' . $this->escape(stripslashes($row->get('title'))) . '</a>';
@@ -181,7 +181,7 @@ $this->css()
 			$this->filters['start'],
 			$this->filters['limit']
 		);
-		$pageNav->setAdditionalUrlParam('id', $this->member->get('uidNumber'));
+		$pageNav->setAdditionalUrlParam('id', $this->member->get('id'));
 		$pageNav->setAdditionalUrlParam('active', 'collections');
 		echo $pageNav->render();
 	}

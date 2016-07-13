@@ -37,13 +37,15 @@ Html::behavior('modal');
 $this->addScript($this->baseurl . '/templates/' . $this->template . '/js/hub.js?v=' . filemtime(__DIR__ . '/js/hub.js'));
 
 // Load theme
-$color1  = str_replace('#', '', $this->params->get('colorPrimary', '2f8dc9')); // 2f8dc9  171a1f
-$color2  = str_replace('#', '', $this->params->get('colorSecondary', '2f8dc9'));
-$bground = $this->params->get('background', 'delauney');
+$color1   = str_replace('#', '', $this->params->get('colorPrimary', '2f8dc9')); // 2f8dc9  171a1f
+$opacity1 = $this->params->get('colorPrimaryOpacity', '');
+$color2   = str_replace('#', '', $this->params->get('colorSecondary', '2f8dc9'));
+$opacity2 = $this->params->get('colorSecondaryOpacity', '');
+$bground  = $this->params->get('backgroundImage', $this->params->get('background', 'delauney'));
 
 $hash = md5($color1 . $bground . $color2);
 $p = substr(PATH_APP, strlen(PATH_ROOT));
-$path = '/templates/' . $this->template . '/css/theme.php?path=' . urlencode($p) . '&color1=' . $color1 . '&color2=' . $color2 . '&background=' . $bground;
+$path = '/templates/' . $this->template . '/css/theme.php?path=' . urlencode($p) . '&c1=' . urlencode($color1) . '&c2=' . urlencode($color2) . '&bg=' . urlencode($bground) . ($opacity1 ? '&o1=' . $opacity1 : '') . ($opacity2 ? '&o2=' . $opacity2 : '');
 if (file_exists(PATH_APP . '/cache/site/' . $hash . '.css'))
 {
 	$path = '/cache/site/' . $hash . '.css';
@@ -105,23 +107,21 @@ $this->setTitle(Config::get('sitename') . ' - ' . $this->getTitle());
 										<a class="icon-search" href="<?php echo Route::url('index.php?option=com_search'); ?>" title="<?php echo Lang::txt('TPL_KIMERA_SEARCH'); ?>"><?php echo Lang::txt('Search'); ?></a>
 										<jdoc:include type="modules" name="search" />
 									</li>
-								<?php if (!User::isGuest()) {
-										$profile = \Hubzero\User\Profile::getInstance(User::get('id'));
-								?>
+								<?php if (!User::isGuest()) { ?>
 									<li class="loggedin">
-										<a href="<?php echo Route::url($profile->getLink()); ?>">
-											<img src="<?php echo $profile->getPicture(); ?>" alt="<?php echo $profile->get('name'); ?>" width="30" height="30" />
+										<a href="<?php echo Route::url(User::link()); ?>">
+											<img src="<?php echo User::picture(); ?>" alt="<?php echo User::get('name'); ?>" width="30" height="30" />
 											<span class="account-details">
-												<?php echo stripslashes($profile->get('name')); ?> 
-												<span class="account-email"><?php echo $profile->get('email'); ?></span>
+												<?php echo stripslashes(User::get('name')); ?> 
+												<span class="account-email"><?php echo User::get('email'); ?></span>
 											</span>
 										</a>
 										<ul>
 											<li id="account-dashboard">
-												<a href="<?php echo Route::url($profile->getLink() . '&active=dashboard'); ?>"><span><?php echo Lang::txt('TPL_KIMERA_ACCOUNT_DASHBOARD'); ?></span></a>
+												<a href="<?php echo Route::url(User::link() . '&active=dashboard'); ?>"><span><?php echo Lang::txt('TPL_KIMERA_ACCOUNT_DASHBOARD'); ?></span></a>
 											</li>
 											<li id="account-profile">
-												<a href="<?php echo Route::url($profile->getLink() . '&active=profile'); ?>"><span><?php echo Lang::txt('TPL_KIMERA_ACCOUNT_PROFILE'); ?></span></a>
+												<a href="<?php echo Route::url(User::link() . '&active=profile'); ?>"><span><?php echo Lang::txt('TPL_KIMERA_ACCOUNT_PROFILE'); ?></span></a>
 											</li>
 											<li id="account-logout">
 												<a href="<?php echo Route::url('index.php?option=com_users&view=logout'); ?>"><span><?php echo Lang::txt('TPL_KIMERA_LOGOUT'); ?></span></a>

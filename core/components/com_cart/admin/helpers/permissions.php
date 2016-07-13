@@ -56,7 +56,7 @@ class Permissions
 			$assetName .= '.' . (int) $assetId;
 		}
 
-		$user = \User::getRoot();
+		$user = \User::getInstance();
 		$result = new Object;
 
 		$actions = array(

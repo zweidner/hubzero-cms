@@ -32,11 +32,9 @@
 
 namespace Components\Members\Site;
 
-include_once(dirname(__DIR__) . DS . 'tables' . DS . 'profile.php');
-include_once(dirname(__DIR__) . DS . 'tables' . DS . 'association.php');
 include_once(dirname(__DIR__) . DS . 'helpers' . DS . 'imghandler.php');
 include_once(dirname(__DIR__) . DS . 'helpers' . DS . 'html.php');
-include_once(dirname(__DIR__) . DS . 'models' . DS . 'tags.php');
+include_once(dirname(__DIR__) . DS . 'models' . DS . 'member.php');
 
 $controllerName = \Request::getCmd('controller', \Request::getCmd('view', 'profiles'));
 if (!file_exists(__DIR__ . DS . 'controllers' . DS . $controllerName . '.php'))
@@ -49,5 +47,4 @@ $controllerName = __NAMESPACE__ . '\\Controllers\\' . ucfirst(strtolower($contro
 // Instantiate controller
 $controller = new $controllerName();
 $controller->execute();
-$controller->redirect();
 

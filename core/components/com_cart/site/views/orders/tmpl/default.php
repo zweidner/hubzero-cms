@@ -28,12 +28,11 @@
  * @license   http://www.gnu.org/licenses/lgpl-3.0.html LGPLv3
  */
 
-// Check to ensure this file is included in Joomla!
-defined('_JEXEC') or die( 'Restricted access' );
+// No direct access
+defined('_HZEXEC_') or die('Restricted access');
 
 $this->css()
 	->js()
-
 ?>
 
 <header id="content-header">
@@ -43,7 +42,6 @@ $this->css()
 <form action="<?php echo Route::url('index.php?option=' . $this->option . '&controller=' . $this->controller); ?>" id="ordersform" method="get">
 	<section class="main section">
 		<div class="section-inner">
-
 			<?php
 			if (!$this->transactions)
 			{
@@ -61,7 +59,6 @@ $this->css()
 				echo '</ol>';
 			}
 			?>
-
 		</div>
 
 		<?php

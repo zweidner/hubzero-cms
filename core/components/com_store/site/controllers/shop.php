@@ -34,7 +34,6 @@ namespace Components\Store\Site\Controllers;
 
 use Hubzero\Component\SiteController;
 use Hubzero\Utility\Sanitize;
-use Hubzero\User\Profile;
 use Hubzero\Bank\Teller;
 use Components\Store\Tables\Store;
 use Components\Store\Tables\Cart;
@@ -319,7 +318,7 @@ class Shop extends SiteController
 		}
 
 		// Check available user funds
-		$BTL = new Teller($this->database, User::get('id'));
+		$BTL = new Teller(User::get('id'));
 		$balance = $BTL->summary();
 		$credit  = $BTL->credit_summary();
 		$funds   = $balance - $credit;
@@ -373,7 +372,7 @@ class Shop extends SiteController
 		$this->view->cost = $item->getCartItems(User::get('id'), 'cost');
 
 		// Check available user funds
-		$BTL = new Teller($this->database, User::get('id'));
+		$BTL = new Teller(User::get('id'));
 		$balance = $BTL->summary();
 		$credit  = $BTL->credit_summary();
 		$funds   = $balance - $credit;
@@ -395,8 +394,7 @@ class Shop extends SiteController
 		$this->view->items = $item->getCartItems(User::get('id'));
 
 		// Output HTML
-		$this->view->xprofile = new Profile;
-		$this->view->xprofile->load(User::get('id'));
+		$this->view->xprofile = \Hubzero\User::getInstance();
 		$this->view->posted = array();
 
 		foreach ($this->getErrors() as $error)
@@ -439,7 +437,7 @@ class Shop extends SiteController
 		$cost = $item->getCartItems(User::get('id'),'cost');
 
 		// Check available user funds
-		$BTL = new Teller($this->database, User::get('id'));
+		$BTL = new Teller(User::get('id'));
 		$balance = $BTL->summary();
 		$credit  = $BTL->credit_summary();
 		$funds = $balance - $credit;
@@ -515,7 +513,7 @@ class Shop extends SiteController
 			}
 
 			// Put the purchase amount on hold
-			$BTL = new Teller($this->database, User::get('id'));
+			$BTL = new Teller(User::get('id'));
 			$BTL->hold($order->total, Lang::txt('COM_STORE_BANKING_HOLD'), 'store', $orderid);
 
 			$message = new \Hubzero\Mail\Message();
@@ -608,7 +606,7 @@ class Shop extends SiteController
 		}
 
 		// Check available user funds
-		$BTL = new Teller($this->database, User::get('id'));
+		$BTL = new Teller(User::get('id'));
 		$balance = $BTL->summary();
 		$credit  = $BTL->credit_summary();
 		$funds = $balance - $credit;
@@ -654,8 +652,7 @@ class Shop extends SiteController
 		$this->view->funds = $funds;
 		$this->view->items = $items;
 		$this->view->infolink = $this->infolink;
-		$this->view->xprofile = new Profile;
-		$this->view->xprofile->load(User::get('id'));
+		$this->view->xprofile = User::getInstance();
 
 		foreach ($this->getErrors() as $error)
 		{

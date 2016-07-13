@@ -406,14 +406,14 @@ class Abusereports extends AdminController
 		// Give some points to whoever reported abuse
 		if ($banking && $gratitude)
 		{
-			$BC = new \Hubzero\Bank\Config($this->database);
+			$BC = \Hubzero\Bank\Config::values();
 			$ar = $BC->get('abusereport');  // How many points?
 			if ($ar)
 			{
 				$ruser = User::getInstance($report->created_by);
 				if (is_object($ruser) && $ruser->get('id'))
 				{
-					$BTL = new \Hubzero\Bank\Teller($this->database, $ruser->get('id'));
+					$BTL = new \Hubzero\Bank\Teller($ruser->get('id'));
 					$BTL->deposit($ar, Lang::txt('COM_SUPPORT_ACKNOWLEDGMENT_FOR_VALID_REPORT'), 'abusereport', $id);
 				}
 			}
@@ -433,34 +433,33 @@ class Abusereports extends AdminController
 	 */
 	public function checkTask()
 	{
-		$this->view->results = null;
-		$this->view->sample  = '';
+		$results = null;
+		$sample  = '';
 
 		if ($sample = Request::getVar('sample', '', 'post', 'none', 2))
 		{
 			$service = new \Hubzero\Spam\Checker();
-			$service->setLogging(false);
 
 			foreach (Event::trigger('antispam.onAntispamDetector') as $detector)
 			{
-				if (!$detector) continue;
+				if (!$detector)
+				{
+					continue;
+				}
 
 				$service->registerDetector($detector);
 			}
 
 			$service->check($sample);
 
-			$this->view->sample  = $sample;
-			$this->view->results = $service->getReport();
-		}
-
-		// Set any errors
-		if ($this->getError())
-		{
-			$this->view->setError($this->getError());
+			$results = $service->getReport();
 		}
 
 		// Output the HTML
-		$this->view->display();
+		$this->view
+			->set('sample', $sample)
+			->set('results', $results)
+			->setErrors($this->getErrors())
+			->display();
 	}
 }

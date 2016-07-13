@@ -32,16 +32,19 @@
 
 namespace Components\Resources\Admin\Controllers;
 
-use Components\Resources\Tables\Contributor\Role;
-use Components\Resources\Tables\Type;
+use Components\Resources\Models\Author\Role;
+use Components\Resources\Models\Type;
 use Hubzero\Component\AdminController;
 use Request;
-use Config;
+use Notify;
 use Route;
 use Lang;
 use User;
 use Date;
 use App;
+
+require_once(dirname(dirname(__DIR__)) . DS . 'models' . DS . 'author' . DS . 'role.php');
+require_once(dirname(dirname(__DIR__)) . DS . 'models' . DS . 'type.php');
 
 /**
  * Manage resource author roles
@@ -69,19 +72,7 @@ class Roles extends AdminController
 	public function displayTask()
 	{
 		// Incoming
-		$this->view->filters = array(
-			'limit' => Request::getState(
-				$this->_option . '.' . $this->_controller . '.limit',
-				'limit',
-				Config::get('list_limit'),
-				'int'
-			),
-			'start' => Request::getState(
-				$this->_option . '.' . $this->_controller . '.limitstart',
-				'limitstart',
-				0,
-				'int'
-			),
+		$filters = array(
 			'search' => Request::getState(
 				$this->_option . '.' . $this->_controller . '.search',
 				'search',
@@ -100,29 +91,24 @@ class Roles extends AdminController
 		);
 
 		// Instantiate an object
-		$model = new Role($this->database);
+		$model = Role::all();
 
-		// Get a record count
-		$this->view->total = $model->getCount($this->view->filters);
+		if ($filters['search'])
+		{
+			$model->whereLike('title', strtolower($filters['search']));
+		}
 
 		// Get records
-		$this->view->rows = $model->getRecords($this->view->filters);
-		if ($this->view->rows)
-		{
-			foreach ($this->view->rows as $key => $row)
-			{
-				$this->view->rows[$key]->types = $model->getTypesForRole($row->id);
-			}
-		}
-
-		// Set any errors
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
-		}
+		$rows = $model
+			->ordered('filter_order', 'filter_order_Dir')
+			->paginated('limitstart', 'limit')
+			->rows();
 
 		// Output the HTML
-		$this->view->display();
+		$this->view
+			->set('rows', $rows)
+			->set('filters', $filters)
+			->display();
 	}
 
 	/**
@@ -132,6 +118,12 @@ class Roles extends AdminController
 	 */
 	public function editTask($row=null)
 	{
+		if (!User::authorise('core.edit', $this->_option)
+		 && !User::authorise('core.create', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		Request::setVar('hidemainmenu', 1);
 
 		if (!is_object($row))
@@ -143,45 +135,27 @@ class Roles extends AdminController
 				$id = (!empty($id) ? $id[0] : 0);
 			}
 
-			// Load the object
-			$row = new Role($this->database);
-			$row->load($id);
+			$row = Role::oneOrNew($id);
 		}
 
-		$this->view->row = $row;
-
-		if (!$this->view->row->id)
+		if ($row->isNew())
 		{
-			$this->view->row->created_by = User::get('id');
-			$this->view->row->created = Date::toSql();
+			$row->set('created_by', User::get('id'));
+			$row->set('created', Date::toSql());
 		}
 
-		$types = $this->view->row->getTypesForRole();
-		if ($types)
-		{
-			$t = array();
-			foreach ($types as $type)
-			{
-				$t[] = $type->id;
-			}
-			$this->view->row->types = $t;
-		}
-		else
-		{
-			$this->view->row->types = array();
-		}
-
-		$types = new Type($this->database);
-		$this->view->types = $types->getMajorTypes();
+		$types = Type::getMajorTypes();
 
 		// Set any errors
 		foreach ($this->getErrors() as $error)
 		{
-			\Notify::error($error);
+			Notify::error($error);
 		}
 
 		// Output the HTML
 		$this->view
+			->set('row', $row)
+			->set('types', $types)
 			->setLayout('edit')
 			->display();
 	}
@@ -196,54 +170,43 @@ class Roles extends AdminController
 		// Check for request forgeries
 		Request::checkToken();
 
+		if (!User::authorise('core.edit', $this->_option)
+		 && !User::authorise('core.create', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		$fields = Request::getVar('fields', array(), 'post');
 		$fields = array_map('trim', $fields);
 
 		// Initiate extended database class
-		$row = new Role($this->database);
-		if (!$row->bind($fields))
-		{
-			$this->setError($row->getError());
-			$this->editTask($row);
-			return;
-		}
-
-		// Check content
-		if (!$row->check())
-		{
-			$this->setError($row->getError());
-			$this->editTask($row);
-			return;
-		}
+		$row = Role::oneOrNew($fields['id'])->set($fields);
 
 		// Store new content
-		if (!$row->store())
+		if (!$row->save())
 		{
 			$this->setError($row->getError());
-			$this->editTask($row);
-			return;
+			return $this->editTask($row);
 		}
 
 		$types = Request::getVar('types', array(), 'post');
 		$types = array_map('trim', $types);
 
-		if (!$row->setTypesForRole($row->id, $types))
+		if (!$row->setTypes($types))
 		{
 			$this->setError($row->getError());
-			$this->editTask($row);
-			return;
+			return $this->editTask($row);
 		}
 
-		if ($this->_task == 'apply')
+		Notify::success(Lang::txt('COM_RESOURCES_ITEM_SAVED'));
+
+		if ($this->getTask() == 'apply')
 		{
 			return $this->editTask($row);
 		}
 
 		// Redirect
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-			Lang::txt('COM_RESOURCES_ITEM_SAVED')
-		);
+		$this->cancelTask();
 	}
 
 	/**
@@ -256,6 +219,11 @@ class Roles extends AdminController
 		// Check for request forgeries
 		Request::checkToken();
 
+		if (!User::authorise('core.delete', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		// Incoming (expecting an array)
 		$ids = Request::getVar('id', array());
 		$ids = (!is_array($ids) ? array($ids) : $ids);
@@ -264,26 +232,31 @@ class Roles extends AdminController
 		if (empty($ids))
 		{
 			// Redirect with error message
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-				Lang::txt('COM_RESOURCES_NO_ITEM_SELECTED'),
-				'error'
-			);
-			return;
+			Notify::warning(Lang::txt('COM_RESOURCES_NO_ITEM_SELECTED'));
+			return $this->cancelTask();
 		}
 
-		$rt = new Role($this->database);
+		$i = 0;
 
 		foreach ($ids as $id)
 		{
-			// Delete the type
-			$rt->delete($id);
+			$row = Role::oneOrFail((int)$id);
+
+			if (!$row->destroy())
+			{
+				Notify::error($row->getError());
+				continue;
+			}
+
+			$i++;
+		}
+
+		if ($i)
+		{
+			Notify::success(Lang::txt('COM_RESOURCES_ITEMS_REMOVED', $i));
 		}
 
 		// Redirect
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-			Lang::txt('COM_RESOURCES_ITEMS_REMOVED', count($ids))
-		);
+		$this->cancelTask();
 	}
 }

@@ -30,8 +30,12 @@
 
 namespace Components\Storefront\Site\Controllers;
 
-use Pathway;
 use Components\Storefront\Models\Warehouse;
+use Pathway;
+use Request;
+use Lang;
+use User;
+use App;
 
 /**
  * Product browsing controller class
@@ -41,14 +45,14 @@ class Browse extends \Hubzero\Component\SiteController
 	/**
 	 * Execute a task
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function execute()
 	{
 		$this->warehouse = new Warehouse();
 
-		$user = User::getRoot();
-		$this->warehouse->addAccessLevels($user->getAuthorisedViewLevels());
+		$this->warehouse->addAccessLevels(User::getAuthorisedViewLevels());
+		$this->warehouse->addAccessGroups(User::getAuthorisedGroups());
 
 		// Get the task
 		$this->_task  = Request::getCmd('task', '');
@@ -85,7 +89,7 @@ class Browse extends \Hubzero\Component\SiteController
 	/**
 	 * Display default page
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function homeTask()
 	{
@@ -99,8 +103,8 @@ class Browse extends \Hubzero\Component\SiteController
 	/**
 	 * Display collection
 	 *
-	 * @param		$cId
-	 * @return     	void
+	 * @param   integer  $cId
+	 * @return  void
 	 */
 	private function browseCollection($cId)
 	{
@@ -134,6 +138,4 @@ class Browse extends \Hubzero\Component\SiteController
 
 		$view->display();
 	}
-
 }
-

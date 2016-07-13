@@ -63,9 +63,15 @@ class plgAntispamBayesian extends \Hubzero\Plugin\Plugin
 	 */
 	public function onAntispamTrain($content, $isSpam)
 	{
-		if (!$content) return;
+		if (!$content)
+		{
+			return;
+		}
 
-		if (!$this->params->get('learn', 1)) return;
+		if (!$this->params->get('learn', 1))
+		{
+			return;
+		}
 
 		$bayesian = new \Plugins\Antispam\Bayesian\Detector();
 		$bayesian->setThreshold($this->params->get('threshold', 0.95));

@@ -40,88 +40,29 @@ use Hubzero\Module\Module;
 class Helper extends Module
 {
 	/**
-	 * Get poll data
-	 *
-	 * @return  object
-	 */
-	public function getPoll($id)
-	{
-		$db     = \App::get('db');
-		$result = null;
-
-		if ($id)
-		{
-			$query = 'SELECT id, title,'
-				. ' CASE WHEN CHAR_LENGTH(alias) THEN CONCAT_WS(\':\', id, alias) ELSE id END as slug '
-				. ' FROM #__polls'
-				. ' WHERE id = '.(int) $id
-				. ' AND published = 1'
-				;
-		}
-		else
-		{
-			$query = 'SELECT id, title,'
-				. ' CASE WHEN CHAR_LENGTH(alias) THEN CONCAT_WS(\':\', id, alias) ELSE id END as slug '
-				. ' FROM #__polls'
-				. ' WHERE published = 1 AND open = 1 ORDER BY id DESC Limit 1'
-				;
-		}
-		$db->setQuery($query);
-		$result = $db->loadObject();
-
-		if ($db->getErrorNum())
-		{
-			throw new Exception($db->stderr(), 500);
-		}
-
-		return $result;
-	}
-
-	/**
-	 * Get poll options
-	 *
-	 * @return  array
-	 */
-	public function getPollOptions($id)
-	{
-		$db = \App::get('db');
-
-		$query = 'SELECT id, text' .
-			' FROM #__poll_data' .
-			' WHERE pollid = ' . (int) $id .
-			' AND text <> ""' .
-			' ORDER BY id';
-		$db->setQuery($query);
-
-		if (!($options = $db->loadObjectList()))
-		{
-			echo "MD " . $db->stderr();
-			return;
-		}
-
-		return $options;
-	}
-
-	/**
 	 * Display module content
 	 *
 	 * @return  void
 	 */
 	public function display()
 	{
-		$tabclass_arr = array('sectiontableentry2', 'sectiontableentry1');
+		require_once(\Component::path('com_poll') . DS . 'models' . DS . 'poll.php');
 
 		$menu   = \App::get('menu');
 		$items  = $menu->getItems('link', 'index.php?option=com_poll&view=poll');
 		$itemid = isset($items[0]) ? '&Itemid=' . $items[0]->id : '';
 
-		$poll   = $this->getPoll($this->params->get( 'id', 0 ));
+		if ($id = $this->params->get('id', 0))
+		{
+			$poll = \Components\Poll\Models\Poll::oneOrNew($id);
+		}
+		else
+		{
+			$poll = \Components\Poll\Models\Poll::current();
+		}
 
 		if ($poll && $poll->id)
 		{
-			$tabcnt  = 0;
-			$options = $this->getPollOptions($poll->id);
-
 			require $this->getLayoutPath();
 		}
 	}

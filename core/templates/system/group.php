@@ -45,7 +45,6 @@ Html::behavior('modal');
 // include group script
 $this->addScript($this->baseurl . '/templates/' . $this->template . '/js/hub.js');
 $this->addScript($this->baseurl . '/templates/' . $this->template . '/js/group.js');
-\Hubzero\Document\Assets::addSystemScript('placeholder');
 
 // get browser agent
 $browser = new \Hubzero\Browser\Detector();
@@ -74,6 +73,8 @@ elseif (in_array(User::get('id'), $group->get('invitees')))
 {
 	$isInvitee = true;
 }
+
+include_once Component::path('com_groups') . DS . 'helpers' . DS . 'permissions.php';
 
 //is membership control managed on group?
 $params = new \Hubzero\Config\Registry($group->get('params'));
@@ -147,12 +148,11 @@ $membership_control = $params->get('membership_control', 1);
 
 					<div id="account" role="navigation">
 						<?php if (!User::isGuest()) : ?>
-							<?php $profile = \Hubzero\User\Profile::getInstance(User::get('id')); ?>
 							<ul class="menu loggedin">
 								<li>
 									<div id="account-info">
 										<a class="account-details" href="<?php echo Route::url('index.php?option=com_members&id=' . User::get('id')); ?>">
-											<img src="<?php echo $profile->getPicture(); ?>" alt="<?php echo User::get('name'); ?>" />
+											<img src="<?php echo User::picture(); ?>" alt="<?php echo User::get('name'); ?>" />
 											<span class="account-name"><?php echo stripslashes(User::get('name')); ?></span>
 											<span class="account-email"><?php echo User::get('email'); ?></span>
 										</a>
@@ -239,7 +239,7 @@ $membership_control = $params->get('membership_control', 1);
 					</li>
 				<?php endif; ?>
 
-				<?php if (($isManager || \Hubzero\User\Profile::userHasPermissionForGroupAction($group, 'group.invite')) && $membership_control == 1) : ?>
+				<?php if (($isManager || \Components\Groups\Helpers\Permissions::userHasPermissionForGroupAction($group, 'group.invite')) && $membership_control == 1) : ?>
 					<li>
 						<a class="membership" href="<?php echo Route::url('index.php?option=com_groups&cn='.$group->get('cn').'&active=members'); ?>">
 							<?php echo Lang::txt('TPL_SYSTEM_GROUP_INVITE'); ?>
@@ -248,7 +248,7 @@ $membership_control = $params->get('membership_control', 1);
 					</li>
 				<?php endif; ?>
 
-				<?php if ($isManager || \Hubzero\User\Profile::userHasPermissionForGroupAction($group, 'group.edit')) : ?>
+				<?php if ($isManager || \Components\Groups\Helpers\Permissions::userHasPermissionForGroupAction($group, 'group.edit')) : ?>
 					<li>
 						<a class="settings" href="<?php echo Route::url('index.php?option=com_groups&cn='.$group->get('cn').'&task=edit'); ?>">
 							<?php echo Lang::txt('TPL_SYSTEM_GROUP_EDIT'); ?>
@@ -257,7 +257,7 @@ $membership_control = $params->get('membership_control', 1);
 					</li>
 				<?php endif; ?>
 
-				<?php if ($isManager || \Hubzero\User\Profile::userHasPermissionForGroupAction($group, 'group.pages')) : ?>
+				<?php if ($isManager || \Components\Groups\Helpers\Permissions::userHasPermissionForGroupAction($group, 'group.pages')) : ?>
 					<li>
 						<a class="pages" href="<?php echo Route::url('index.php?option=com_groups&cn='.$group->get('cn').'&task=pages'); ?>">
 							<?php echo Lang::txt('TPL_SYSTEM_GROUP_PAGES'); ?>

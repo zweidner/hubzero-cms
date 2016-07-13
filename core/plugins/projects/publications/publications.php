@@ -2240,8 +2240,8 @@ class plgProjectsPublications extends \Hubzero\Plugin\Plugin
 		}
 
 		// Send out notifications
-		$profile = \Hubzero\User\Profile::getInstance($this->_uid);
-		$actor 	 = $profile
+		$profile = User::getInstance($this->_uid);
+		$actor  = $profile
 				? $profile->get('name')
 				: Lang::txt('PLG_PROJECTS_PUBLICATIONS_PROJECT_MEMBER');
 		$sef	 = Route::url($pub->link('version'));
@@ -2655,9 +2655,9 @@ class plgProjectsPublications extends \Hubzero\Plugin\Plugin
 				'layout'  =>'provisioned'
 			)
 		);
-		$view->option  		= $this->_option;
-		$view->juser   		= User::getRoot();
-		$view->database		= $this->_database;
+		$view->option   = $this->_option;
+		$view->juser    = User::getInstance();
+		$view->database = $this->_database;
 
 		// Instantiate a publication object
 		$view->pub     = new \Components\Publications\Models\Publication();

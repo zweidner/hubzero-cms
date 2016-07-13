@@ -330,14 +330,11 @@ class Resources extends SiteController
 		$this->view->title = $this->_title;
 		$this->view->config = $this->config;
 
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
-		}
-
-		$this->view->setName('browse')
-					->setLayout('default')
-					->display();
+		$this->view
+			->setName('browse')
+			->setLayout('default')
+			->setErrors($this->getErrors())
+			->display();
 	}
 
 	/**
@@ -388,8 +385,7 @@ class Resources extends SiteController
 		// Ensure we have a type to display
 		if (!$activetype)
 		{
-			$this->_redirect = Route::url('index.php?option=' . $this->_option);
-			return;
+			App::redirect(Route::url('index.php?option=' . $this->_option));
 		}
 
 		// Instantiate a resource object
@@ -435,16 +431,13 @@ class Resources extends SiteController
 
 		// Output HTML
 		$this->view->title = $this->_title;
-
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
-		}
-
 		$this->view->config = $this->config;
-		$this->view->setName('browse')
-					->setLayout('tags')
-					->display();
+
+		$this->view
+			->setName('browse')
+			->setLayout('tags')
+			->setErrors($this->getErrors())
+			->display();
 	}
 
 	/**
@@ -589,14 +582,11 @@ class Resources extends SiteController
 		$this->view->bits   = $bits;
 
 		// Output HTML
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
-		}
-
-		$this->view->setName('browse')
-					->setLayout('tags_list')
-					->display();
+		$this->view
+			->setName('browse')
+			->setLayout('tags_list')
+			->setErrors($this->getErrors())
+			->display();
 	}
 
 	/**
@@ -691,7 +681,7 @@ class Resources extends SiteController
 	/**
 	 * Select a presentation
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	protected function selectPresentation()
 	{
@@ -704,13 +694,12 @@ class Resources extends SiteController
 		App::redirect(
 			Route::url('index.php?option=com_resources&id=' . $presentation . '&task=watch&resid=' . $resid . '&tmpl=component')
 		);
-		return;
 	}
 
 	/**
 	 * Perform a some setup needed for presenter()
 	 *
-	 * @return     array
+	 * @return  array
 	 */
 	protected function preWatch()
 	{
@@ -861,7 +850,7 @@ class Resources extends SiteController
 	/**
 	 * Display presenter
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function watchTask()
 	{
@@ -958,7 +947,7 @@ class Resources extends SiteController
 	/**
 	 * Display an HTML5 video
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function videoTask()
 	{
@@ -979,14 +968,12 @@ class Resources extends SiteController
 		if (!$this->model->exists() || $this->model->deleted())
 		{
 			App::abort(404, Lang::txt('COM_RESOURCES_RESOURCE_NOT_FOUND'));
-			return;
 		}
 
 		// Make sure the resource is published and standalone
 		if (!$this->model->resource->standalone) // || !$this->model->published())
 		{
 			App::abort(403, Lang::txt('COM_RESOURCES_ALERTNOTAUTH'));
-			return;
 		}
 
 		// Is the visitor authorized to view this resource?
@@ -998,19 +985,16 @@ class Resources extends SiteController
 				Lang::txt('COM_RESOURCES_ALERTLOGIN_REQUIRED'),
 				'warning'
 			);
-			return;
 		}
 
 		if ($this->model->resource->group_owner && !$this->model->access('view-all'))
 		{
 			App::abort(403, Lang::txt('COM_RESOURCES_ALERTNOTAUTH_GROUP', $this->model->resource->group_owner, Route::url('index.php?option=com_groups&cn=' . $this->model->resource->group_owner)));
-			return;
 		}
 
 		if (!$this->model->access('view'))
 		{
 			App::abort(403, Lang::txt('COM_RESOURCES_ALERTNOTAUTH'));
-			return;
 		}
 
 		//load resource
@@ -1082,55 +1066,56 @@ class Resources extends SiteController
 	/**
 	 * Get Video Manifest for resource
 	 *
-	 * @param      $resource     HUB Resource
-	 * @return     BOOL
+	 * @param   object   $resource  HUB Resource
+	 * @return  boolean
 	 */
 	private function getVideoManifestForResource($resource)
 	{
-		//base url for the resource
+		// Base url for the resource
 		$base = DS . trim($this->config->get('uploadpath'), DS);
 
 		$path = '';
 		if ($resource->path)
 		{
 			$resource->path = trim($resource->path, '/');
-			// match YYYY/MM/#/something
+
+			// Match YYYY/MM/#/something
 			if (preg_match('/(\d{4}\/\d{2}\/\d+)\/.+/i', $resource->path, $matches))
 			{
 				$path = '/' . rtrim($matches[1], '/');
 			}
 		}
 
-		//build the rest of the resource path and combine with base
+		// Build the rest of the resource path and combine with base
 		$path = $path ? $path : Html::build_path($resource->created, $resource->id, '');
 
-		//get manifests
+		// Get manifests
 		$manifests = \Filesystem::files(PATH_APP . DS . $base . $path, '.json');
 
-		//return path to manifest if we have one
+		// Return path to manifest if we have one
 		return (count($manifests) > 0) ? $base . $path . DS . $manifests[0] : array();
 	}
 
 	/**
 	 * Check for Video manifest file
 	 *
-	 * @param      $resource     HUB Resource
-	 * @return     BOOL
+	 * @param   object   $resource  HUB Resource
+	 * @return  boolean
 	 */
 	private function videoManifestExistsForResource($resource)
 	{
-		//get video manifest
+		// Get video manifest
 		$manifest = $this->getVideoManifestForResource($resource);
 
-		//do we have a manifest already?
+		// Do we have a manifest already?
 		return (count($manifest) < 1) ? false : true;
 	}
 
 	/**
 	 * Create manifest file for video
 	 *
-	 * @param      $resource     HUB Resource
-	 * @return     Void
+	 * @param   object  $resource  HUB Resource
+	 * @return  boolean
 	 */
 	private function createVideoManifestForResource($resource)
 	{
@@ -1141,11 +1126,11 @@ class Resources extends SiteController
 		$path = Html::build_path($resource->created, $resource->id, '');
 
 		//instantiate params object then parse resource attributes
-		$attributes  = new \Hubzero\Config\Registry($resource->attribs);
+		$attributes = new \Hubzero\Config\Registry($resource->attribs);
 
 		//var to hold manifest data
-		$manifest                          = new stdClass;
-		$manifest->presentation            = new stdClass;
+		$manifest = new stdClass;
+		$manifest->presentation = new stdClass;
 		$manifest->presentation->title     = $resource->title;
 		$manifest->presentation->type      = 'Video';
 		$manifest->presentation->width     = intval($attributes->get('width', 0));
@@ -1161,7 +1146,7 @@ class Resources extends SiteController
 		foreach ($videos as $k => $video)
 		{
 			// get info about video
-			$videoInfo = pathinfo( $video );
+			$videoInfo = pathinfo($video);
 
 			// object to hold media type & source
 			$media         = new stdClass;
@@ -1184,7 +1169,7 @@ class Resources extends SiteController
 			$name = ucfirst( $name );
 
 			// object to hold subtitle info
-			$sub           = new stdClass;
+			$sub = new stdClass;
 			$sub->type     = 'SRT';
 			$sub->name     = $name;
 			$sub->source   = $path . DS . $subtitle;
@@ -1213,7 +1198,7 @@ class Resources extends SiteController
 	/**
 	 * View a resource
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function viewTask()
 	{
@@ -1244,14 +1229,12 @@ class Resources extends SiteController
 		if (!$this->model->exists() || $this->model->deleted())
 		{
 			App::abort(404, Lang::txt('COM_RESOURCES_RESOURCE_NOT_FOUND'));
-			return;
 		}
 
 		// Make sure the resource is published and standalone
 		if (!$this->model->resource->standalone) // || !$this->model->published())
 		{
 			App::abort(403, Lang::txt('COM_RESOURCES_ALERTNOTAUTH'));
-			return;
 		}
 
 		// Is the visitor authorized to view this resource?
@@ -1263,19 +1246,16 @@ class Resources extends SiteController
 				Lang::txt('COM_RESOURCES_ALERTLOGIN_REQUIRED'),
 				'warning'
 			);
-			return;
 		}
 
 		if ($this->model->resource->group_owner && !$this->model->access('view'))
 		{
 			App::abort(403, Lang::txt('COM_RESOURCES_ALERTNOTAUTH_GROUP', $this->model->resource->group_owner, Route::url('index.php?option=com_groups&cn=' . $this->model->resource->group_owner)));
-			return;
 		}
 
 		if (!$this->model->access('view'))
 		{
 			App::abort(403, Lang::txt('COM_RESOURCES_ALERTNOTAUTH'));
-			return;
 		}
 
 		// // Make sure they have access to view this resource
@@ -1335,7 +1315,6 @@ class Resources extends SiteController
 		if (User::isGuest() && $revision == 'dev')
 		{
 			App::abort(403, Lang::txt('COM_RESOURCES_ALERTNOTAUTH'));
-			return;
 		}
 
 		// Access check for tools
@@ -1353,7 +1332,6 @@ class Resources extends SiteController
 				{
 					// Denied, punk! How do you like them apples?!
 					App::abort(403, Lang::txt('COM_RESOURCES_ALERTNOTAUTH'));
-					return;
 				}
 			}
 		}
@@ -1440,16 +1418,16 @@ class Resources extends SiteController
 				'name'      => 'view',
 				'layout'    => 'play'
 			));
-			$view->option 		= $this->_option;
-			$view->config 		= $this->config;
-			$view->tconfig 		= $tconfig;
-			$view->database 	= $this->database;
-			$view->resource 	= $this->model->resource;
-			$view->helper 		= $helper;
-			$view->resid 		= $this->resid;
-			$view->activechild 	= $activechild;
-			$view->no_html 		= 0;
-			$view->fsize 		= 0;
+			$view->option      = $this->_option;
+			$view->config      = $this->config;
+			$view->tconfig     = $tconfig;
+			$view->database    = $this->database;
+			$view->resource    = $this->model->resource;
+			$view->helper      = $helper;
+			$view->resid       = $this->resid;
+			$view->activechild = $activechild;
+			$view->no_html     = 0;
+			$view->fsize       = 0;
 			if ($this->getError())
 			{
 				foreach ($this->getErrors() as $error)
@@ -1596,7 +1574,7 @@ class Resources extends SiteController
 	/**
 	 * Display an RSS feed
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function feedTask()
 	{
@@ -1635,21 +1613,18 @@ class Resources extends SiteController
 		if (!$resource)
 		{
 			App::abort(404, Lang::txt('COM_RESOURCES_RESOURCE_NOT_FOUND'));
-			return;
 		}
 
 		// Make sure the resource is published and standalone
 		if ($resource->published == 0 || $resource->standalone != 1)
 		{
 			App::abort(403, Lang::txt('COM_RESOURCES_ALERTNOTAUTH'));
-			return;
 		}
 
 		// Make sure they have access to view this resource
 		if ($this->checkGroupAccess($resource))
 		{
 			App::abort(403, Lang::txt('COM_RESOURCES_ALERTNOTAUTH'));
-			return;
 		}
 
 		// Incoming
@@ -1975,11 +1950,11 @@ class Resources extends SiteController
 	 *
 	 * Long description (if any) ...
 	 *
-	 * @param      unknown $filename Parameter description (if any) ...
-	 * @param      string $upath Parameter description (if any) ...
-	 * @param      unknown $created Parameter description (if any) ...
-	 * @param      unknown $id Parameter description (if any) ...
-	 * @return     string Return description (if any) ...
+	 * @param   string   $filename
+	 * @param   string   $upath
+	 * @param   string   $created
+	 * @param   integer  $id
+	 * @return  string
 	 */
 	private function _checkForImage($filename, $upath, $created, $id)
 	{
@@ -2040,7 +2015,7 @@ class Resources extends SiteController
 	 * Call a plugin method
 	 * NOTE: This view should normally only be called through AJAX
 	 *
-	 * @return     string
+	 * @return  string
 	 */
 	public function pluginTask()
 	{
@@ -2074,7 +2049,7 @@ class Resources extends SiteController
 	 * Download a file
 	 * Runs through various permissions checks to ensure user has access
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function downloadTask()
 	{
@@ -2094,7 +2069,6 @@ class Resources extends SiteController
 		if ($alias && !$resource->loadAlias($alias))
 		{
 			App::abort(404, Lang::txt('COM_RESOURCES_RESOURCE_NOT_FOUND'));
-			return;
 		}
 		// allow for temp resource uploads
 		elseif (substr($id, 0, 4) == '9999')
@@ -2107,7 +2081,6 @@ class Resources extends SiteController
 		elseif (!$resource->load($id))
 		{
 			App::abort(404, Lang::txt('COM_RESOURCES_RESOURCE_NOT_FOUND'));
-			return;
 		}
 
 		// Check if the resource is for logged-in users only and the user is logged-in
@@ -2125,19 +2098,18 @@ class Resources extends SiteController
 			$session = \Hubzero\Session\Helper::getSession($session_id);
 
 			$user = User::getInstance($session->userid);
-			$user->guest = 0;
-			$user->id = $session->userid;
-			$user->usertype = $session->usertype;
+			$user->set('guest', 0);
+			$user->set('id', $session->userid);
+			$user->set('usertype', $session->usertype);
 		}
 		else
 		{
-			$user = User::getRoot();
+			$user = User::getInstance();
 		}
 
-		if ($resource->access == 1 && $user->get('guest'))
+		if ($resource->access == 1 && $user->isGuest())
 		{
 			App::abort(403, Lang::txt('COM_RESOURCES_ALERTNOTAUTH'));
-			return;
 		}
 
 		// Check if the resource is "private" and the user is allowed to view it
@@ -2148,7 +2120,6 @@ class Resources extends SiteController
 			if ($this->checkGroupAccess($resource, $user))
 			{
 				App::abort(403, Lang::txt('COM_RESOURCES_ALERTNOTAUTH'));
-				return;
 			}
 		}
 
@@ -2164,7 +2135,6 @@ class Resources extends SiteController
 		if (empty($resource->path) && $resource->published != 1)
 		{
 			App::abort(404, Lang::txt('COM_RESOURCES_FILE_NOT_FOUND'));
-			return;
 		}
 
 		// Get the configured upload path
@@ -2197,7 +2167,6 @@ class Resources extends SiteController
 		if (!file_exists($filename))
 		{
 			App::abort(404, Lang::txt('COM_RESOURCES_FILE_NOT_FOUND') . ' ' . $filename);
-			return;
 		}
 
 		$ext = strtolower(\Filesystem::extension($filename));
@@ -2215,19 +2184,18 @@ class Resources extends SiteController
 		if (!$xserver->serve())
 		{
 			// Should only get here on error
-			throw new Exception(Lang::txt('COM_RESOURCES_SERVER_ERROR'), 500);
+			App::abort(500, Lang::txt('COM_RESOURCES_SERVER_ERROR'));
 		}
 		else
 		{
 			exit;
 		}
-		return;
 	}
 
 	/**
 	 * Download source code for a tool
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function sourcecodeTask()
 	{
@@ -2238,7 +2206,6 @@ class Resources extends SiteController
 		if (!$tool)
 		{
 			App::abort(404, Lang::txt('COM_RESOURCES_RESOURCE_NOT_FOUND'));
-			return;
 		}
 
 		// Load the tool version
@@ -2268,14 +2235,12 @@ class Resources extends SiteController
 		{
 			// File not found
 			App::abort(404, Lang::txt('COM_RESOURCES_FILE_NOT_FOUND'));
-			return;
 		}
 
 		if (!$opencode)
 		{
 			// This tool is not open source
 			App::abort(403, Lang::txt('COM_RESOURCES_ALERTNOTAUTH'));
-			return;
 		}
 
 		// Serve up the file
@@ -2286,19 +2251,18 @@ class Resources extends SiteController
 		$xserver->saveas($tarname);
 		if (!$xserver->serve_attachment($tarpath . $tarname, $tarname, false))
 		{ // @TODO fix byte range support
-			throw new Exception(Lang::txt('COM_RESOURCES_SERVER_ERROR'), 500);
+			App::abort(500, Lang::txt('COM_RESOURCES_SERVER_ERROR'));
 		}
 		else
 		{
 			exit;
 		}
-		return;
 	}
 
 	/**
 	 * Display a license for a resource
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function licenseTask()
 	{
@@ -2366,7 +2330,7 @@ class Resources extends SiteController
 	/**
 	 * Download a citation for a resource
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function citationTask()
 	{
@@ -2540,11 +2504,11 @@ class Resources extends SiteController
 	/**
 	 * Serve up a file
 	 *
-	 * @param      boolean $inline Disposition
-	 * @param      string  $p      File path
-	 * @param      string  $f      File name
-	 * @param      string  $mime   Mimetype
-	 * @return     void
+	 * @param   boolean  $inline  Disposition
+	 * @param   string   $p       File path
+	 * @param   string   $f       File name
+	 * @param   string   $mime    Mimetype
+	 * @return  void
 	 */
 	protected function _serveup($inline = false, $p, $f, $mime)
 	{
@@ -2583,9 +2547,9 @@ class Resources extends SiteController
 	/**
 	 * Read file contents
 	 *
-	 * @param      string  $filename
-	 * @param      boolean $retbytes
-	 * @return     mixed
+	 * @param   string   $filename
+	 * @param   boolean  $retbytes
+	 * @return  mixed
 	 */
 	protected function _readfileChunked($filename, $retbytes=true)
 	{
@@ -2617,8 +2581,9 @@ class Resources extends SiteController
 	/**
 	 * Check if a user is authorized
 	 *
-	 * @param      array $contributorIDs Authors of a resource
-	 * @return     boolean True if user has access
+	 * @param   array    $contributorIDs   Authors of a resource
+	 * @param   object   $resource
+	 * @return  boolean  True if user has access
 	 */
 	protected function _authorize($contributorIDs=array(), $resource=null)
 	{
@@ -2666,9 +2631,9 @@ class Resources extends SiteController
 	{
 		if (!$user)
 		{
-			$user = User::getRoot();
+			$user = User::getInstance();
 		}
-		if (!$user->get('guest'))
+		if (!$user->isGuest())
 		{
 			// Check if they're a site admin
 			$this->config->set('access-admin-component', $user->authorise('core.admin', null));
@@ -2746,8 +2711,8 @@ class Resources extends SiteController
 	/**
 	 * Push group aliases into an array for easier searching
 	 *
-	 * @param      array $groups Users' groups
-	 * @return     array
+	 * @param   array  $groups  Users' groups
+	 * @return  array
 	 */
 	public static function getUsersGroups($groups)
 	{
@@ -2770,8 +2735,8 @@ class Resources extends SiteController
 	/**
 	 * Generate the full (absolute) path to a file
 	 *
-	 * @param      string $path Relative path
-	 * @return     string
+	 * @param   string  $path  Relative path
+	 * @return  string
 	 */
 	private function _fullPath($path)
 	{
@@ -2808,8 +2773,8 @@ class Resources extends SiteController
 	/**
 	 * Check if a user has access to a tool
 	 *
-	 * @param      integer $toolid Tool ID
-	 * @return     boolean True if user has access, false if not
+	 * @param   integer  $toolid  Tool ID
+	 * @return  boolean  True if user has access, false if not
 	 */
 	private function _checkToolaccess($toolid)
 	{
@@ -2837,4 +2802,3 @@ class Resources extends SiteController
 		return false;
 	}
 }
-

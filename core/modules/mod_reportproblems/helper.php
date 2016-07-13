@@ -34,7 +34,6 @@
 namespace Modules\ReportProblems;
 
 use Hubzero\Module\Module;
-use Hubzero\User\Profile;
 use Hubzero\Browser\Detector;
 use Component;
 use User;
@@ -55,8 +54,7 @@ class Helper extends Module
 		$this->verified = 0;
 		if (!User::isGuest())
 		{
-			$profile = Profile::getInstance(User::get('id'));
-			if ($profile->get('emailConfirmed') == 1 || $profile->get('emailConfirmed') == 3)
+			if (User::get('activation') == 1 || User::get('activation') == 3)
 			{
 				$this->verified = 1;
 			}

@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -35,9 +34,7 @@ namespace Components\Tags\Admin\Controllers;
 use Hubzero\Component\AdminController;
 use Components\Tags\Models\Cloud;
 use Components\Tags\Models\Tag;
-use Exception;
 use Request;
-use Config;
 use Notify;
 use Cache;
 use Event;
@@ -71,19 +68,7 @@ class Entries extends AdminController
 	public function displayTask()
 	{
 		// Incoming
-		$this->view->filters = array(
-			'limit' => Request::getState(
-				$this->_option . '.' . $this->_controller . '.limit',
-				'limit',
-				Config::get('list_limit'),
-				'int'
-			),
-			'start' => Request::getState(
-				$this->_option . '.' . $this->_controller . '.limitstart',
-				'limitstart',
-				0,
-				'int'
-			),
+		$filters = array(
 			'search' => urldecode(Request::getState(
 				$this->_option . '.' . $this->_controller . '.search',
 				'search',
@@ -105,27 +90,29 @@ class Entries extends AdminController
 				'ASC'
 			)
 		);
-		// In case limit has been changed, adjust limitstart accordingly
-		$this->view->filters['start'] = ($this->view->filters['limit'] != 0 ? (floor($this->view->filters['start'] / $this->view->filters['limit']) * $this->view->filters['limit']) : 0);
 
-		$t = new Cloud();
+		$model = Tag::all();
 
-		// Record count
-		$this->view->total = $t->tags('count', $this->view->filters);
-
-		$this->view->filters['limit'] = ($this->view->filters['limit'] == 0) ? 'all' : $this->view->filters['limit'];
-
-		// Get records
-		$this->view->rows = $t->tags('list', $this->view->filters);
-
-		// Set any errors
-		foreach ($this->getErrors() as $error)
+		if ($filters['search'])
 		{
-			$this->view->setError($error);
+			$filters['search'] = strtolower((string)$filters['search']);
+
+			$model->whereLike('raw_tag', $filters['search'], 1)
+				->orWhereLike('tag', $filters['search'], 1)
+				->resetDepth();
 		}
 
+		// Get records
+		$rows = $model
+			->ordered('filter_order', 'filter_order_Dir')
+			->paginated('limitstart', 'limit')
+			->rows();
+
 		// Output the HTML
-		$this->view->display();
+		$this->view
+			->set('filters', $filters)
+			->set('rows', $rows)
+			->display();
 	}
 
 	/**
@@ -136,6 +123,12 @@ class Entries extends AdminController
 	 */
 	public function editTask($tag=NULL)
 	{
+		if (!User::authorise('core.edit', $this->_option)
+		 && !User::authorise('core.create', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		Request::setVar('hidemainmenu', 1);
 
 		// Load a tag object if one doesn't already exist
@@ -148,19 +141,12 @@ class Entries extends AdminController
 				$id = $id[0];
 			}
 
-			$tag = new Tag(intval($id));
-		}
-
-		$this->view->tag = $tag;
-
-		// Set any errors
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
+			$tag = Tag::oneOrNew(intval($id));
 		}
 
 		// Output the HTML
 		$this->view
+			->set('tag', $tag)
 			->setLayout('edit')
 			->display();
 	}
@@ -175,14 +161,22 @@ class Entries extends AdminController
 		// Check for request forgeries
 		Request::checkToken();
 
+		if (!User::authorise('core.edit', $this->_option)
+		 && !User::authorise('core.create', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		$fields = Request::getVar('fields', array(), 'post');
 
-		$row = new Tag(intval($fields['id']));
-		if (!$row->bind($fields))
+		$subs = '';
+		if (isset($fields['substitutions']))
 		{
-			Notify::error($row->getError());
-			return $this->editTask($row);
+			$subs = $fields['substitutions'];
+			unset($fields['substitutions']);
 		}
+
+		$row = Tag::oneOrNew(intval($fields['id']))->set($fields);
 
 		$row->set('admin', 0);
 		if (isset($fields['admin']) && $fields['admin'])
@@ -191,7 +185,13 @@ class Entries extends AdminController
 		}
 
 		// Store new content
-		if (!$row->store(true))
+		if (!$row->save())
+		{
+			Notify::error($row->getError());
+			return $this->editTask($row);
+		}
+
+		if (!$row->saveSubstitutions($subs))
 		{
 			Notify::error($row->getError());
 			return $this->editTask($row);
@@ -205,9 +205,7 @@ class Entries extends AdminController
 			return $this->editTask($row);
 		}
 
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false)
-		);
+		$this->cancelTask();
 	}
 
 	/**
@@ -220,18 +218,20 @@ class Entries extends AdminController
 		// Check for request forgeries
 		Request::checkToken();
 
+		if (!User::authorise('core.delete', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		$ids = Request::getVar('id', array());
 		$ids = (!is_array($ids) ? array($ids) : $ids);
 
 		// Make sure we have an ID
 		if (empty($ids))
 		{
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-				Lang::txt('COM_TAGS_ERROR_NO_ITEMS_SELECTED'),
-				'error'
-			);
-			return;
+			Notify::warning(Lang::txt('COM_TAGS_ERROR_NO_ITEMS_SELECTED'));
+
+			return $this->cancelTask();
 		}
 
 		foreach ($ids as $id)
@@ -242,16 +242,15 @@ class Entries extends AdminController
 			Event::trigger('tags.onTagDelete', array($id));
 
 			// Remove the tag
-			$tag = new Tag($id);
-			$tag->delete();
+			$tag = Tag::oneOrFail($id);
+			$tag->destroy();
 		}
 
 		$this->cleancacheTask(false);
 
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-			Lang::txt('COM_TAGS_TAG_REMOVED')
-		);
+		Notify::success(Lang::txt('COM_TAGS_TAG_REMOVED'));
+
+		$this->cancelTask();
 	}
 
 	/**
@@ -269,18 +268,22 @@ class Entries extends AdminController
 			return true;
 		}
 
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false)
-		);
+		$this->cancelTask();
 	}
 
 	/**
 	 * Merge two tags into one
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function mergeTask()
 	{
+		if (!User::authorise('core.edit', $this->_option)
+		 && !User::authorise('core.manage', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		// Incoming
 		$ids = Request::getVar('id', array());
 		$ids = (!is_array($ids) ? array($ids) : $ids);
@@ -292,10 +295,7 @@ class Entries extends AdminController
 		if ($step == 1
 		&& (!$ids || count($ids) < 1))
 		{
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false)
-			);
-			return;
+			return $this->cancelTask();
 		}
 
 		$idstr = implode(',', $ids);
@@ -305,29 +305,21 @@ class Entries extends AdminController
 			case 1:
 				Request::setVar('hidemainmenu', 1);
 
-				// Instantiate a new view
-				$this->view->step = 2;
-				$this->view->idstr = $idstr;
-				$this->view->tags = array();
+				$tags = array();
 
 				// Loop through the IDs of the tags we want to merge
 				foreach ($ids as $id)
 				{
 					// Add the tag object to an array
-					$this->view->tags[] = new Tag(intval($id));
-				}
-
-				// Get all tags
-				$cloud = new Cloud();
-
-				// Set any errors
-				if ($this->getError())
-				{
-					$this->view->setError($this->getError());
+					$tags[] = Tag::oneOrFail(intval($id));
 				}
 
 				// Output the HTML
-				$this->view->display();
+				$this->view
+					->set('step', 2)
+					->set('idstr', $idstr)
+					->set('tags', $tags)
+					->display();
 			break;
 
 			case 2:
@@ -353,12 +345,12 @@ class Entries extends AdminController
 				if ($tag_new)
 				{
 					// Yes, we are
-					$newtag = new Tag($tag_new);
-					if (!$newtag->exists())
+					$newtag = Tag::oneByTag($tag_new);
+					if (!$newtag->get('id'))
 					{
 						$newtag->set('raw_tag', $tag_new);
 					}
-					if (!$newtag->store(true))
+					if (!$newtag->save())
 					{
 						$this->setError($newtag->getError());
 					}
@@ -372,7 +364,7 @@ class Entries extends AdminController
 
 				if ($this->getError())
 				{
-					throw new Exception($this->getError(), 500);
+					App::abort(500, $this->getError());
 				}
 
 				foreach ($ids as $id)
@@ -382,7 +374,8 @@ class Entries extends AdminController
 						continue;
 					}
 
-					$oldtag = new Tag(intval($id));
+					$oldtag = Tag::oneOrFail(intval($id));
+
 					if (!$oldtag->mergeWith($mtag))
 					{
 						$this->setError($oldtag->getError());
@@ -393,11 +386,12 @@ class Entries extends AdminController
 				{
 					Notify::error($this->getError());
 				}
+				else
+				{
+					Notify::success(Lang::txt('COM_TAGS_TAGS_MERGED'));
+				}
 
-				App::redirect(
-					Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-					Lang::txt('COM_TAGS_TAGS_MERGED')
-				);
+				$this->cancelTask();
 			break;
 		}
 	}
@@ -405,10 +399,16 @@ class Entries extends AdminController
 	/**
 	 * Copy all tag associations from one tag to another
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function pierceTask()
 	{
+		if (!User::authorise('core.edit', $this->_option)
+		 && !User::authorise('core.manage', $this->_option))
+		{
+			App::abort(403, Lang::txt('JERROR_ALERTNOAUTHOR'));
+		}
+
 		// Incoming
 		$ids = Request::getVar('id', array());
 		$ids = (!is_array($ids) ? array($ids) : $ids);
@@ -420,10 +420,7 @@ class Entries extends AdminController
 		if ($step == 1
 		 && (!$ids || count($ids) < 1))
 		{
-			App::redirect(
-				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false)
-			);
-			return;
+			return $this->cancelTask();
 		}
 
 		$idstr = implode(',', $ids);
@@ -433,28 +430,21 @@ class Entries extends AdminController
 			case 1:
 				Request::setVar('hidemainmenu', 1);
 
-				$this->view->step = 2;
-				$this->view->idstr = $idstr;
-				$this->view->tags = array();
+				$tags = array();
 
 				// Loop through the IDs of the tags we want to merge
 				foreach ($ids as $id)
 				{
 					// Load the tag's info
-					$this->view->tags[] = new Tag(intval($id));
-				}
-
-				// Get all tags
-				$cloud = new Cloud();
-
-				// Set any errors
-				if ($this->getError())
-				{
-					$this->view->setError($this->getError());
+					$tags[] = Tag::oneOrFail(intval($id));
 				}
 
 				// Output the HTML
-				$this->view->display();
+				$this->view
+					->set('step', 2)
+					->set('idstr', $idstr)
+					->set('tags', $tags)
+					->display();
 			break;
 
 			case 2:
@@ -480,12 +470,12 @@ class Entries extends AdminController
 				if ($tag_new)
 				{
 					// Yes, we are
-					$newtag = new Tag($tag_new);
-					if (!$newtag->exists())
+					$newtag = Tag::oneByAlias($tag_new);
+					if (!$newtag->get('id'))
 					{
 						$newtag->set('raw_tag', $tag_new);
 					}
-					if (!$newtag->store(true))
+					if (!$newtag->save())
 					{
 						$this->setError($newtag->getError());
 					}
@@ -504,19 +494,24 @@ class Entries extends AdminController
 						continue;
 					}
 
-					$oldtag = new Tag(intval($id));
+					$oldtag = Tag::oneOrFail(intval($id));
 					if (!$oldtag->copyTo($mtag))
 					{
 						$this->setError($oldtag->getError());
 					}
 				}
 
-				App::redirect(
-					Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-					Lang::txt('COM_TAGS_TAGS_COPIED')
-				);
+				if ($this->getError())
+				{
+					Notify::error($this->getError());
+				}
+				else
+				{
+					Lang::txt('COM_TAGS_TAGS_COPIED');
+				}
+
+				$this->cancelTask();
 			break;
 		}
 	}
 }
-

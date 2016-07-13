@@ -13,10 +13,6 @@
 
 */
 
-	#orcid-fetch {
-		margin-top: 3.5em;
-	}
-
 /* Password rules styles */
 	#hubForm ul#passrules {
 		list-style: none;
@@ -48,6 +44,25 @@
 		display: none;
 	}
 
+	#hubForm .radio {
+		margin-top: 0.2em;
+	}
+	#hubForm .radio ul {
+		list-style: none;
+		margin: 0;
+	}
+	#hubForm .radio li {
+		margin: 0;
+		padding: 0.1em 0;
+	}
+	#hubForm .radio li label,
+	#hubForm .radio li input[type=radio],
+	#hubForm .radio li input[type=checkbox] {
+		width: auto;
+		display: inline-block;
+		margin-right: 0.5em;
+	}
+
 /* Username checker */
 	#hubForm .group p.hint.ok {
 		color: #090;
@@ -59,6 +74,21 @@
 /* Third party auth plugins */
 	#providers {
 		margin-top: 65px;
+	}
+
+	.address-field-wrap {
+		position: relative;
+		padding: 0 0 1em 0;
+		margin: 0 0 1em 0;
+		border-bottom: 1px solid #eee;
+	}
+	.address-add {
+		text-align: center;
+	}
+	.address-remove {
+		position: absolute;
+		top: 0;
+		right: 0;
 	}
 
 /* Account Creation */

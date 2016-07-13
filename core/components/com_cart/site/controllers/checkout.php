@@ -59,7 +59,7 @@ class Checkout extends ComponentController
 			$this->registerTask('__default', $this->_task);
 		}
 
-		$this->juser = User::getRoot();
+		$this->juser = User::getInstance();
 
 		// Check if they're logged in
 		if ($this->juser->get('guest'))

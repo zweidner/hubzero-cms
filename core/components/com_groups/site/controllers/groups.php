@@ -39,6 +39,7 @@ use Components\Groups\Models\Page;
 use Components\Groups\Helpers;
 use Components\Groups\Models\Tags;
 use Components\Groups\Models\Log;
+use Components\Groups\Models\Recent;
 use Filesystem;
 use Request;
 use Config;
@@ -97,7 +98,6 @@ class Groups extends Base
 		parent::execute();
 	}
 
-
 	/**
 	 * Intro Page
 	 *
@@ -105,9 +105,6 @@ class Groups extends Base
 	 */
 	public function displayTask()
 	{
-		// set the neeced layout
-		$this->view->setLayout('display');
-
 		// build the title
 		$this->_buildTitle();
 
@@ -124,27 +121,24 @@ class Groups extends Base
 		$this->view->populargroups = array();
 		$this->view->interestinggroups = array();
 
-		//get the users profile
-		$profile = \Hubzero\User\Profile::getInstance(User::get("id"));
-
 		//if we have a users profile load their groups and groups matching their tags
-		if (is_object($profile))
+		if (!User::isGuest())
 		{
 			//get users tags
 			include_once(PATH_CORE . DS . 'components' . DS . 'com_members' . DS . 'models' . DS . 'tags.php');
-			$mt = new \Components\Members\Models\Tags($profile->get("uidNumber"));
+			$mt = new \Components\Members\Models\Tags(User::get('id'));
 			$mytags = $mt->render('string');
 
 			//get users groups
-			$this->view->mygroups['members'] = \Hubzero\User\Helper::getGroups($profile->get("uidNumber"), 'members', 1);
-			$this->view->mygroups['invitees'] = \Hubzero\User\Helper::getGroups($profile->get("uidNumber"), 'invitees', 1);
-			$this->view->mygroups['applicants'] = \Hubzero\User\Helper::getGroups($profile->get("uidNumber"), 'applicants', 1);
+			$this->view->mygroups['members'] = \Hubzero\User\Helper::getGroups(User::get('id'), 'members', 1);
+			$this->view->mygroups['invitees'] = \Hubzero\User\Helper::getGroups(User::get('id'), 'invitees', 1);
+			$this->view->mygroups['applicants'] = \Hubzero\User\Helper::getGroups(User::get('id'), 'applicants', 1);
 			$this->view->mygroups = array_filter($this->view->mygroups);
 
 			//get groups user may be interested in
 			$this->view->interestinggroups = Group\Helper::getGroupsMatchingTagString(
 				$mytags,
-				\Hubzero\User\Helper::getGroups($profile->get("uidNumber"))
+				\Hubzero\User\Helper::getGroups(User::get('id'))
 			);
 		}
 
@@ -162,7 +156,9 @@ class Groups extends Base
 		$this->view->notifications = ($this->getNotifications()) ? $this->getNotifications() : array();
 
 		//display view
-		$this->view->display();
+		$this->view
+			->setLayout('display')
+			->display();
 	}
 
 	/**
@@ -172,9 +168,6 @@ class Groups extends Base
 	 */
 	public function browseTask()
 	{
-		// set the neeced layout
-		$this->view->setLayout('browse');
-
 		// build the title
 		$this->_buildTitle();
 
@@ -182,56 +175,60 @@ class Groups extends Base
 		$this->_buildPathway();
 
 		//build list of filters
-		$this->view->filters = array();
-		$this->view->filters['type']      = array(1, 3);
-		$this->view->filters['published'] = 1;
-		$this->view->filters['limit']     = 'all';
-		$this->view->filters['fields']    = array('COUNT(*)');
-		$this->view->filters['search']    = Request::getVar('search', '');
-		$this->view->filters['sortby']    = strtolower(Request::getWord('sortby', 'title'));
-		$this->view->filters['policy']    = strtolower(Request::getWord('policy', ''));
-		$this->view->filters['index']     = htmlentities(Request::getVar('index', ''));
+		$filters = array(
+			'type'      => array(1, 3),
+			'published' => 1,
+			'limit'     => 'all',
+			'fields'    => array('COUNT(*)'),
+			'search'    => Request::getVar('search', ''),
+			'sortby'    => strtolower(Request::getWord('sortby', 'title')),
+			'policy'    => strtolower(Request::getWord('policy', '')),
+			'index'     => htmlentities(Request::getVar('index', ''))
+		);
 
 		//make sure we have a valid sort filter
-		if (!in_array($this->view->filters['sortby'], array('alias', 'title')))
+		if (!in_array($filters['sortby'], array('alias', 'title')))
 		{
-			$this->view->filters['sortby'] = 'title';
+			$filters['sortby'] = 'title';
 		}
 
 		//make sure we have a valid policy filter
-		if (!in_array($this->view->filters['policy'], array('open', 'restricted', 'invite', 'closed')))
+		if (!in_array($filters['policy'], array('open', 'restricted', 'invite', 'closed')))
 		{
-			$this->view->filters['policy'] = '';
+			$filters['policy'] = '';
 		}
 
 		// Get a record count
-		$this->view->total = Group::find($this->view->filters);
+		$total = Group::find($filters);
 
 		// Filters for returning results
-		$this->view->filters['limit']  = Request::getInt('limit', Config::get('list_limit'));
-		$this->view->filters['limit']  = ($this->view->filters['limit']) ? $this->view->filters['limit'] : 'all';
-		$this->view->filters['start']  = Request::getInt('limitstart', 0);
-		$this->view->filters['fields'] = array('cn', 'description', 'published', 'gidNumber', 'type', 'public_desc', 'join_policy');
+		$filters['limit']  = Request::getInt('limit', Config::get('list_limit'));
+		$filters['limit']  = ($filters['limit']) ? $filters['limit'] : 'all';
+		$filters['start']  = Request::getInt('limitstart', 0);
+		$filters['fields'] = array('cn', 'description', 'published', 'gidNumber', 'type', 'public_desc', 'join_policy');
 
 		// Get a list of all groups
-		$this->view->groups = Group::find($this->view->filters);
-		$this->view->authorized = $this->_authorize();
-
-		//set some vars for view
-		$this->view->title = $this->_title;
+		$groups = Group::find($filters);
 
 		// get view notifications
-		$this->view->notifications = ($this->getNotifications()) ? $this->getNotifications() : array();
+		$notifications = ($this->getNotifications()) ? $this->getNotifications() : array();
 
 		//display view
-		$this->view->display();
+		$this->view
+			->set('total', $total)
+			->set('groups', $groups)
+			->set('filters', $filters)
+			->set('title', $this->_title)
+			->set('authorized', $this->_authorize())
+			->set('notifications', $notifications)
+			->setLayout('browse')
+			->display();
 	}
-
 
 	/**
 	 * View Group
 	 *
-	 * @return     array
+	 * @return  array
 	 */
 	public function viewTask()
 	{
@@ -305,6 +302,14 @@ class Groups extends Base
 		if ($this->view->group->get('approved') != 1 && $this->view->trueTab != 'overview')
 		{
 			return $this->unapprovedGroupTask();
+		}
+
+		// Record the user
+		if (!User::isGuest() && in_array(User::get('id'), $this->view->group->get('members')))
+		{
+			include_once dirname(dirname(__DIR__)) . DS . 'models' . DS . 'recent.php';
+
+			Recent::hit(User::get('id'), $this->view->group->get('gidNumber'));
 		}
 
 		// get group pages if any
@@ -397,13 +402,13 @@ class Groups extends Base
 	/**
 	 *  Show add group
 	 *
-	 * @return 		void
+	 * @return  void
 	 */
 	public function newTask()
 	{
 		if (!User::authorise('core.create', $this->_option))
 		{
-			return App::redirect(
+			App::redirect(
 				Route::url('index.php?option=' . $this->_option),
 				Lang::txt('COM_GROUPS_ERROR_NOT_AUTH'),
 				'warning'
@@ -416,7 +421,7 @@ class Groups extends Base
 	/**
 	 *  Show group edit
 	 *
-	 * @return 		void
+	 * @return  void
 	 */
 	public function editTask()
 	{
@@ -426,13 +431,12 @@ class Groups extends Base
 		// Check if they're logged in
 		if (User::isGuest())
 		{
-			$this->loginTask(Lang::txt('COM_GROUPS_CREATE_MUST_BE_LOGGED_IN'));
-			return;
+			return $this->loginTask(Lang::txt('COM_GROUPS_CREATE_MUST_BE_LOGGED_IN'));
 		}
 
 		if (!User::authorise('core.edit', $this->_option))
 		{
-			return App::redirect(
+			App::redirect(
 				Route::url('index.php?option=' . $this->_option),
 				Lang::txt('COM_GROUPS_ERROR_NOT_AUTH'),
 				'warning'
@@ -548,15 +552,14 @@ class Groups extends Base
 	/**
 	 *  Save group settings
 	 *
-	 * @return 		void
+	 * @return  void
 	 */
 	public function saveTask()
 	{
 		// Check if they're logged in
 		if (User::isGuest())
 		{
-			$this->loginTask(Lang::txt('COM_GROUPS_CREATE_MUST_BE_LOGGED_IN'));
-			return;
+			return $this->loginTask(Lang::txt('COM_GROUPS_CREATE_MUST_BE_LOGGED_IN'));
 		}
 
 		Request::checkToken();
@@ -573,7 +576,7 @@ class Groups extends Base
 		if ((!$g_gidNumber && !User::authorise('core.create', $this->_option))
 		 || ($g_gidNumber && !User::authorise('core.edit', $this->_option)))
 		{
-			return App::redirect(
+			App::redirect(
 				Route::url('index.php?option=' . $this->_option),
 				Lang::txt('COM_GROUPS_ERROR_NOT_AUTH'),
 				'warning'
@@ -689,8 +692,7 @@ class Groups extends Base
 			$this->lid = $lid;
 			$this->group = $group;
 			$this->tags = $tags;
-			$this->editTask();
-			return;
+			return $this->editTask();
 		}
 
 		// Build the e-mail message
@@ -787,7 +789,7 @@ class Groups extends Base
 		));
 
 		$eview->option = $this->_option;
-		$eview->user   = User::getRoot();
+		$eview->user   = User::getInstance();
 		$eview->group  = $group;
 		$message['plaintext'] = $eview->loadTemplate(false);
 		$message['plaintext'] = str_replace("\n", "\r\n", $message['plaintext']);
@@ -878,6 +880,34 @@ class Groups extends Base
 			$version->store(false);
 		}
 
+		$url = Route::url('index.php?option=' . $this->_option . '&cn=' . $group->get('cn'));
+
+		// Log activity
+		$recipients = array(
+			['group', $group->get('gidNumber')],
+			['user', User::get('id')]
+		);
+		foreach ($group->get('managers') as $recipient)
+		{
+			$recipients[] = ['user', $recipient];
+		}
+
+		Event::trigger('system.logActivity', [
+			'activity' => [
+				'action'      => ($this->_task == 'new' ? 'created' : 'updated'),
+				'scope'       => 'group',
+				'scope_id'    => $group->get('gidNumber'),
+				'description' => Lang::txt('COM_GROUPS_ACTIVITY_GROUP_' . ($this->_task == 'new' ? 'CREATED' : 'UPDATED'), '<a href="' . $url . '">' . $group->get('description') . '</a>'),
+				'details'     => array(
+					'title'     => $group->get('description'),
+					'url'       => $url,
+					'cn'        => $group->get('cn'),
+					'gidNumber' => $group->get('gidNumber')
+				)
+			],
+			'recipients' => $recipients
+		]);
+
 		// Show success message to user
 		if ($this->_task == 'new')
 		{
@@ -889,12 +919,11 @@ class Groups extends Base
 		}
 
 		// Redirect back to the group page
-		App::redirect(Route::url('index.php?option=' . $this->_option . '&cn=' . $group->get('cn')));
-		return;
+		App::redirect($url);
 	}
 
 	/**
-	 *  Show confirm delete view
+	 * Show confirm delete view
 	 *
 	 * @return  void
 	 */
@@ -906,8 +935,7 @@ class Groups extends Base
 		// Check if they're logged in
 		if (User::isGuest())
 		{
-			$this->loginTask(Lang::txt('COM_GROUPS_DELETE_MUST_BE_LOGGED_IN'));
-			return;
+			return $this->loginTask(Lang::txt('COM_GROUPS_DELETE_MUST_BE_LOGGED_IN'));
 		}
 
 		//check to make sure we have  cname
@@ -939,7 +967,6 @@ class Groups extends Base
 		{
 			$this->setNotification(Lang::txt('COM_GROUPS_MEMBERSHIP_MANAGED_ELSEWHERE'), 'error');
 			App::redirect(Route::url('index.php?option=com_groups&cn=' . $this->view->group->get('cn')));
-			return;
 		}
 
 		//start log
@@ -971,17 +998,16 @@ class Groups extends Base
 	}
 
 	/**
-	 *  Permanently delete group
+	 * Permanently delete group
 	 *
-	 * @return 		void
+	 * @return  void
 	 */
 	public function doDeleteTask()
 	{
 		// Check if they're logged in
 		if (User::isGuest())
 		{
-			$this->loginTask(Lang::txt('COM_GROUPS_DELETE_MUST_BE_LOGGED_IN'));
-			return;
+			return $this->loginTask(Lang::txt('COM_GROUPS_DELETE_MUST_BE_LOGGED_IN'));
 		}
 
 		//check to make sure we have  cname
@@ -991,10 +1017,10 @@ class Groups extends Base
 		}
 
 		// Load the group page
-		$this->view->group = Group::getInstance($this->cn);
+		$group = Group::getInstance($this->cn);
 
 		// Ensure we found the group info
-		if (!$this->view->group || !$this->view->group->get('gidNumber'))
+		if (!$group || !$group->get('gidNumber'))
 		{
 			$this->_errorHandler(404, Lang::txt('COM_GROUPS_ERROR_NOT_FOUND'));
 		}
@@ -1013,51 +1039,40 @@ class Groups extends Base
 		if (!$confirm_delete)
 		{
 			$this->setNotification(Lang::txt('COM_GROUPS_DELETE_MISSING_CONFIRM_MESSAGE'), 'error');
-			$this->deleteTask();
-			return;
+			return $this->deleteTask();
 		}
 
 		// Start log
-		$log  = Lang::txt('COM_GROUPS_DELETE_MESSAGE_SUBJECT', $this->view->group->get('cn')) . "\n";
-		$log .= Lang::txt('COM_GROUPS_GROUP_ID') . ': ' . $this->view->group->get('gidNumber') . "\n";
-		$log .= Lang::txt('COM_GROUPS_GROUP_CNAME') . ': ' . $this->view->group->get('cn') . "\n";
-		$log .= Lang::txt('COM_GROUPS_GROUP_TITLE') . ': ' . $this->view->group->get('description') . "\n";
-		$log .= Lang::txt('COM_GROUPS_GROUP_DISCOVERABILITY') . ': ' . $this->view->group->get('discoverability') . "\n";
-		$log .= Lang::txt('COM_GROUPS_GROUP_PUBLIC_TEXT') . ': ' . stripslashes($this->view->group->get('public_desc'))  . "\n";
-		$log .= Lang::txt('COM_GROUPS_GROUP_PRIVATE_TEXT') . ': ' . stripslashes($this->view->group->get('private_desc'))  . "\n";
-		$log .= Lang::txt('COM_GROUPS_GROUP_RESTRICTED_MESSAGE') . ': ' . stripslashes($this->view->group->get('restrict_msg')) . "\n";
+		$log  = Lang::txt('COM_GROUPS_DELETE_MESSAGE_SUBJECT', $group->get('cn')) . "\n";
+		$log .= Lang::txt('COM_GROUPS_GROUP_ID') . ': ' . $group->get('gidNumber') . "\n";
+		$log .= Lang::txt('COM_GROUPS_GROUP_CNAME') . ': ' . $group->get('cn') . "\n";
+		$log .= Lang::txt('COM_GROUPS_GROUP_TITLE') . ': ' . $group->get('description') . "\n";
+		$log .= Lang::txt('COM_GROUPS_GROUP_DISCOVERABILITY') . ': ' . $group->get('discoverability') . "\n";
+		$log .= Lang::txt('COM_GROUPS_GROUP_PUBLIC_TEXT') . ': ' . stripslashes($group->get('public_desc'))  . "\n";
+		$log .= Lang::txt('COM_GROUPS_GROUP_PRIVATE_TEXT') . ': ' . stripslashes($group->get('private_desc'))  . "\n";
+		$log .= Lang::txt('COM_GROUPS_GROUP_RESTRICTED_MESSAGE') . ': ' . stripslashes($group->get('restrict_msg')) . "\n";
 
 		// Get number of group members
-		$members  = $this->view->group->get('members');
-		$managers = $this->view->group->get('managers');
+		$members  = $group->get('members');
+		$managers = $group->get('managers');
 
 		// Log ids of group members
 		if ($members)
 		{
-			$log .= Lang::txt('COM_GROUP_MEMBERS') . ': ';
-			foreach ($members as $gu)
-			{
-				$log .= $gu . ' ';
-			}
-			$log .= '' . "\n";
+			$log .= Lang::txt('COM_GROUP_MEMBERS') . ': ' . implode(' ', $members) . "\n";
 		}
-		$log .= Lang::txt('COM_GROUP_MANAGERS') . ': ';
-		foreach ($managers as $gm)
-		{
-			$log .= $gm . ' ';
-		}
-		$log .= '' . "\n";
+		$log .= Lang::txt('COM_GROUP_MANAGERS') . ': ' . implode(' ', $managers) . "\n";
 
 		// Trigger the functions that delete associated content
 		// Should return logs of what was deleted
-		$logs = Event::trigger('groups.onGroupDelete', array($this->view->group));
+		$logs = Event::trigger('groups.onGroupDelete', array($group));
 		if (count($logs) > 0)
 		{
-			$log .= implode('',$logs);
+			$log .= implode('', $logs);
 		}
 
 		// Build the file path
-		$path = PATH_APP . DS . trim($this->config->get('uploadpath', '/site/groups'), DS) . DS . $this->view->group->get('gidNumber');
+		$path = PATH_APP . DS . trim($this->config->get('uploadpath', '/site/groups'), DS) . DS . $group->get('gidNumber');
 		if (is_dir($path))
 		{
 			// Attempt to delete the file
@@ -1068,14 +1083,13 @@ class Groups extends Base
 		}
 
 		//clone the deleted group
-		$deletedgroup = clone($this->view->group);
+		$deletedgroup = clone($group);
 
 		// Delete group
-		if (!$this->view->group->delete())
+		if (!$group->delete())
 		{
-			$this->setNotification($this->view->group->error, 'error');
-			$this->deleteTask();
-			return;
+			$this->setNotification($group->error, 'error');
+			return $this->deleteTask();
 		}
 
 		// Build the "from" info for e-mails
@@ -1090,7 +1104,7 @@ class Groups extends Base
 		$eview = new \Hubzero\Component\View(array('name' => 'emails','layout' => 'deleted'));
 		$eview->option   = $this->_option;
 		$eview->sitename = Config::get('sitename');
-		$eview->user     = User::getRoot();
+		$eview->user     = User::getInstance();
 		$eview->gcn      = $deletedgroup->get('cn');
 		$eview->msg      = $message;
 		$eview->group    = $deletedgroup;
@@ -1101,7 +1115,7 @@ class Groups extends Base
 		$groupMembers = array();
 		foreach ($members as $member)
 		{
-			$profile = \Hubzero\User\Profile::getInstance($member);
+			$profile = User::getInstance($member);
 			if ($profile)
 			{
 				$groupMembers[$profile->get('email')] = $profile->get('name');
@@ -1129,24 +1143,46 @@ class Groups extends Base
 			'comments'  => $log
 		));
 
+		// Log activity
+		$recipients = array(
+			['group', $deletedgroup->get('gidNumber')],
+			['user', User::get('id')]
+		);
+		foreach ($managers as $recipient)
+		{
+			$recipients[] = ['user', $recipient];
+		}
+
+		Event::trigger('system.logActivity', [
+			'activity' => [
+				'action'      => 'deleted',
+				'scope'       => 'group',
+				'scope_id'    => $deletedgroup->get('gidNumber'),
+				'description' => Lang::txt('COM_GROUPS_ACTIVITY_GROUP_DELETED', '<a href="' . Route::url('index.php?option=' . $this->_option . '&cn=' . $deletedgroup->get('cn')) . '">' . $deletedgroup->get('description') . '</a>'),
+				'details'     => array(
+					'title'     => $deletedgroup->get('description'),
+					'url'       => Route::url('index.php?option=' . $this->_option . '&cn=' . $deletedgroup->get('cn')),
+					'cn'        => $deletedgroup->get('cn'),
+					'gidNumber' => $deletedgroup->get('gidNumber')
+				)
+			],
+			'recipients' => $recipients
+		]);
+
 		// Redirect back to the groups page
 		$this->setNotification(Lang::txt('COM_GROUPS_DELETE_SUCCESS', $deletedgroup->get('description')), 'passed');
 		App::redirect(Route::url('index.php?option=' . $this->_option));
-		return;
 	}
 
 	/**
 	 * View to Suggest User to Create Group
 	 *
-	 * @return     array
+	 * @return  array
 	 */
 	public function suggestNonExistingGroupTask()
 	{
 		// throw 404 error
 		header("HTTP/1.0 404 Not Found");
-
-		// set the neeced layout
-		$this->view->setLayout('suggest');
 
 		//set notification
 		$this->setNotification(
@@ -1155,49 +1191,49 @@ class Groups extends Base
 		);
 
 		// get view notifications
-		$this->view->notifications = ($this->getNotifications()) ? $this->getNotifications() : array();
-
-		//set some vars for view
-		$this->view->title = "Groups";
+		$notifications = ($this->getNotifications()) ? $this->getNotifications() : array();
 
 		//display view
-		$this->view->display();
+		$this->view
+			->set('title', 'Groups')
+			->set('notifications', $notifications)
+			->setLayout('suggest')
+			->display();
 	}
 
 	/**
 	 * Group is Unapproved
 	 *
-	 * @return     array
+	 * @return  array
 	 */
 	public function unapprovedGroupTask()
 	{
-		// set the neeced layout
-		$this->view->setLayout('unapproved');
-
 		// get view notifications
-		$this->view->notifications = ($this->getNotifications()) ? $this->getNotifications() : array();
-
-		//set some vars for view
-		$this->view->title = "Group: Unapproved";
+		$notifications = ($this->getNotifications()) ? $this->getNotifications() : array();
 
 		//display view
-		$this->view->display();
+		$this->view
+			->set('title', 'Group: Unapproved')
+			->set('notifications', $notifications)
+			->setLayout('unapproved')
+			->display();
 	}
 
 	/**
 	 * Return data for the autocompleter
 	 *
-	 * @return     string JSON
+	 * @return  string  JSON
 	 */
 	public function autocompleteTask()
 	{
-		$filters = array();
-		$filters['limit']  = 20;
-		$filters['start']  = 0;
-		$filters['search'] = trim(Request::getString('value', ''));
+		$filters = array(
+			'limit'  => 20,
+			'start'  => 0,
+			'search' => trim(Request::getString('value', ''))
+		);
 
 		$query = "SELECT t.gidNumber, t.cn, t.description
-					FROM #__xgroups AS t
+					FROM `#__xgroups` AS t
 					WHERE (t.type=1 OR t.type=3) AND (LOWER(t.cn) LIKE '%" . $filters['search'] . "%' OR LOWER(t.description) LIKE '%" . $filters['search'] . "%')
 					ORDER BY t.description ASC";
 
@@ -1213,7 +1249,6 @@ class Groups extends Base
 				$name = str_replace("\n", '', stripslashes(trim($row->description)));
 				$name = str_replace("\r", '', $name);
 
-				//$json[] = '{"id":"'.$row->cn.'","name":"'.htmlentities($name,ENT_COMPAT,'UTF-8').'"}';
 				$item = array(
 					'id'   => $row->cn,
 					'name' => $name
@@ -1222,13 +1257,13 @@ class Groups extends Base
 			}
 		}
 
-		echo json_encode($json); //'[' . implode(',',$json) . ']';
+		echo json_encode($json);
 	}
 
 	/**
 	 * Get a list of members
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function memberslistTask()
 	{
@@ -1274,12 +1309,11 @@ class Groups extends Base
 		echo '{"members":[' . implode(',', $json) . ']}';
 	}
 
-
 	/**
 	 * Get a group's availability
 	 *
-	 * @param      object $group Group
-	 * @return     string
+	 * @param   object  $group  Group
+	 * @return  string
 	 */
 	public function groupavailabilityTask($group = NULL)
 	{
@@ -1307,20 +1341,17 @@ class Groups extends Base
 			echo json_encode(array('available' => $availability));
 			return;
 		}
-		else
-		{
-			return $availability;
-		}
-	}
 
+		return $availability;
+	}
 
 	/**
 	 * Download a file
 	 *
-	 * @param      string $filename File name
-	 * @return     void
+	 * @param   string  $filename  File name
+	 * @return  void
 	 */
-	public function downloadTask($filename = "")
+	public function downloadTask($filename = '')
 	{
 		//get the group
 		$group = Group::getInstance($this->cn);
@@ -1369,8 +1400,8 @@ class Groups extends Base
 			}
 
 			//load wiki page from db
-			require_once(PATH_CORE . DS . 'components' . DS . 'com_wiki' . DS . 'tables' . DS . 'page.php');
-			$page = new \Components\Wiki\Tables\Page($this->database);
+			require_once(PATH_CORE . DS . 'components' . DS . 'com_wiki' . DS . 'models' . DS . 'page.php');
+			$page = new \Components\Wiki\Models\Page();
 
 			$pagename = Request::getVar('pagename');
 			$scope = Request::getVar('scope', $group->get('cn') . DS . 'wiki');
@@ -1386,8 +1417,10 @@ class Groups extends Base
 					}
 					$scope = implode('/', $parts);
 				}
+				$scope = str_replace($group->get('cn') . '/wiki', '', $scope);
+				$scope = ($scope ? trim($scope, '/') . '/' : $scope);
 			}
-			$page->load($pagename, $scope);
+			$page = \Components\Wiki\Models\Page::oneByPath($scope . $pagename, 'group', $group->get('gidNumber'));
 
 			//check specific wiki page access
 			if ($page->get('access') == 1 && !in_array(User::get('id'), $group->get('members')) && $authorized != 'admin')
@@ -1501,11 +1534,8 @@ class Groups extends Base
 		{
 			App::abort(404, Lang::txt('COM_GROUPS_SERVER_ERROR'));
 		}
-		else
-		{
-			exit;
-		}
-		return;
+
+		exit;
 	}
 
 	/**

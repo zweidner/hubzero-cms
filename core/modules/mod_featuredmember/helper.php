@@ -33,9 +33,7 @@
 namespace Modules\Featuredmember;
 
 use Hubzero\Module\Module;
-use Hubzero\User\Profile;
 use Hubzero\Config\Registry;
-use MembersProfile;
 use Component;
 use User;
 
@@ -51,12 +49,10 @@ class Helper extends Module
 	 */
 	public function run()
 	{
-		include_once(Component::path('com_members') . DS . 'tables' . DS . 'profile.php');
-		include_once(Component::path('com_members') . DS . 'tables' . DS . 'association.php');
+		include_once(Component::path('com_members') . DS . 'models' . DS . 'member.php');
 
 		$database = \App::get('db');
 		$this->row = null;
-		$this->profile = null;
 
 		// Randomly choose one
 		$filters = array(
@@ -65,26 +61,20 @@ class Helper extends Module
 			'start'      => 0,
 			'sortby'     => "RAND()",
 			'search'     => '',
-			'authorized' => false,
-			'show'       => trim($this->params->get('show'))
+			'authorized' => false
 		);
 		if ($min = $this->params->get('min_contributions'))
 		{
 			$filters['contributions'] = $min;
 		}
 
-		$mp = new \Components\Members\Tables\Profile($database);
-
-		$rows = $mp->getRecords($filters, false);
-		if (count($rows) > 0)
-		{
-			$this->row = $rows[0];
-		}
+		$query = "SELECT id FROM `#__users` WHERE `block`=0 ORDER BY RAND() LIMIT 1";
+		$db->setQuery($query);
 
 		// Load their bio
-		$this->profile = Profile::getInstance($this->row->uidNumber);
+		$this->row = User::oneOrNew($row->loadResult());
 
-		if (trim(strip_tags($this->profile->get('bio'))) == '')
+		if (trim(strip_tags($this->row->get('bio'))) == '')
 		{
 			return '';
 		}
@@ -97,31 +87,9 @@ class Helper extends Module
 
 			$config = Component::params('com_members');
 
-			$rparams = new Registry($this->profile->get('params'));
+			$rparams = new Registry($this->row->get('params'));
 			$this->params = $config;
 			$this->params->merge($rparams);
-
-			if ($this->params->get('access_bio') == 0
-			 || ($this->params->get('access_bio') == 1 && !User::isGuest())
-			)
-			{
-				$this->txt = $this->profile->getBio('parsed');
-			}
-			else
-			{
-				$this->txt = '';
-			}
-
-			// Member profile
-			$this->title = $this->row->name;
-			if (!trim($this->title))
-			{
-				$this->title = $this->row->givenName . ' ' . $this->row->surname;
-			}
-			$this->id = $this->row->uidNumber;
-
-			$this->thumb   = $this->profile->getPicture();
-			$this->filters = $filters;
 
 			require $this->getLayoutPath();
 		}
@@ -143,4 +111,3 @@ class Helper extends Module
 		$this->run();
 	}
 }
-

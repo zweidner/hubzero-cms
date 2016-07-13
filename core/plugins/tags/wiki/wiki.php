@@ -78,11 +78,6 @@ class plgTagsWiki extends \Hubzero\Plugin\Plugin
 			$ids[] = $tag->get('id');
 		}
 
-		include_once(PATH_CORE . DS . 'components' . DS . 'com_wiki' . DS . 'tables' . DS . 'page.php');
-
-		// Instantiate some needed objects
-		$wp = new \Components\Wiki\Tables\Page($database);
-
 		// Build query
 		$filters = array();
 		$filters['tags'] = $ids;
@@ -145,19 +140,14 @@ class plgTagsWiki extends \Hubzero\Plugin\Plugin
 		if (!User::isGuest())
 		{
 			$groupAuth[] = 'xg.plugins LIKE \'%wiki=registered%\'';
-			$profile = \Hubzero\User\Profile::getInstance(User::get('id'));
 			$gids = array();
-			$profileGroups = $profile->getGroups();
-			if (!empty($profileGroups))
+			foreach (User::groups() as $group)
 			{
-				foreach ($profile->getGroups() as $group)
-				{
-					$gids[] = $group->gidNumber;
-				}
-				if (count($gids) > 0)
-				{
-					$groupAuth[] = '(xg.plugins LIKE \'%wiki=members%\' AND xg.gidNumber IN (' . join(',', $gids) . '))';
-				}
+				$gids[] = $group->gidNumber;
+			}
+			if (count($gids) > 0)
+			{
+				$groupAuth[] = '(xg.plugins LIKE \'%wiki=members%\' AND xg.gidNumber IN (' . join(',', $gids) . '))';
 			}
 		}
 
@@ -165,20 +155,20 @@ class plgTagsWiki extends \Hubzero\Plugin\Plugin
 		{
 			if (isset($filters['tags']))
 			{
-				$query = "SELECT COUNT(f.id) FROM (SELECT v.pageid AS id, COUNT(DISTINCT t.tagid) AS uniques ";
+				$query = "SELECT COUNT(f.id) FROM (SELECT v.page_id AS id, COUNT(DISTINCT t.tagid) AS uniques ";
 			}
 			else
 			{
-				$query = "SELECT COUNT(*) FROM (SELECT COUNT(DISTINCT v.pageid) ";
+				$query = "SELECT COUNT(*) FROM (SELECT COUNT(DISTINCT v.page_id) ";
 			}
 		}
 		else
 		{
-			$query = "SELECT v.pageid AS id, w.title, w.pagename AS alias, v.pagetext AS itext, v.pagehtml AS ftext, w.state, v.created, v.created_by,
+			$query = "SELECT v.page_id AS id, w.title, w.pagename AS alias, v.pagetext AS itext, v.pagehtml AS ftext, w.state, v.created, v.created_by,
 						v.created AS modified, v.created AS publish_up, NULL AS publish_down,
 						CASE
-							WHEN w.group_cn LIKE 'pr-%' THEN concat('index.php?option=com_projects&scope=', w.scope, '&pagename=', w.pagename)
-							WHEN w.group_cn != '' THEN CONCAT('index.php?option=com_groups&scope=', w.scope, '&pagename=', w.pagename)
+							WHEN w.scope = 'project' THEN concat('index.php?option=com_projects&scope=', w.path, '&pagename=', w.pagename)
+							WHEN w.scope = 'group' THEN CONCAT('index.php?option=com_groups&scope=', w.path, '&pagename=', w.pagename)
 							ELSE CONCAT('index.php?option=com_wiki&pagename=', w.pagename)
 						END AS href,
 						'wiki' AS section ";
@@ -188,21 +178,21 @@ class plgTagsWiki extends \Hubzero\Plugin\Plugin
 			}
 			$query .= ", w.params, NULL AS rcount, w.scope AS data1, NULL AS data2, NULL AS data3 ";
 		}
-		$query .= "FROM #__wiki_page AS w
-					INNER JOIN #__wiki_version AS v ON v.id=w.version_id
-					LEFT JOIN `#__xgroups` xg ON xg.cn = w.group_cn";
+		$query .= "FROM #__wiki_pages AS w
+					INNER JOIN #__wiki_versions AS v ON v.id=w.version_id
+					LEFT JOIN `#__xgroups` xg ON xg.gidNumber = w.scope_id AND w.scope='group'";
 		if (isset($filters['tags']))
 		{
 			$query .= ", #__tags_object AS t ";
 		}
-		$query .= "WHERE w.id=v.pageid AND v.approved=1 AND w.state < 2 AND (xg.gidNumber IS NULL OR (" . implode(' OR ', $groupAuth) . "))";
+		$query .= "WHERE w.id=v.page_id AND v.approved=1 AND w.state < 2 AND (xg.gidNumber IS NULL OR (" . implode(' OR ', $groupAuth) . "))";
 		if (isset($filters['tags']))
 		{
 			$ids = implode(',', $filters['tags']);
 			$query .= "AND w.id=t.objectid AND t.tbl='wiki' AND t.tagid IN ($ids) ";
 		}
 
-		$query .= "GROUP BY pageid ";
+		$query .= "GROUP BY page_id ";
 		if (isset($filters['tags']))
 		{
 			$query .= "HAVING uniques=" . count($filters['tags']) . " ";

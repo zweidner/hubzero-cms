@@ -63,7 +63,7 @@ class CurrentCart extends Cart
 		parent::__construct();
 
 		// Get user
-		$juser = User::getRoot();
+		$juser = User::getInstance();
 		//print_r($juser); die;
 
 		//Set the user scope
@@ -575,7 +575,7 @@ class CurrentCart extends Cart
 				$sqlUpdateValues = str_replace('tiShipping', 'sa', $sqlUpdateValues);
 
 				// Get user
-				$juser = User::getRoot();
+				$juser = User::getInstance();
 				$uId = $juser->id;
 
 				$sql = "INSERT IGNORE INTO `#__cart_saved_addresses`
@@ -890,7 +890,7 @@ class CurrentCart extends Cart
 		$this->applyCoupon($cnId);
 
 		// If user is logged in subtract coupon use count. If not logged in subtraction will happen when user logs in
-		$juser = User::getRoot();
+		$juser = User::getInstance();
 		if ($juser->id)
 		{
 			$coupons->apply($cnId);
@@ -1358,7 +1358,7 @@ class CurrentCart extends Cart
 		$coupons = new Coupons;
 
 		// If user is logged in return coupon back to the coupons pool.
-		$juser = User::getRoot();
+		$juser = User::getInstance();
 		if ($juser->id)
 		{
 			$coupons->recycle($cnId);
@@ -1409,7 +1409,7 @@ class CurrentCart extends Cart
 				$type = $pType['ptName'];
 
 				// Get user
-				$jUser = User::getRoot();
+				$jUser = User::getInstance();
 
 				// Get the correct membership Object
 				$subscription = \Components\Storefront\Models\Memberships::getSubscriptionObject($type, $itemInfo->pId, $jUser->id);
@@ -1744,7 +1744,7 @@ class CurrentCart extends Cart
 			echo "<br>Creating new cart";
 		}
 
-		$juser = User::getRoot();
+		$juser = User::getInstance();
 
 		$uId = 'NULL';
 		$cart = new \stdClass();
@@ -1801,7 +1801,7 @@ class CurrentCart extends Cart
 		setcookie("cartId", '', time() - $this->cookieTTL); // Set the cookie lifetime in the past
 
 		// Get user
-		$juser = User::getRoot();
+		$juser = User::getInstance();
 
 		// Check if session cart is not someone else's. Otherwise load user's cart and done
 		if ($this->cartIsLinked($this->crtId))

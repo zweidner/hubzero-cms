@@ -25,7 +25,6 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
@@ -33,37 +32,41 @@
 // No direct access
 defined('_HZEXEC_') or die();
 
+if (Pathway::count() <= 0)
+{
+	Pathway::append(
+		Lang::txt('COM_BLOG'),
+		'index.php?option=' . $this->option
+	);
+}
+Pathway::append(
+	$this->row->published('Y'),
+	'index.php?option=' . $this->option . '&year=' . $this->row->published('Y')
+);
+Pathway::append(
+	$this->row->published('m'),
+	'index.php?option=' . $this->option . '&year=' . $this->row->published('Y') . '&month=' . sprintf("%02d", $this->row->published('m'))
+);
+Pathway::append(
+	stripslashes($this->row->get('title')),
+	$this->row->link()
+);
+
+Document::setTitle(Lang::txt('COM_BLOG') . ': ' . stripslashes($this->row->get('title')));
+
 $this->css()
      ->js();
 
-$filters = array(
-	'scope'      => $this->config->get('show_from', 'site'),
-	'scope_id'   => 0,
-	'state'      => 'public',
-	'authorized' => false
-);
-if ($filters['scope'] == 'both')
-{
-	$filters['scope'] = '';
-}
-if (!User::isGuest())
-{
-	$filters['state'] = 'registered';
-
-	if ($this->config->get('access-manage-component'))
-	{
-		$filters['state'] = 'all';
-		$filters['authorized'] = true;
-	}
-}
-
-$first = $this->model->entries('first', $filters);
-
-$entry_year  = substr($this->row->get('publish_up'), 0, 4);
-$entry_month = substr($this->row->get('publish_up'), 5, 2);
+$first = $this->archive->entries(array(
+		'state'      => $this->filters['state'],
+		'authorized' => $this->filters['authorized']
+	))
+	->order('publish_up', 'asc')
+	->limit(1)
+	->row();
 ?>
 <header id="content-header">
-	<h2><?php echo $this->title; ?></h2>
+	<h2><?php echo Lang::txt('COM_BLOG'); ?></h2>
 
 	<div id="content-header-extra">
 		<p>
@@ -81,22 +84,22 @@ $entry_month = substr($this->row->get('publish_up'), 5, 2);
 			<p class="error"><?php echo $this->getError(); ?></p>
 		<?php } ?>
 
-	<?php if ($this->row) { ?>
+		<?php if ($this->row) { ?>
 			<?php
-				$cls = '';
+			$cls = '';
 
-				if (!$this->row->isAvailable())
-				{
-					$cls = ' pending';
-				}
-				if ($this->row->ended())
-				{
-					$cls = ' expired';
-				}
-				if ($this->row->get('state') == 0)
-				{
-					$cls = ' private';
-				}
+			if (!$this->row->isAvailable())
+			{
+				$cls = ' pending';
+			}
+			if ($this->row->ended())
+			{
+				$cls = ' expired';
+			}
+			if ($this->row->get('state') == 0)
+			{
+				$cls = ' private';
+			}
 			?>
 			<div class="entry<?php echo $cls; ?>" id="e<?php echo $this->row->get('id'); ?>">
 
@@ -120,10 +123,17 @@ $entry_month = substr($this->row->get('publish_up'), 5, 2);
 							<?php echo $this->row->published('time'); ?>
 						</time>
 					</dd>
-				<?php if ($this->row->get('allow_comments')) { ?>
+				<?php if ($this->row->get('allow_comments')) {
+					$comments = $this->row->comments()
+						->whereIn('state', array(
+							Components\Blog\Models\Comment::STATE_PUBLISHED,
+							Components\Blog\Models\Comment::STATE_FLAGGED
+						))
+						->count();
+					?>
 					<dd class="comments">
 						<a href="<?php echo Route::url($this->row->link('comments')); ?>">
-							<?php echo Lang::txt('COM_BLOG_NUM_COMMENTS', $this->row->comments('count')); ?>
+							<?php echo Lang::txt('COM_BLOG_NUM_COMMENTS', $comments); ?>
 						</a>
 					</dd>
 				<?php } else { ?>
@@ -134,8 +144,8 @@ $entry_month = substr($this->row->get('publish_up'), 5, 2);
 					</dd>
 				<?php } ?>
 				<?php if (User::get('id') == $this->row->get('created_by') || User::authorise('core.manage', $this->option)) { ?>
-					<dd class="state">
-						<?php echo Lang::txt('COM_BLOG_STATE_' . strtoupper($this->row->state('text'))); ?>
+					<dd class="state <?php echo strtolower($this->row->visibility('text')); ?>">
+						<?php echo $this->row->visibility('text'); ?>
 					</dd>
 					<dd class="entry-options">
 						<a class="edit" href="<?php echo Route::url($this->row->link('edit')); ?>" title="<?php echo Lang::txt('COM_BLOG_EDIT'); ?>">
@@ -149,134 +159,140 @@ $entry_month = substr($this->row->get('publish_up'), 5, 2);
 				</dl>
 
 				<div class="entry-content">
-					<?php echo $this->row->content('parsed'); ?>
+					<?php echo $this->row->content; ?>
 					<?php echo $this->row->tags('cloud'); ?>
 				</div>
 
 				<?php
 				if ($this->config->get('show_authors'))
 				{
-					if ($name = $this->row->creator()->get('name'))
+					if ($name = $this->row->creator->get('name'))
 					{
 						$name = $this->escape(stripslashes($name));
-				?>
-					<div class="entry-author">
-						<h3><?php echo Lang::txt('COM_BLOG_AUTHOR_ABOUT'); ?></h3>
-						<p class="entry-author-photo">
-							<img src="<?php echo $this->row->creator('picture'); ?>" alt="" />
-						</p>
-						<div class="entry-author-content">
-							<h4>
-								<?php if ($this->row->creator()->get('public')) { ?>
-									<a href="<?php echo Route::url($this->row->creator()->getLink()); ?>">
+						?>
+						<div class="entry-author">
+							<h3><?php echo Lang::txt('COM_BLOG_AUTHOR_ABOUT'); ?></h3>
+							<p class="entry-author-photo">
+								<img src="<?php echo $this->row->creator->picture(); ?>" alt="" />
+							</p>
+							<div class="entry-author-content">
+								<h4>
+									<?php if (in_array($this->row->creator->get('access'), User::getAuthorisedViewLevels())) { ?>
+										<a href="<?php echo Route::url($this->row->creator->link()); ?>">
+											<?php echo $name; ?>
+										</a>
+									<?php } else { ?>
 										<?php echo $name; ?>
-									</a>
-								<?php } else { ?>
-									<?php echo $name; ?>
-								<?php } ?>
-							</h4>
-							<div class="entry-author-bio">
-							<?php if ($this->row->creator('bio')) { ?>
-								<?php echo $this->row->creator()->getBio('parsed', 300); ?>
-							<?php } else { ?>
-								<em><?php echo Lang::txt('COM_BLOG_AUTHOR_NO_BIO'); ?></em>
-							<?php } ?>
-							</div>
-							<div class="clearfix"></div>
-						</div><!-- / .entry-author-content -->
-					</div><!-- / .entry-author -->
-				<?php
+									<?php } ?>
+								</h4>
+								<div class="entry-author-bio">
+									<?php if ($this->row->creator->get('bio')) { ?>
+										<?php echo $this->row->creator->get('bio'); ?>
+									<?php } else { ?>
+										<em><?php echo Lang::txt('COM_BLOG_AUTHOR_NO_BIO'); ?></em>
+									<?php } ?>
+								</div>
+								<div class="clearfix"></div>
+							</div><!-- / .entry-author-content -->
+						</div><!-- / .entry-author -->
+						<?php
 					}
 				}
 				?>
 			</div><!-- / .entry -->
-	<?php } ?>
+		<?php } ?>
 		</div><!-- / .subject -->
 
 		<aside class="aside hide6">
-		<?php if ($this->config->get('access-create-entry')) { ?>
-			<p>
-				<a class="icon-add add btn" href="<?php echo Route::url('index.php?option=' . $this->option . '&task=new'); ?>">
-					<?php echo Lang::txt('COM_BLOG_NEW_ENTRY'); ?>
-				</a>
-			</p>
-		<?php } ?>
+			<?php if ($this->config->get('access-create-entry')) { ?>
+				<p>
+					<a class="icon-add add btn" href="<?php echo Route::url('index.php?option=' . $this->option . '&task=new'); ?>">
+						<?php echo Lang::txt('COM_BLOG_NEW_ENTRY'); ?>
+					</a>
+				</p>
+			<?php } ?>
 
 			<div class="container blog-entries-years">
 				<h4><?php echo Lang::txt('COM_BLOG_ENTRIES_BY_YEAR'); ?></h4>
 				<ol>
-			<?php
-			if ($first->exists()) {
-				$start = intval(substr($first->get('publish_up'), 0, 4));
-				$now = Date::of('now')->format("Y");
-				//$mon = date("m");
-				for ($i=$now, $n=$start; $i >= $n; $i--)
+				<?php
+				if ($first->get('id'))
 				{
-			?>
-				<li>
-					<a href="<?php echo Route::url('index.php?option=' . $this->option . '&year=' . $i); ?>">
-						<?php echo $i; ?>
-					</a>
-				<?php if ($i == $entry_year) { ?>
-					<ol>
-					<?php
-						$months = array(
-							'01' => Lang::txt('COM_BLOG_JANUARY'),
-							'02' => Lang::txt('COM_BLOG_FEBRUARY'),
-							'03' => Lang::txt('COM_BLOG_MARCH'),
-							'04' => Lang::txt('COM_BLOG_APRIL'),
-							'05' => Lang::txt('COM_BLOG_MAY'),
-							'06' => Lang::txt('COM_BLOG_JUNE'),
-							'07' => Lang::txt('COM_BLOG_JULY'),
-							'08' => Lang::txt('COM_BLOG_AUGUST'),
-							'09' => Lang::txt('COM_BLOG_SEPTEMBER'),
-							'10' => Lang::txt('COM_BLOG_OCTOBER'),
-							'11' => Lang::txt('COM_BLOG_NOVEMBER'),
-							'12' => Lang::txt('COM_BLOG_DECEMBER')
-						);
-						foreach ($months as $key => $month)
-						{
-							if (intval($key) <= $entry_month)
-							{
-							?>
+					$entry_year  = substr($this->row->get('publish_up'), 0, 4);
+					$entry_month = substr($this->row->get('publish_up'), 5, 2);
+
+					$start = intval(substr($first->get('publish_up'), 0, 4));
+					$now = Date::of('now')->format("Y");
+					//$mon = date("m");
+					for ($i=$now, $n=$start; $i >= $n; $i--)
+					{
+						?>
 						<li>
-							<a <?php if ($entry_month == $key) { echo 'class="active" '; } ?>href="<?php echo Route::url('index.php?option=' . $this->option . '&year=' . $i . '&month=' . $key); ?>">
-								<?php echo $month; ?>
+							<a href="<?php echo Route::url('index.php?option=' . $this->option . '&year=' . $i); ?>">
+								<?php echo $i; ?>
 							</a>
+							<?php if ($i == $entry_year) { ?>
+								<ol>
+									<?php
+									$months = array(
+										'01' => Lang::txt('COM_BLOG_JANUARY'),
+										'02' => Lang::txt('COM_BLOG_FEBRUARY'),
+										'03' => Lang::txt('COM_BLOG_MARCH'),
+										'04' => Lang::txt('COM_BLOG_APRIL'),
+										'05' => Lang::txt('COM_BLOG_MAY'),
+										'06' => Lang::txt('COM_BLOG_JUNE'),
+										'07' => Lang::txt('COM_BLOG_JULY'),
+										'08' => Lang::txt('COM_BLOG_AUGUST'),
+										'09' => Lang::txt('COM_BLOG_SEPTEMBER'),
+										'10' => Lang::txt('COM_BLOG_OCTOBER'),
+										'11' => Lang::txt('COM_BLOG_NOVEMBER'),
+										'12' => Lang::txt('COM_BLOG_DECEMBER')
+									);
+									foreach ($months as $key => $month)
+									{
+										if (intval($key) <= $entry_month)
+										{
+										?>
+										<li>
+											<a <?php if ($entry_month == $key) { echo 'class="active" '; } ?>href="<?php echo Route::url('index.php?option=' . $this->option . '&year=' . $i . '&month=' . $key); ?>">
+												<?php echo $month; ?>
+											</a>
+										</li>
+										<?php
+										}
+									}
+									?>
+								</ol>
+							<?php } ?>
 						</li>
-							<?php
-							}
-						}
-					?>
-					</ol>
-			<?php } ?>
-				</li>
-			<?php
-				}
-			} else { ?>
-				<p><?php echo Lang::txt('COM_BLOG_NO_ENTRIES_FOUND'); ?></p>
-			<?php } ?>
+						<?php
+					}
+				} else { ?>
+					<p><?php echo Lang::txt('COM_BLOG_NO_ENTRIES_FOUND'); ?></p>
+				<?php } ?>
 				</ol>
 			</div><!-- / .blog-entries-years -->
 
 			<div class="container blog-popular-entries">
 				<h4><?php echo Lang::txt('COM_BLOG_POPULAR_ENTRIES'); ?></h4>
-			<?php
-			$filters['limit'] = 5;
-			$popular = $this->model->entries('popular', $filters);
-			if ($popular->total()) { ?>
-				<ol>
-				<?php foreach ($popular as $row) { ?>
-					<li>
-						<a href="<?php echo Route::url($row->link()); ?>">
-							<?php echo $this->escape(stripslashes($row->get('title'))); ?>
-						</a>
-					</li>
+				<?php
+				$popular = $this->archive->entries()
+						->order('hits', 'desc')
+						->limit(5)
+						->rows();
+				if ($popular->count()) { ?>
+					<ol>
+					<?php foreach ($popular as $row) { ?>
+						<li>
+							<a href="<?php echo Route::url($row->link()); ?>">
+								<?php echo $this->escape(stripslashes($row->get('title'))); ?>
+							</a>
+						</li>
+					<?php } ?>
+					</ol>
+				<?php } else { ?>
+					<p><?php echo Lang::txt('COM_BLOG_NO_ENTRIES_FOUND'); ?></p>
 				<?php } ?>
-				</ol>
-			<?php } else { ?>
-				<p><?php echo Lang::txt('COM_BLOG_NO_ENTRIES_FOUND'); ?></p>
-			<?php } ?>
 			</div><!-- / .blog-popular-entries -->
 		</aside><!-- / .aside -->
 	</div><!-- / .section-inner -->
@@ -290,17 +306,26 @@ $entry_month = substr($this->row->get('publish_up'), 5, 2);
 				<?php echo Lang::txt('COM_BLOG_COMMENTS_HEADER'); ?>
 			</h3>
 
-		<?php if ($this->row->comments('count') > 0) { ?>
-			<?php
-				$this->view('_list')
-					 ->set('parent', 0)
-					 ->set('option', $this->option)
-					 ->set('comments', $this->row->comments('list'))
-					 ->set('config', $this->config)
-					 ->set('depth', 0)
-					 ->set('cls', 'odd')
-					 ->set('base', $this->row->link())
-					 ->display();
+		<?php
+		$comments = $this->row->comments()
+			->whereIn('state', array(
+				Components\Blog\Models\Comment::STATE_PUBLISHED,
+				Components\Blog\Models\Comment::STATE_FLAGGED
+			))
+			->whereEquals('parent', 0)
+			->ordered()
+			->rows();
+
+		if ($comments->count() > 0) {
+			$this->view('_list')
+				->set('parent', 0)
+				->set('option', $this->option)
+				->set('comments', $comments)
+				->set('config', $this->config)
+				->set('depth', 0)
+				->set('cls', 'odd')
+				->set('base', $this->row->link())
+				->display();
 			?>
 		<?php } else { ?>
 			<p class="no-comments">
@@ -314,57 +339,56 @@ $entry_month = substr($this->row->get('publish_up'), 5, 2);
 
 			<form method="post" action="<?php echo Route::url($this->row->link()); ?>" id="commentform">
 				<p class="comment-member-photo">
-					<?php
-					$jxuser = new \Hubzero\User\Profile;
-					if (!User::isGuest()) {
-						$jxuser = \Hubzero\User\Profile::getInstance(User::get('id'));
-						$anonymous = 0;
-					} else {
-						$anonymous = 1;
-					}
-					?>
-					<img src="<?php echo $jxuser->getPicture($anonymous); ?>" alt="" />
+					<img src="<?php echo User::picture(User::isGuest() ? 1 : 0); ?>" alt="" />
 				</p>
 				<fieldset>
-				<?php
-				$replyto = $this->row->comment(Request::getInt('reply', 0));
-				if (!User::isGuest())
-				{
-					if ($replyto->exists())
-					{
-						$name = Lang::txt('COM_BLOG_ANONYMOUS');
-						if (!$replyto->get('anonymous'))
-						{
-							$name = $this->escape(stripslashes($replyto->creator('name', $name)));
-							if ($replyto->creator('public'))
-							{
-								$name = '<a href="' . Route::url($replyto->creator()->getLink()) . '">' . $name . '</a>';
-							}
-						}
-					?>
-					<blockquote cite="c<?php echo $replyto->get('id'); ?>">
-						<p>
-							<strong><?php echo $name; ?></strong>
-							<span class="comment-date-at"><?php echo Lang::txt('COM_BLOG_AT'); ?></span>
-							<span class="time"><time datetime="<?php echo $replyto->get('created'); ?>"><?php echo $replyto->created('time'); ?></time></span>
-							<span class="comment-date-on"><?php echo Lang::txt('COM_BLOG_ON'); ?></span>
-							<span class="date"><time datetime="<?php echo $replyto->get('created'); ?>"><?php echo $replyto->created('date'); ?></time></span>
-						</p>
-						<p>
-							<?php echo \Hubzero\Utility\String::truncate(stripslashes($replyto->get('content')), 300); ?>
-						</p>
-					</blockquote>
 					<?php
-					}
-				}
-				?>
-					<?php if (!User::isGuest()) { ?>
-					<label for="commentcontent">
-						Your <?php echo ($replyto->exists()) ? 'reply' : 'comments'; ?>:
-						<?php
-							echo $this->editor('comment[content]', '', 40, 15, 'commentcontent', array('class' => 'minimal no-footer'));
+					$replyto = $this->row->comments()
+						->whereEquals('id', Request::getInt('reply', 0))
+						->whereIn('state', array(
+							Components\Blog\Models\Comment::STATE_PUBLISHED,
+							Components\Blog\Models\Comment::STATE_FLAGGED
+						))
+						->row();
+
+					if (!User::isGuest())
+					{
+						if ($replyto->get('id'))
+						{
+							$name = Lang::txt('COM_BLOG_ANONYMOUS');
+							if (!$replyto->get('anonymous'))
+							{
+								$name = $this->escape(stripslashes($replyto->creator->get('name', $name)));
+								if (in_array($replyto->creator->get('access'), User::getAuthorisedViewLevels()))
+								{
+									$name = '<a href="' . Route::url($replyto->creator->link()) . '">' . $name . '</a>';
+								}
+							}
 						?>
-					</label>
+						<blockquote cite="c<?php echo $replyto->get('id'); ?>">
+							<p>
+								<strong><?php echo $name; ?></strong>
+								<span class="comment-date-at"><?php echo Lang::txt('COM_BLOG_AT'); ?></span>
+								<span class="time"><time datetime="<?php echo $replyto->get('created'); ?>"><?php echo $replyto->created('time'); ?></time></span>
+								<span class="comment-date-on"><?php echo Lang::txt('COM_BLOG_ON'); ?></span>
+								<span class="date"><time datetime="<?php echo $replyto->get('created'); ?>"><?php echo $replyto->created('date'); ?></time></span>
+							</p>
+							<p>
+								<?php echo \Hubzero\Utility\String::truncate(stripslashes($replyto->get('content')), 300); ?>
+							</p>
+						</blockquote>
+						<?php
+						}
+					}
+					?>
+
+					<?php if (!User::isGuest()) { ?>
+						<label for="commentcontent">
+							Your <?php echo ($replyto->get('id')) ? 'reply' : 'comments'; ?>:
+							<?php
+								echo $this->editor('comment[content]', '', 40, 15, 'commentcontent', array('class' => 'minimal no-footer'));
+							?>
+						</label>
 					<?php } else { ?>
 					<input type="hidden" name="comment[content]" id="commentcontent" value="" />
 
@@ -373,16 +397,17 @@ $entry_month = substr($this->row->get('publish_up'), 5, 2);
 					</p>
 					<?php } ?>
 
-				<?php if (!User::isGuest()) { ?>
-					<label id="comment-anonymous-label">
-						<input class="option" type="checkbox" name="comment[anonymous]" id="comment-anonymous" value="1" />
-						<?php echo Lang::txt('COM_BLOG_POST_ANONYMOUS'); ?>
-					</label>
+					<?php if (!User::isGuest()) { ?>
+						<label id="comment-anonymous-label">
+							<input class="option" type="checkbox" name="comment[anonymous]" id="comment-anonymous" value="1" />
+							<?php echo Lang::txt('COM_BLOG_POST_ANONYMOUS'); ?>
+						</label>
 
-					<p class="submit">
-						<input type="submit" name="submit" value="<?php echo Lang::txt('COM_BLOG_SUBMIT'); ?>" />
-					</p>
-				<?php } ?>
+						<p class="submit">
+							<input type="submit" name="submit" value="<?php echo Lang::txt('COM_BLOG_SUBMIT'); ?>" />
+						</p>
+					<?php } ?>
+
 					<input type="hidden" name="comment[id]" value="0" />
 					<input type="hidden" name="comment[entry_id]" value="<?php echo $this->row->get('id'); ?>" />
 					<input type="hidden" name="comment[parent]" value="<?php echo $replyto->get('id'); ?>" />
@@ -416,7 +441,7 @@ $entry_month = substr($this->row->get('publish_up'), 5, 2);
 						{
 							$live_site = rtrim(Request::base(), '/');
 
-							$feed = rtrim($live_site, DS) . DS . ltrim($feed, DS);
+							$feed = rtrim($live_site, '/') . '/' . ltrim($feed, '/');
 						}
 						$feed = str_replace('https:://', 'http://', $feed);
 					?>
@@ -426,4 +451,4 @@ $entry_month = substr($this->row->get('publish_up'), 5, 2);
 		</aside><!-- / .aside -->
 	</div><!-- / .section-inner -->
 </section><!-- / .below section -->
-<?php } ?>
+<?php }

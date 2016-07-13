@@ -422,7 +422,7 @@ class plgGroupsMessages extends \Hubzero\Plugin\Plugin
 		$recipients = array();
 		foreach ($mbrs as $mbr)
 		{
-			if ($profile = \Hubzero\User\Profile::getInstance($mbr))
+			if ($profile = User::getInstance($mbr))
 			{
 				$recipients[$profile->get('email')] = $profile->get('name');
 			}
@@ -433,7 +433,7 @@ class plgGroupsMessages extends \Hubzero\Plugin\Plugin
 		{
 			// Get invite emails
 			$db = App::get('db');
-			$group_inviteemails = new \Hubzero\User\Group\InviteEmail($db);
+			$group_inviteemails = new \Hubzero\User\Group\InviteEmail();
 			$current_inviteemails = $group_inviteemails->getInviteEmails($this->group->get('gidNumber'), true);
 
 			foreach ($current_inviteemails as $current_inviteemail)
@@ -481,7 +481,7 @@ class plgGroupsMessages extends \Hubzero\Plugin\Plugin
 		{
 			// Get invite emails
 			$db = App::get('db');
-			$group_inviteemails = new \Hubzero\User\Group\InviteEmail($db);
+			$group_inviteemails = new \Hubzero\User\Group\InviteEmail();
 			$current_inviteemails = $group_inviteemails->getInviteEmails($this->group->get('gidNumber'), true);
 
 			$headers  = 'From: ' . $from['name'] . ' <' . $from['email'] . '>' . "\r\n";

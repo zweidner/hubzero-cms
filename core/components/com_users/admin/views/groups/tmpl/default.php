@@ -16,7 +16,7 @@ Html::addIncludePath(JPATH_COMPONENT.'/helpers/html');
 Html::behavior('tooltip');
 Html::behavior('multiselect');
 
-$user      = User::getRoot();
+$user      = User::getInstance();
 $listOrder = $this->escape($this->state->get('list.ordering'));
 $listDirn  = $this->escape($this->state->get('list.direction'));
 
@@ -53,7 +53,6 @@ JText::script('COM_USERS_GROUPS_CONFIRM_DELETE');
 			<button type="button" onclick="$('#filter_search').val('');this.form.submit();"><?php echo Lang::txt('JSEARCH_FILTER_CLEAR'); ?></button>
 		</div>
 	</fieldset>
-	<div class="clr"> </div>
 
 	<table class="adminlist">
 		<thead>

@@ -34,9 +34,8 @@ namespace Components\Wiki\Site\Controllers;
 
 use Components\Wiki\Models\Book;
 use Components\Wiki\Models\Page;
-use Components\Wiki\Models\Revision;
+use Components\Wiki\Models\Version;
 use Hubzero\Component\SiteController;
-use Exception;
 use Document;
 use Pathway;
 use Request;
@@ -58,29 +57,28 @@ class History extends SiteController
 	public function __construct($config=array())
 	{
 		$this->_base_path = dirname(__DIR__);
+
 		if (isset($config['base_path']))
 		{
 			$this->_base_path = $config['base_path'];
 		}
 
-		$this->_sub = false;
-		if (isset($config['sub']))
+		if (!isset($config['scope']))
 		{
-			$this->_sub = $config['sub'];
+			$config['scope'] = 'site';
 		}
 
-		$this->_group = false;
-		if (isset($config['group']))
+		if (!isset($config['scope_id']))
 		{
-			$this->_group = $config['group'];
+			$config['scope_id'] = 0;
 		}
 
-		if ($this->_sub)
+		$this->book = new Book($config['scope'], $config['scope_id']);
+
+		if ($config['scope'] != 'site')
 		{
 			Request::setVar('task', Request::getWord('action'));
 		}
-
-		$this->book = new Book(($this->_group ? $this->_group : '__site__'));
 
 		parent::__construct($config);
 	}
@@ -88,11 +86,11 @@ class History extends SiteController
 	/**
 	 * Execute a task
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function execute()
 	{
-		if (!$this->book->pages('count'))
+		/*if (!$this->book->pages('count'))
 		{
 			if ($result = $this->book->scribe($this->_option))
 			{
@@ -100,16 +98,15 @@ class History extends SiteController
 			}
 
 			App::get('config')->get('debug') || App::get('config')->get('profile') ? App::get('profiler')->mark('afterWikiSetup') : null;
-		}
+		}*/
 
 		$this->page = $this->book->page();
 
-		if (in_array($this->page->get('namespace'), array('image', 'file')))
+		if (in_array($this->page->getNamespace(), array('image', 'file')))
 		{
 			App::redirect(
-				'index.php?option=' . $this->_option . '&controller=media&scope=' . $this->page->get('scope') . '&pagename=' . $this->page->get('pagename') . '&task=download'
+				Route::url('index.php?option=' . $this->_option . '&controller=media&scope=' . $this->page->get('scope') . '&pagename=' . $this->page->get('pagename') . '&task=download')
 			);
-			return;
 		}
 
 		if (!$this->page->exists())
@@ -125,21 +122,16 @@ class History extends SiteController
 	/**
 	 * Display a history of the current wiki page
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function displayTask()
 	{
-		$this->view->page      = $this->page;
-		$this->view->config    = $this->config;
-		$this->view->base_path = $this->_base_path;
-		$this->view->sub       = $this->_sub;
-
-		// Prep the pagename for display
-		// e.g. "MainPage" becomes "Main Page"
-		$this->view->title = $this->page->get('title');
-
 		// Set the page's <title> tag
-		Document::setTitle(Lang::txt(strtoupper($this->_option)) . ': ' . $this->view->title . ': ' . Lang::txt(strtoupper($this->_option . '_' . $this->_task)));
+		Document::setTitle(
+			Lang::txt(strtoupper($this->_option)) . ': ' .
+			$this->page->title . ': ' .
+			Lang::txt(strtoupper($this->_option . '_' . $this->_task))
+		);
 
 		// Set the pathway
 		if (Pathway::count() <= 0)
@@ -151,41 +143,22 @@ class History extends SiteController
 		}
 
 		$parents = array();
-		if ($scope = $this->page->get('scope'))
+
+		if ($this->page->get('parent'))
 		{
-			$s = array();
-			if ($cn = $this->page->get('group_cn'))
+			$parents = $this->page->ancestors();
+
+			foreach ($parents as $p)
 			{
-				$scope = substr($scope, strlen($cn . '/wiki'));
-				$s[] = $cn;
-				$s[] = 'wiki';
-			}
-			$scope = trim($scope, '/');
-			if ($scope)
-			{
-				$bits = explode('/', $scope);
-				foreach ($bits as $bit)
-				{
-					$bit = trim($bit);
-					if ($bit != '/' && $bit != '')
-					{
-						$p = Page::getInstance($bit, implode('/', $s));
-						if ($p->exists())
-						{
-							Pathway::append(
-								$p->get('title'),
-								$p->link()
-							);
-							$parents[] = $p;
-						}
-						$s[] = $bit;
-					}
-				}
+				Pathway::append(
+					$p->get('title'),
+					$p->link()
+				);
 			}
 		}
 
 		Pathway::append(
-			$this->view->title,
+			$this->page->title,
 			$this->page->link()
 		);
 		Pathway::append(
@@ -193,15 +166,11 @@ class History extends SiteController
 			$this->page->link() . '&' . ($this->_sub ? 'action' : 'task') . '=' . $this->_task
 		);
 
-		$this->view->message = $this->_message;
-
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
-		}
-
 		$this->view
 			->set('parents', $parents)
+			->set('page', $this->page)
+			->set('sub', $this->page->get('scope') != 'site')
+			->setErrors($this->getErrors())
 			->setLayout('display')
 			->display();
 	}
@@ -209,16 +178,11 @@ class History extends SiteController
 	/**
 	 * Compare two versions of a wiki page
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function compareTask()
 	{
 		include_once(dirname(dirname(__DIR__)) . DS . 'helpers' . DS . 'differenceengine.php');
-
-		$this->view->page      = $this->page;
-		$this->view->config    = $this->config;
-		$this->view->base_path = $this->_base_path;
-		$this->view->sub       = $this->_sub;
 
 		// Incoming
 		$oldid = Request::getInt('oldid', 0);
@@ -228,36 +192,34 @@ class History extends SiteController
 		if (!$diff)
 		{
 			$this->setError(Lang::txt('COM_WIKI_ERROR_MISSING_VERSION'));
-			$this->displayTask();
-			return;
+			return $this->displayTask();
 		}
+
 		if ($diff == $oldid)
 		{
 			$this->setError(Lang::txt('COM_WIKI_ERROR_SAME_VERSIONS'));
-			$this->displayTask();
-			return;
+			return $this->displayTask();
 		}
 
 		// If no initial page is given, compare to the current revision
-		$this->view->revision = $this->page->revision('current');
+		$oldid = $oldid ?: $this->page->get('version_id');
 
-		$this->view->or = $this->page->revision($oldid);
-		$this->view->dr = $this->page->revision($diff);
+		$or = $this->page->versions()->whereEquals('version', $oldid)->row();
+		$dr = $this->page->versions()->whereEquals('version', $diff)->row();
 
 		// Diff the two versions
-		$ota = explode("\n", $this->view->or->get('pagetext'));
-		$nta = explode("\n", $this->view->dr->get('pagetext'));
+		$ota = explode("\n", $or->get('pagetext'));
+		$nta = explode("\n", $dr->get('pagetext'));
 
-		//$diffs = new Diff($ota, $nta);
 		$formatter = new \TableDiffFormatter();
-		$this->view->content = $formatter->format(new \Diff($ota, $nta));
-
-		// Prep the pagename for display
-		// e.g. "MainPage" becomes "Main Page"
-		$this->view->title = $this->page->get('title');
+		$result = $formatter->format(new \Diff($ota, $nta));
 
 		// Set the page's <title> tag
-		Document::setTitle(Lang::txt(strtoupper($this->_option)) . ': ' . $this->view->title . ': ' . Lang::txt(strtoupper($this->_option . '_' . $this->_task)));
+		Document::setTitle(
+			Lang::txt(strtoupper($this->_option)) . ': ' .
+			$this->page->title . ': ' .
+			Lang::txt(strtoupper($this->_option . '_' . $this->_task))
+		);
 
 		// Set the pathway
 		if (Pathway::count() <= 0)
@@ -267,8 +229,24 @@ class History extends SiteController
 				'index.php?option=' . $this->_option
 			);
 		}
+
+		$parents = array();
+
+		if ($this->page->get('parent'))
+		{
+			$parents = $this->page->ancestors();
+
+			foreach ($parents as $p)
+			{
+				Pathway::append(
+					$p->get('title'),
+					$p->link()
+				);
+			}
+		}
+
 		Pathway::append(
-			$this->view->title,
+			$this->page->title,
 			$this->page->link()
 		);
 		Pathway::append(
@@ -276,22 +254,22 @@ class History extends SiteController
 			$this->page->link() . '&' . ($this->_sub ? 'action' : 'task') . '=' . $this->_task
 		);
 
-		$this->view->sub     = $this->_sub;
-		$this->view->message = $this->_message;
-		$this->view->name    = Lang::txt(strtoupper($this->_option));
-
-		foreach ($this->getErrors() as $error)
-		{
-			$this->view->setError($error);
-		}
-
-		$this->view->display();
+		// Output view
+		$this->view
+			->set('parents', $parents)
+			->set('page', $this->page)
+			->set('sub', $this->page->get('scope') != 'site')
+			->set('content', $result)
+			->set('or', $or)
+			->set('dr', $dr)
+			->setErrors($this->getErrors())
+			->display();
 	}
 
 	/**
 	 * Delete a revision
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function deleteTask()
 	{
@@ -300,9 +278,8 @@ class History extends SiteController
 		{
 			$url = Request::getVar('REQUEST_URI', '', 'server');
 			App::redirect(
-				Route::url('index.php?option=com_users&view=login&return=' . base64_encode($url))
+				Route::url('index.php?option=com_users&view=login&return=' . base64_encode($url), false)
 			);
-			return;
 		}
 
 		// Incoming
@@ -313,39 +290,73 @@ class History extends SiteController
 			App::redirect(
 				Route::url($this->page->link('history'))
 			);
-			return;
 		}
 
-		$revision = new Revision($id);
+		$revision = Version::oneOrFail($id);
 
 		// Get a count of all approved revisions
-		if ($this->page->revisions('count', array('approved' => 1)) <= 1)
+		$total = $this->page->versions()
+			->whereEquals('approved', 1)
+			->count();
+
+		if ($total <= 1)
 		{
 			// Can't delete - it's the only approved version!
 			App::redirect(
 				Route::url($this->page->link('history'))
 			);
-			return;
 		}
 
 		// Mark as deleted
 		$revision->set('approved', 2);
 
-		if (!$revision->store())
+		if (!$revision->save())
 		{
 			App::redirect(
 				Route::url($this->page->link('history')),
 				Lang::txt('COM_WIKI_ERROR_REMOVING_REVISION'),
 				'error'
 			);
-			return;
 		}
 
 		// If we're deleting the current revision, set the current
 		// revision number to the previous available revision
-		$this->page->revisions('list', array(), true)->last();
-		$this->page->set('version_id', $this->page->revisions()->current()->get('id'));
-		$this->page->store(false, 'revision_removed');
+		$last = $this->page->versions()
+			->whereEquals('approved', 1)
+			->order('version', 'desc')
+			->row();
+
+		$this->page->set('version_id', $last->get('id'));
+		$this->page->save();
+		$this->page->log('revision_removed');
+
+		// Log activity
+		$recipients = array(
+			['wiki.site', 1],
+			['user', $this->page->get('created_by')],
+			['user', $revision->get('created_by')]
+		);
+		if ($this->page->get('scope') != 'site')
+		{
+			$recipients[]  = [$this->page->get('scope'), $this->page->get('scope_id')];
+			$recipients[0] = ['wiki.' . $this->page->get('scope'), $this->page->get('scope_id')];
+		}
+
+		Event::trigger('system.logActivity', [
+			'activity' => [
+				'action'      => 'deleted',
+				'scope'       => 'wiki.page.revision',
+				'scope_id'    => $this->page->get('id'),
+				'description' => Lang::txt('COM_WIKI_ACTIVITY_REVISION_DELETED', $revision->get('id'), '<a href="' . Route::url($this->page->link()) . '">' . $this->page->title . '</a>'),
+				'details'     => array(
+					'title'    => $this->page->title,
+					'url'      => Route::url($this->page->link()),
+					'name'     => $this->page->get('pagename'),
+					'revision' => $revision->get('id')
+				)
+			],
+			'recipients' => $recipients
+		]);
 
 		App::redirect(
 			Route::url($this->page->link('history'))
@@ -355,7 +366,7 @@ class History extends SiteController
 	/**
 	 * Approve a revision
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function approveTask()
 	{
@@ -364,9 +375,8 @@ class History extends SiteController
 		{
 			$url = Request::getVar('REQUEST_URI', '', 'server');
 			App::redirect(
-				Route::url('index.php?option=com_users&view=login&return=' . base64_encode($url))
+				Route::url('index.php?option=com_users&view=login&return=' . base64_encode($url), false)
 			);
-			return;
 		}
 
 		// Incoming
@@ -377,34 +387,62 @@ class History extends SiteController
 			App::redirect(
 				Route::url($this->page->link())
 			);
-			return;
 		}
 
 		// Load the revision, approve it, and save
-		$revision = new Revision($id);
+		$revision = Version::oneOrFail($id);
 		$revision->set('approved', 1);
-		if (!$revision->store())
+		if (!$revision->save())
 		{
-			throw new Exception($revision->getError(), 500);
+			App::abort(500, $revision->getError());
 		}
 
 		// Get the most recent revision and compare to the set "current" version
-		$this->page->revisions('list', array(), true)->last();
-		if ($this->page->revisions()->current()->get('id') == $revision->get('id'))
+		$last = $this->page->versions()
+			->whereEquals('approved', 1)
+			->order('version', 'desc')
+			->row();
+
+		if ($last->get('id') == $revision->get('id'))
 		{
 			// The newly approved revision is now the most current
 			// So, we need to update the page's version_id
-			$this->page->set('version_id', $this->page->revisions()->current()->get('id'));
-			$this->page->store(false, 'revision_approved');
+			$this->page->set('version_id', $last->get('id'));
+			$this->page->save();
 		}
-		else
+
+		$this->page->log('revision_approved');
+
+		// Log activity
+		$recipients = array(
+			['wiki.site', 1],
+			['user', $this->page->get('created_by')],
+			['user', $revision->get('created_by')]
+		);
+		if ($this->page->get('scope') != 'site')
 		{
-			$this->page->log('revision_approved');
+			$recipients[]  = [$this->page->get('scope'), $this->page->get('scope_id')];
+			$recipients[0] = ['wiki.' . $this->page->get('scope'), $this->page->get('scope_id')];
 		}
+
+		Event::trigger('system.logActivity', [
+			'activity' => [
+				'action'      => 'approved',
+				'scope'       => 'wiki.page.revision',
+				'scope_id'    => $this->page->get('id'),
+				'description' => Lang::txt('COM_WIKI_ACTIVITY_REVISION_APPROVED', $revision->get('id'), '<a href="' . Route::url($this->page->link()) . '">' . $this->page->title . '</a>'),
+				'details'     => array(
+					'title'    => $this->page->title,
+					'url'      => Route::url($this->page->link()),
+					'name'     => $this->page->get('pagename'),
+					'revision' => $revision->get('id')
+				)
+			],
+			'recipients' => $recipients
+		]);
 
 		App::redirect(
 			Route::url($this->page->link())
 		);
 	}
 }
-

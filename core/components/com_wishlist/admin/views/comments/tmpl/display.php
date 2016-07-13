@@ -76,7 +76,6 @@ function submitbutton(pressbutton)
 
 		<input type="submit" value="<?php echo Lang::txt('COM_WISHLIST_GO'); ?>" />
 	</fieldset>
-	<div class="clr"></div>
 
 	<table class="adminlist">
 		<thead>
@@ -114,49 +113,49 @@ function submitbutton(pressbutton)
 			</tr>
 		</tfoot>
 		<tbody>
-<?php
-$k = 0;
-for ($i=0, $n=count($this->rows); $i < $n; $i++)
-{
-	$row =& $this->rows[$i];
-	switch ($row->state)
-	{
-		case 1:
-			$class = 'publish';
-			$task = 'unpublish';
-			$alt = Lang::txt('COM_WISHLIST_PUBLISHED');
-		break;
-		case 2:
-			$class = 'trash';
-			$task = 'publish';
-			$alt = Lang::txt('COM_WISHLIST_TRASHED');
-		break;
-		case 0:
-			$class = 'unpublish';
-			$task = 'publish';
-			$alt = Lang::txt('COM_WISHLIST_UNPUBLISHED');
-		break;
-	}
+		<?php
+		$k = 0;
+		for ($i=0, $n=count($this->rows); $i < $n; $i++)
+		{
+			$row =& $this->rows[$i];
+			switch ($row->state)
+			{
+				case 1:
+					$class = 'publish';
+					$task = 'unpublish';
+					$alt = Lang::txt('COM_WISHLIST_PUBLISHED');
+				break;
+				case 2:
+					$class = 'trash';
+					$task = 'publish';
+					$alt = Lang::txt('COM_WISHLIST_TRASHED');
+				break;
+				case 0:
+					$class = 'unpublish';
+					$task = 'publish';
+					$alt = Lang::txt('COM_WISHLIST_UNPUBLISHED');
+				break;
+			}
 
-	if ($row->anonymous)
-	{
-		$aclass = 'publish';
-		$atask = 'publicize';
-		$aalt = Lang::txt('COM_WISHLIST_ANONYMOUS');
-	}
-	else
-	{
-		$aclass = 'unpublish';
-		$atask = 'anonymize';
-		$aalt = Lang::txt('COM_WISHLIST_NOT_ANONYMOUS');
-	}
+			if ($row->anonymous)
+			{
+				$aclass = 'publish';
+				$atask = 'publicize';
+				$aalt = Lang::txt('COM_WISHLIST_ANONYMOUS');
+			}
+			else
+			{
+				$aclass = 'unpublish';
+				$atask = 'anonymize';
+				$aalt = Lang::txt('COM_WISHLIST_NOT_ANONYMOUS');
+			}
 
-	$comment = substr(strip_tags(stripslashes($row->content)), 0, 50);
-	if (strlen($row->content) >= 50)
-	{
-		$comment .= '...';
-	}
-?>
+			$comment = substr(strip_tags(stripslashes($row->content)), 0, 50);
+			if (strlen($row->content) >= 50)
+			{
+				$comment .= '...';
+			}
+			?>
 			<tr class="<?php echo "row$k"; ?>">
 				<td>
 					<input type="checkbox" name="id[]" id="cb<?php echo $i;?>" value="<?php echo $row->id ?>" onclick="isChecked(this.checked, this);" />
@@ -177,10 +176,10 @@ for ($i=0, $n=count($this->rows); $i < $n; $i++)
 					<?php } ?>
 				</td>
 				<td class="priority-4">
-					<?php echo $this->escape(stripslashes($row->name)); ?>
+					<?php echo $this->escape(stripslashes($row->creator()->get('name'))); ?>
 				</td>
 				<td class="priority-3">
-					<time datetime="<?php echo $row->created; ?>"><?php echo $row->created; ?></time>
+					<time datetime="<?php echo $row->get('created'); ?>"><?php echo $row->get('created'); ?></time>
 				</td>
 				<td>
 					<?php if ($canDo->get('core.edit.state')) { ?>
@@ -205,10 +204,10 @@ for ($i=0, $n=count($this->rows); $i < $n; $i++)
 					<?php } ?>
 				</td>
 			</tr>
-<?php
-	$k = 1 - $k;
-}
-?>
+			<?php
+			$k = 1 - $k;
+		}
+		?>
 		</tbody>
 	</table>
 

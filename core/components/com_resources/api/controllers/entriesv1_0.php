@@ -187,7 +187,7 @@ class Entriesv1_0 extends ApiController
 	 * 		"required":      false,
 	 * 		"default":       "resources"
 	 * }
-	 * @return    void
+	 * @return  void
 	 */
 	public function whatsnewTask()
 	{
@@ -223,12 +223,13 @@ class Entriesv1_0 extends ApiController
 	public function renderlatexTask()
 	{
 		$expression = Request::getVar('expression', '');
-		$dir = PATH_APP .DS. 'cache' .DS. 'ckeditor' .DS. 'hubzeroequation' .DS;
-		$filename = uniqid("equation_");
+
+		$dir = PATH_APP . DS . 'cache' . DS . 'ckeditor' . DS . 'hubzeroequation' . DS;
+		$filename = uniqid('equation_');
 		$error = null;
 
-		//build tex document
-		$doc = '\documentclass[12pt]{article}'."\n";
+		// build tex document
+		$doc  = '\documentclass[12pt]{article}'."\n";
 		$doc .= '\usepackage[utf8]{inputenc}'."\n";
 		$doc .= '\usepackage{amssymb,amsmath}'."\n";
 		$doc .= '\usepackage{color}'."\n";
@@ -242,7 +243,7 @@ class Entriesv1_0 extends ApiController
 		$doc .= '\end{displaymath}'."\n";
 		$doc .= '\end{document}'."\n";
 
-		//if cache doesn't exist, create it
+		// if cache doesn't exist, create it
 		if (!is_dir($dir))
 		{
 			\Filesystem::makeDirectory($dir);
@@ -255,11 +256,11 @@ class Entriesv1_0 extends ApiController
 
 		try
 		{
-			//execute latex to build dvi
+			// execute latex to build dvi
 			$command = 'cd ' . $dir . '; /usr/bin/latex ' . $filename . '.tex < /dev/null |grep ^!|grep -v Emergency > ' . $dir . DS . $filename . '.error 2> /dev/null 2>&1';
 			exec($command, $output_lines, $exit_status);
 
-			//execute dvi2png to build png
+			// execute dvi2png to build png
 			$command = "/usr/bin/dvipng -bg 'transparent' -q -T tight -D 100 -o " . $dir . DS . $filename . '.png '. $dir . DS . $filename . '.dvi 2>&1';
 			exec($command, $output_lines, $exit_status);
 
@@ -273,7 +274,7 @@ class Entriesv1_0 extends ApiController
 			$error = $e->getMessage();
 		}
 
-		//build response
+		// build response
 		$object = new stdClass();
 
 		if ($error)
@@ -283,7 +284,7 @@ class Entriesv1_0 extends ApiController
 		}
 		else
 		{
-			//no errors - send base64 encoded image
+			// no errors - send base64 encoded image
 			$object->error = "";
 			$imgbinary = fread(fopen($dir . DS . $filename . '.png', 'r'), filesize($dir . DS . $filename .'.png'));
 			$base64img = 'data:image/png;base64,'.base64_encode($imgbinary);
@@ -292,8 +293,9 @@ class Entriesv1_0 extends ApiController
 
 		$object->expression = $expression;
 
-		//clean up our cache mess
+		// clean up our cache mess
 		shell_exec('rm ' . $dir . $filename . '.*');
+
 		$this->send($object);
 	}
 }

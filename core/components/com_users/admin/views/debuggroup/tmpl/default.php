@@ -21,33 +21,33 @@ $listDirn  = $this->escape($this->state->get('list.direction'));
 
 <form action="<?php echo Route::url('index.php?option=com_users&view=debuggroup&user_id='.(int) $this->state->get('filter.user_id'));?>" method="post" name="adminForm" id="adminForm">
 	<fieldset id="filter-bar">
-		<div class="filter-search fltlft">
-			<label class="filter-search-lbl" for="filter_search"><?php echo Lang::txt('COM_USERS_SEARCH_ASSETS'); ?></label>
-			<input type="text" name="filter_search" id="filter_search" value="<?php echo $this->escape($this->state->get('filter.search')); ?>" title="<?php echo Lang::txt('COM_USERS_SEARCH_USERS'); ?>" />
-			<button type="submit"><?php echo Lang::txt('JSEARCH_FILTER_SUBMIT'); ?></button>
-			<button type="button" onclick="$('#filter_search').val('');this.form.submit();"><?php echo Lang::txt('JSEARCH_RESET'); ?></button>
-		</div>
+		<div class="grid">
+			<div class="filter-search col span5">
+				<label class="filter-search-lbl" for="filter_search"><?php echo Lang::txt('COM_USERS_SEARCH_ASSETS'); ?></label>
+				<input type="text" name="filter_search" id="filter_search" value="<?php echo $this->escape($this->state->get('filter.search')); ?>" title="<?php echo Lang::txt('COM_USERS_SEARCH_USERS'); ?>" />
+				<button type="submit"><?php echo Lang::txt('JSEARCH_FILTER_SUBMIT'); ?></button>
+				<button type="button" onclick="$('#filter_search').val('');this.form.submit();"><?php echo Lang::txt('JSEARCH_RESET'); ?></button>
+			</div>
+			<div class="filter-select col span7">
+				<select name="filter_component" class="inputbox" onchange="this.form.submit()">
+					<option value=""><?php echo Lang::txt('COM_USERS_OPTION_SELECT_COMPONENT');?></option>
+					<?php if (!empty($this->components)) {
+						echo Html::select('options', $this->components, 'value', 'text', $this->state->get('filter.component'));
+					}?>
+				</select>
 
-		<div class="filter-select fltrt">
-			<select name="filter_component" class="inputbox" onchange="this.form.submit()">
-				<option value=""><?php echo Lang::txt('COM_USERS_OPTION_SELECT_COMPONENT');?></option>
-				<?php if (!empty($this->components)) {
-					echo Html::select('options', $this->components, 'value', 'text', $this->state->get('filter.component'));
-				}?>
-			</select>
+				<select name="filter_level_start" class="inputbox" onchange="this.form.submit()">
+					<option value=""><?php echo Lang::txt('COM_USERS_OPTION_SELECT_LEVEL_START');?></option>
+					<?php echo Html::select('options', $this->levels, 'value', 'text', $this->state->get('filter.level_start'));?>
+				</select>
 
-			<select name="filter_level_start" class="inputbox" onchange="this.form.submit()">
-				<option value=""><?php echo Lang::txt('COM_USERS_OPTION_SELECT_LEVEL_START');?></option>
-				<?php echo Html::select('options', $this->levels, 'value', 'text', $this->state->get('filter.level_start'));?>
-			</select>
-
-			<select name="filter_level_end" class="inputbox" onchange="this.form.submit()">
-				<option value=""><?php echo Lang::txt('COM_USERS_OPTION_SELECT_LEVEL_END');?></option>
-				<?php echo Html::select('options', $this->levels, 'value', 'text', $this->state->get('filter.level_end'));?>
-			</select>
+				<select name="filter_level_end" class="inputbox" onchange="this.form.submit()">
+					<option value=""><?php echo Lang::txt('COM_USERS_OPTION_SELECT_LEVEL_END');?></option>
+					<?php echo Html::select('options', $this->levels, 'value', 'text', $this->state->get('filter.level_end'));?>
+				</select>
+			</div>
 		</div>
 	</fieldset>
-	<div class="clr"></div>
 
 	<table class="adminlist">
 		<caption>
@@ -97,20 +97,20 @@ $listDirn  = $this->escape($this->state->get('list.direction'));
 				</td>
 				<?php foreach ($this->actions as $action) : ?>
 					<?php
-					$name	= $action[0];
-					$check	= $item->checks[$name];
+					$name  = $action[0];
+					$check = $item->checks[$name];
 					if ($check === true) :
-						$class	= 'check-a';
-						$text	= '<span class="state yes"><span>&#10003;</span></span>';
+						$class = 'check-a';
+						$text  = '<span class="state yes"><span>&#10003;</span></span>';
 					elseif ($check === false) :
-						$class	= 'check-d';
-						$text	= '<span class="state no"><span>&#10007;</span></span>';
+						$class = 'check-d';
+						$text  = '<span class="state no"><span>&#10007;</span></span>';
 					elseif ($check === null) :
-						$class	= 'check-0';
-						$text	= '-';
+						$class = 'check-0';
+						$text  = '-';
 					else :
-						$class	= '';
-						$text	= '&#160;';
+						$class = '';
+						$text  = '&#160;';
 					endif;
 					?>
 				<td class="center <?php echo $class;?>">

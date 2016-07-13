@@ -15,10 +15,10 @@ Html::behavior('multiselect');
 Html::behavior('modal');
 
 $canDo = UsersHelper::getActions();
-$user = User::getRoot();
+$user = User::getInstance();
 $listOrder = $this->escape($this->state->get('list.ordering'));
 $listDirn = $this->escape($this->state->get('list.direction'));
-$loggeduser = User::getRoot();
+$loggeduser = User::getInstance();
 ?>
 
 <form action="<?php echo Route::url('index.php?option=com_users&view=users');?>" method="post" name="adminForm" id="adminForm">
@@ -55,7 +55,6 @@ $loggeduser = User::getRoot();
 			</select>
 		</div>
 	</fieldset>
-	<div class="clr"> </div>
 
 	<table class="adminlist">
 		<thead>

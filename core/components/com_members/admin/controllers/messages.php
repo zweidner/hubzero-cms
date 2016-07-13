@@ -39,6 +39,7 @@ use Request;
 use Config;
 use Route;
 use Lang;
+use User;
 use App;
 
 /**
@@ -54,7 +55,7 @@ class Messages extends AdminController
 	public function displayTask()
 	{
 		// Get filters
-		$this->view->filters = array(
+		$filters = array(
 			'component' => urldecode(Request::getState(
 				$this->_option . '.' . $this->_controller . '.component',
 				'component',
@@ -88,15 +89,20 @@ class Messages extends AdminController
 		$obj = new Message\Component($this->database);
 
 		// Get a record count
-		$this->view->total = $obj->getCount($this->view->filters, true);
+		$total = $obj->getCount($filters, true);
 
 		// Get records
-		$this->view->rows = $obj->getRecords($this->view->filters, true);
+		$rows = $obj->getRecords($filters, true);
 
-		$this->view->components = $obj->getComponents();
+		$components = $obj->getComponents();
 
 		// Output the HTML
-		$this->view->display();
+		$this->view
+			->set('filters', $filters)
+			->set('total', $total)
+			->set('rows', $rows)
+			->set('components', $components)
+			->display();
 	}
 
 	/**
@@ -178,38 +184,33 @@ class Messages extends AdminController
 		if (!$row->bind($fields))
 		{
 			$this->setError($row->getError(), 'error');
-			$this->editTask($row);
-			return;
+			return $this->editTask($row);
 		}
 
 		// Check content
 		if (!$row->check())
 		{
 			$this->setError($row->getError(), 'error');
-			$this->editTask($row);
-			return;
+			return $this->editTask($row);
 		}
 
 		// Store content
 		if (!$row->store())
 		{
 			$this->setError($row->getError(), 'error');
-			$this->editTask($row);
-			return;
+			return $this->editTask($row);
 		}
 
 		Notify::success(Lang::txt('Message Action saved'));
 
 		// Redirect
-		if ($this->_task == 'apply')
+		if ($this->getTask() == 'apply')
 		{
 			return $this->editTask($row);
 		}
 
 		// Redirect
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false)
-		);
+		$this->cancelTask();
 	}
 
 	/**
@@ -248,10 +249,9 @@ class Messages extends AdminController
 		}
 
 		// Output messsage and redirect
-		App::redirect(
-			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller, false),
-			Lang::txt('Message Action removed')
-		);
+		Notify::success(Lang::txt('Message Action removed'));
+
+		$this->cancelTask();
 	}
 
 	/**
@@ -263,8 +263,8 @@ class Messages extends AdminController
 	{
 		$id = Request::getInt('id', 0);
 
-		$member = \Hubzero\User\Profile::getInstance($id);
-		if (!$member || !$member->get('uidNumber'))
+		$member = User::getInstance($id);
+		if (!$member || !$member->get('id'))
 		{
 			// Output messsage and redirect
 			App::abort(404, Lang::txt('Unknown or invalid member ID'));
@@ -296,7 +296,7 @@ class Messages extends AdminController
 		$notify = new \Hubzero\Message\Notify($database);
 
 		// Get the user's selected methods
-		$methods = $notify->getRecords($member->get('uidNumber'));
+		$methods = $notify->getRecords($member->get('id'));
 		if ($methods)
 		{
 			foreach ($methods as $method)
@@ -351,8 +351,8 @@ class Messages extends AdminController
 
 		$id = Request::getInt('id', 0);
 
-		$member = \Hubzero\User\Profile::getInstance($id);
-		if (!$member || !$member->get('uidNumber'))
+		$member = User::getInstance($id);
+		if (!$member || !$member->get('id'))
 		{
 			// Output messsage and redirect
 			App::abort(404, Lang::txt('Unknown or invalid member ID'));
@@ -376,7 +376,7 @@ class Messages extends AdminController
 					{
 						// Instantiate a Notify object and set its values
 						$notify = new \Hubzero\Message\Notify($database);
-						$notify->uid = $member->get('uidNumber');
+						$notify->uid = $member->get('id');
 						$notify->method = $v;
 						$notify->type = $key;
 						$notify->priority = 1;

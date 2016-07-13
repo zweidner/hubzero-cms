@@ -34,7 +34,14 @@ namespace Components\Projects\Site\Controllers;
 
 use Components\Projects\Tables;
 use Components\Projects\Helpers;
+use Components\Projects\Models\Orm\Description\Field;
+use Components\Projects\Models\Orm\Description;
+use Components\Projects\Models\Orm\Project as ProjectORM;
 use Exception;
+
+require_once dirname(dirname(__DIR__)) . DS . 'models' . DS . 'orm' . DS . 'description' . DS . 'field.php';
+require_once dirname(dirname(__DIR__)) . DS . 'models' . DS . 'orm' . DS . 'description.php';
+require_once dirname(dirname(__DIR__)) . DS . 'models' . DS . 'orm' . DS . 'project.php';
 
 /**
  * Projects setup controller class
@@ -44,7 +51,7 @@ class Setup extends Base
 	/**
 	 * Determines task being called and attempts to execute it
 	 *
-	 * @return	void
+	 * @return  void
 	 */
 	public function execute()
 	{
@@ -52,7 +59,7 @@ class Setup extends Base
 
 		// Incoming
 		$defaultSection = $this->_task == 'edit' ? 'info' : '';
-		$this->section  = Request::getVar( 'active', $defaultSection );
+		$this->section  = Request::getVar('active', $defaultSection);
 		$this->group    = NULL;
 
 		// Login required
@@ -71,7 +78,7 @@ class Setup extends Base
 	/**
 	 * Display setup screens
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function displayTask()
 	{
@@ -83,7 +90,6 @@ class Setup extends Base
 			if (!$this->model->exists() || $this->model->isDeleted())
 			{
 				throw new Exception(Lang::txt('COM_PROJECTS_PROJECT_NOT_FOUND'), 404);
-				return;
 			}
 		}
 		elseif (!$this->model->exists())
@@ -97,25 +103,24 @@ class Setup extends Base
 				return;
 			}
 
-			$this->model->set('alias', Request::getVar( 'name', '', 'post' ));
-			$this->model->set('title', Request::getVar( 'title', '', 'post' ));
-			$this->model->set('about', trim(Request::getVar( 'about', '', 'post', 'none', 2 )));
+			$this->model->set('alias', Request::getVar('name', '', 'post'));
+			$this->model->set('title', Request::getVar('title', '', 'post'));
+			$this->model->set('about', trim(Request::getVar('about', '', 'post', 'none', 2)));
 			$this->model->set('private', 1);
 			$this->model->set('setup_stage', 0);
-			$this->model->set('type', Request::getInt( 'type', 1, 'post' ));
+			$this->model->set('type', Request::getInt('type', 1, 'post'));
 		}
 
 		// Get group ID
 		if ($this->_gid)
 		{
 			// Load the group
-			$this->group = \Hubzero\User\Group::getInstance( $this->_gid );
+			$this->group = \Hubzero\User\Group::getInstance($this->_gid);
 
 			// Ensure we found the group info
-			if (!is_object($this->group) || (!$this->group->get('gidNumber') && !$this->group->get('cn')) )
+			if (!is_object($this->group) || (!$this->group->get('gidNumber') && !$this->group->get('cn')))
 			{
 				throw new Exception(Lang::txt('COM_PROJECTS_NO_GROUP_FOUND'), 404);
-				return;
 			}
 			$this->_gid = $this->group->get('gidNumber');
 			$this->model->set('owned_by_group', $this->_gid);
@@ -132,7 +137,6 @@ class Setup extends Base
 		if ($this->model->exists() && !$this->model->access('owner'))
 		{
 			throw new Exception(Lang::txt('ALERTNOTAUTH'), 403);
-			return;
 		}
 		elseif (!$this->model->exists() && $this->_gid)
 		{
@@ -141,7 +145,6 @@ class Setup extends Base
 				&& !$this->group->is_member_of('managers', User::get('id')))
 			{
 				throw new Exception(Lang::txt('COM_PROJECTS_ALERTNOTAUTH_GROUP'), 403);
-				return;
 			}
 		}
 
@@ -169,7 +172,7 @@ class Setup extends Base
 		}
 
 		// Set layout
-		$this->view->setLayout( $layout );
+		$this->view->setLayout($layout);
 
 		// Set the pathway
 		$this->_buildPathway();
@@ -183,30 +186,29 @@ class Setup extends Base
 		}
 
 		// Output HTML
-		$this->view->model  		= $this->model;
-		$this->view->step			= $step;
-		$this->view->section  		= $this->section;
-		$this->view->title  		= $this->title;
-		$this->view->option 		= $this->_option;
-		$this->view->config 		= $this->config;
-		$this->view->extended       = Request::getInt( 'extended', 0, 'post');
+		$this->view->model    = $this->model;
+		$this->view->step     = $step;
+		$this->view->section  = $this->section;
+		$this->view->title    = $this->title;
+		$this->view->option   = $this->_option;
+		$this->view->config   = $this->config;
+		$this->view->extended = Request::getInt('extended', 0, 'post');
 
 		// Get messages	and errors
 		$this->view->msg = $this->_getNotifications('success');
 		$error = $this->getError() ? $this->getError() : $this->_getNotifications('error');
 		if ($error)
 		{
-			$this->view->setError( $error );
+			$this->view->setError($error);
 		}
 
 		$this->view->display();
-		return;
 	}
 
 	/**
 	 * Save
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function saveTask()
 	{
@@ -214,12 +216,11 @@ class Setup extends Base
 		Request::checkToken();
 
 		// Incoming
-		$step = Request::getInt( 'step', '0'); // Where do we go next?
+		$step = Request::getInt('step', '0'); // Where do we go next?
 
 		if ($this->_identifier && !$this->model->exists())
 		{
 			throw new Exception(Lang::txt('COM_PROJECTS_PROJECT_CANNOT_LOAD'), 404);
-			return;
 		}
 
 		// New project?
@@ -250,27 +251,24 @@ class Setup extends Base
 		if ($new && $current > 0)
 		{
 			throw new Exception(Lang::txt('ALERTNOTAUTH'), 403);
-			return;
 		}
 
 		// Cannot save a new project unless in setup
 		if ($new && !$setup)
 		{
 			throw new Exception(Lang::txt('COM_PROJECTS_PROJECT_CANNOT_LOAD'), 404);
-			return;
 		}
 
 		// Get group ID
 		if ($this->_gid)
 		{
 			// Load the group
-			$this->group = \Hubzero\User\Group::getInstance( $this->_gid );
+			$this->group = \Hubzero\User\Group::getInstance($this->_gid);
 
 			// Ensure we found the group info
-			if (!is_object($this->group) || (!$this->group->get('gidNumber') && !$this->group->get('cn')) )
+			if (!is_object($this->group) || (!$this->group->get('gidNumber') && !$this->group->get('cn')))
 			{
 				throw new Exception(Lang::txt('COM_PROJECTS_NO_GROUP_FOUND'), 404);
-				return;
 			}
 			$this->_gid = $this->group->get('gidNumber');
 			$this->model->set('owned_by_group', $this->_gid);
@@ -284,10 +282,9 @@ class Setup extends Base
 		}
 
 		// Check authorization
-		if ($this->model->exists() && !($this->model->access('owner') || $this->model->access('manager')))
+		if ($this->model->exists() && !($this->model->access('owner') || $this->model->access('manager') || ($this->model->access('content') && $this->config->get('edit_description'))))
 		{
 			throw new Exception(Lang::txt('ALERTNOTAUTH'), 403);
-			return;
 		}
 		elseif (!$this->model->exists() && $this->_gid)
 		{
@@ -296,7 +293,6 @@ class Setup extends Base
 				&& !$this->group->is_member_of('managers', User::get('id')))
 			{
 				throw new Exception(Lang::txt('COM_PROJECTS_ALERTNOTAUTH_GROUP'), 403);
-				return;
 			}
 		}
 
@@ -304,13 +300,12 @@ class Setup extends Base
 		if ($this->_gid)
 		{
 			// Load the group
-			$this->group = \Hubzero\User\Group::getInstance( $this->_gid );
+			$this->group = \Hubzero\User\Group::getInstance($this->_gid);
 
 			// Ensure we found the group info
-			if (!is_object($this->group) || (!$this->group->get('gidNumber') && !$this->group->get('cn')) )
+			if (!is_object($this->group) || (!$this->group->get('gidNumber') && !$this->group->get('cn')))
 			{
 				throw new Exception(Lang::txt('COM_PROJECTS_NO_GROUP_FOUND'), 404);
-				return;
 			}
 			$this->_gid = $this->group->get('gidNumber');
 			$this->model->set('owned_by_group', $this->_gid);
@@ -367,48 +362,46 @@ class Setup extends Base
 		}
 		else
 		{
-			$this->_setNotification(Lang::txt('COM_PROJECTS_'
-				. strtoupper($this->section) . '_SAVED'), 'success');
+			$this->_setNotification(Lang::txt('COM_PROJECTS_' . strtoupper($this->section) . '_SAVED'), 'success');
 		}
 
 		// Redirect
 		$task   = $setup ? 'setup' : 'edit';
 		$append = $new && $this->model->exists() && $this->next == 'describe' ? '#describearea' : '';
-		App::redirect(Route::url('index.php?option=' . $this->_option
-			. '&task=' . $task . '&alias=' . $this->model->get('alias')
-			. '&active=' . $this->next ) . $append);
+		App::redirect(
+			Route::url('index.php?option=' . $this->_option . '&task=' . $task . '&alias=' . $this->model->get('alias') . '&active=' . $this->next) . $append
+		);
 		return;
 	}
 
 	/**
 	 * Finalize project
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	protected function _finalize()
 	{
-		$agree 				= Request::getInt( 'agree', 0, 'post' );
-		$restricted 		= Request::getVar( 'restricted', '', 'post' );
-		$agree_irb 			= Request::getInt( 'agree_irb', 0, 'post' );
-		$agree_ferpa 		= Request::getInt( 'agree_ferpa', 0, 'post' );
-		$state				= 1;
+		$agree       = Request::getInt('agree', 0, 'post');
+		$restricted  = Request::getVar('restricted', '', 'post');
+		$agree_irb   = Request::getInt('agree_irb', 0, 'post');
+		$agree_ferpa = Request::getInt('agree_ferpa', 0, 'post');
+		$state       = 1;
 
 		// Cannot save a new project unless in setup
 		if (!$this->model->exists())
 		{
 			throw new Exception(Lang::txt('COM_PROJECTS_PROJECT_CANNOT_LOAD'), 404);
-			return;
 		}
 
 		// Final checks (agreements etc)
-		if ($this->_setupComplete == 3 )
+		if ($this->_setupComplete == 3)
 		{
 			// General restricted data question
 			if ($this->config->get('restricted_data', 0) == 2)
 			{
 				if (!$restricted)
 				{
-					$this->setError( Lang::txt('COM_PROJECTS_ERROR_SETUP_TERMS_RESTRICTED_DATA'));
+					$this->setError(Lang::txt('COM_PROJECTS_ERROR_SETUP_TERMS_RESTRICTED_DATA'));
 					return false;
 				}
 
@@ -420,10 +413,10 @@ class Setup extends Base
 			if ($this->config->get('restricted_data', 0) == 1)
 			{
 				$restrictions = array(
-					'hipaa_data'  => Request::getVar( 'hipaa', 'no', 'post' ),
-					'ferpa_data'  => Request::getVar( 'ferpa', 'no', 'post' ),
-					'export_data' => Request::getVar( 'export', 'no', 'post' ),
-					'irb_data'    => Request::getVar( 'irb', 'no', 'post' )
+					'hipaa_data'  => Request::getVar('hipaa', 'no', 'post'),
+					'ferpa_data'  => Request::getVar('ferpa', 'no', 'post'),
+					'export_data' => Request::getVar('export', 'no', 'post'),
+					'irb_data'    => Request::getVar('irb', 'no', 'post')
 				);
 
 				// Save individual restrictions
@@ -445,7 +438,7 @@ class Setup extends Base
 
 					if ($restricted != 'yes')
 					{
-						$this->setError( Lang::txt('COM_PROJECTS_ERROR_SETUP_TERMS_HIPAA'));
+						$this->setError(Lang::txt('COM_PROJECTS_ERROR_SETUP_TERMS_HIPAA'));
 						return false;
 					}
 				}
@@ -467,7 +460,7 @@ class Setup extends Base
 					// Make sure user made selections
 					if ($selected == 0)
 					{
-						$this->setError( Lang::txt('COM_PROJECTS_ERROR_SETUP_TERMS_SPECIFY_DATA'));
+						$this->setError(Lang::txt('COM_PROJECTS_ERROR_SETUP_TERMS_SPECIFY_DATA'));
 						return false;
 					}
 
@@ -475,7 +468,7 @@ class Setup extends Base
 					if (($restrictions['ferpa_data'] == 'yes' && !$agree_ferpa)
 						|| ($restrictions['irb_data'] == 'yes' && !$agree_irb))
 					{
-						$this->setError( Lang::txt('COM_PROJECTS_ERROR_SETUP_TERMS_RESTRICTED_DATA_AGREE_REQUIRED'));
+						$this->setError(Lang::txt('COM_PROJECTS_ERROR_SETUP_TERMS_RESTRICTED_DATA_AGREE_REQUIRED'));
 						return false;
 					}
 
@@ -484,7 +477,7 @@ class Setup extends Base
 					{
 						if ($restrictions['export_data'] == 'yes'
 							|| $restrictions['hipaa_data'] == 'yes'
-							|| $restrictions['ferpa_data'] == 'yes' )
+							|| $restrictions['ferpa_data'] == 'yes')
 						{
 							$state = 5; // pending approval
 						}
@@ -499,17 +492,17 @@ class Setup extends Base
 			// Check to make sure user has agreed to terms
 			if ($agree == 0)
 			{
-				$this->setError( Lang::txt('COM_PROJECTS_ERROR_SETUP_TERMS'));
+				$this->setError(Lang::txt('COM_PROJECTS_ERROR_SETUP_TERMS'));
 				return false;
 			}
 
 			// Collect grant information
 			if ($this->config->get('grantinfo', 0))
 			{
-				$grant_agency    = Request::getVar( 'grant_agency', '' );
-				$grant_title     = Request::getVar( 'grant_title', '' );
-				$grant_PI        = Request::getVar( 'grant_PI', '' );
-				$grant_budget    = Request::getVar( 'grant_budget', '' );
+				$grant_agency    = Request::getVar('grant_agency', '');
+				$grant_title     = Request::getVar('grant_title', '');
+				$grant_PI        = Request::getVar('grant_PI', '');
+				$grant_budget    = Request::getVar('grant_budget', '');
 				$this->model->saveParam('grant_budget', $grant_budget);
 				$this->model->saveParam('grant_agency', $grant_agency);
 				$this->model->saveParam('grant_title', $grant_title);
@@ -536,7 +529,7 @@ class Setup extends Base
 			// Save changes
 			if (!$this->model->store())
 			{
-				$this->setError( $this->model->getError() );
+				$this->setError($this->model->getError());
 				return false;
 			}
 
@@ -549,7 +542,7 @@ class Setup extends Base
 	/**
 	 * After a new project is created
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	protected function _onAfterProjectCreate()
 	{
@@ -559,12 +552,12 @@ class Setup extends Base
 		// Email administrators about a new project
 		if ($this->config->get('messaging') == 1)
 		{
-			$admingroup 	= $this->config->get('admingroup', '');
-			$sdata_group 	= $this->config->get('sdata_group', '');
-			$ginfo_group 	= $this->config->get('ginfo_group', '');
+			$admingroup     = $this->config->get('admingroup', '');
+			$sdata_group    = $this->config->get('sdata_group', '');
+			$ginfo_group    = $this->config->get('ginfo_group', '');
 			$project_admins = Helpers\Html::getGroupMembers($admingroup);
-			$ginfo_admins 	= Helpers\Html::getGroupMembers($ginfo_group);
-			$sdata_admins 	= Helpers\Html::getGroupMembers($sdata_group);
+			$ginfo_admins   = Helpers\Html::getGroupMembers($ginfo_group);
+			$sdata_admins   = Helpers\Html::getGroupMembers($sdata_group);
 
 			$admins = array_merge($project_admins, $ginfo_admins, $sdata_admins);
 			$admins = array_unique($admins);
@@ -600,7 +593,7 @@ class Setup extends Base
 	/**
 	 * Initialize Git repo
 	 *
-	 * @return     void
+	 * @return  boolean
 	 */
 	protected function _iniGitRepo()
 	{
@@ -612,15 +605,17 @@ class Setup extends Base
 		// Create and initialize local repo
 		if (!$this->model->repo()->iniLocal())
 		{
-			$this->setError( Lang::txt('UNABLE_TO_CREATE_UPLOAD_PATH') );
+			$this->setError(Lang::txt('UNABLE_TO_CREATE_UPLOAD_PATH'));
 			return false;
 		}
+
+		return true;
 	}
 
 	/**
 	 * Process data
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	protected function _process()
 	{
@@ -631,17 +626,17 @@ class Setup extends Base
 		$setup = ($new || $this->model->inSetup()) ? true : false;
 
 		// Incoming
-		$private = Request::getInt( 'private', 1);
+		$private = Request::getInt('private', 1);
 
 		// Save section
 		switch ($this->section)
 		{
 			case 'describe':
 			case 'info':
-
+			case 'info_custom':
 				// Incoming
-				$name       = trim(Request::getVar( 'name', '', 'post' ));
-				$title      = trim(Request::getVar( 'title', '', 'post' ));
+				$name       = trim(Request::getVar('name', '', 'post'));
+				$title      = trim(Request::getVar('title', '', 'post'));
 
 				$name = preg_replace('/ /', '', $name);
 				$name = strtolower($name);
@@ -653,12 +648,12 @@ class Setup extends Base
 				// Check incoming data
 				if ($setup && $new && !$this->model->check($name, $this->model->get('id')))
 				{
-					$this->setError( Lang::txt('COM_PROJECTS_ERROR_NAME_INVALID_OR_EMPTY') );
+					$this->setError(Lang::txt('COM_PROJECTS_ERROR_NAME_INVALID_OR_EMPTY'));
 					return false;
 				}
 				elseif (!$title)
 				{
-					$this->setError( Lang::txt('COM_PROJECTS_ERROR_TITLE_SHORT_OR_EMPTY') );
+					$this->setError(Lang::txt('COM_PROJECTS_ERROR_TITLE_SHORT_OR_EMPTY'));
 					return false;
 				}
 
@@ -678,8 +673,8 @@ class Setup extends Base
 				}
 
 				$this->model->set('title', \Hubzero\Utility\String::truncate($title, 250));
-				$this->model->set('about', trim(Request::getVar( 'about', '', 'post', 'none', 2 )));
-				$this->model->set('type', Request::getInt( 'type', 1, 'post' ));
+				$this->model->set('about', trim(Request::getVar('about', '', 'post', 'none', 2)));
+				$this->model->set('type', Request::getInt('type', 1, 'post'));
 
 				// save advanced permissions
 				if (isset($_POST['private']))
@@ -691,53 +686,97 @@ class Setup extends Base
 				{
 					// Copy params from default project type
 					$objT = $this->model->table('Type');
-					$this->model->set('params', $objT->getParams ($this->model->get('type')));
+					$this->model->set('params', $objT->getParams($this->model->get('type')));
 				}
 
 				// Save changes
 				if (!$this->model->store())
 				{
-					$this->setError( $this->model->getError() );
+					$this->setError($this->model->getError());
 					return false;
 				}
 
+				// Save custom description
+				if ($this->section == 'info_custom')
+				{
+					$newInfo = Request::getVar('description', array());
+
+					$projectID = $this->model->get('id');
+					$project = ProjectORM::one($this->model->get('id'));
+
+					$old = Description::collect($project->descriptions);
+					$formFields = array_merge($old, $newInfo);
+					$knownFields = Field::all()->rows()->toObject();
+
+					foreach ($knownFields as $kField)
+					{
+						$existingField = Description::all()->whereEquals('project_id', $this->model->get('id'))
+							->whereEquals('description_key', $kField->name)
+							->limit(1)
+							->row();
+
+						if ($existingField->id != NULL)
+						{
+							$existingField->set('description_value', $formFields[$kField->name]);
+							$existingField->set('ordering', $kField->ordering);
+							$existingField->save();
+						}
+						else
+						{
+							// Create a new field
+							$newField = new Description;
+
+							$newField
+								->set('description_key', $kField->name)
+								->set('description_value', $formFields[$kField->name])
+								->set('project_id', $this->model->get('id'))
+								->set('ordering', $kField->ordering);
+
+							if (!$newField->save())
+							{
+								$this->setError($newField->getError());
+							}
+						}
+					}
+				}
+
 				// Save owners for new projects
-				if ($new)
+				if ($new && $this->section != 'info_custom')
 				{
 					$this->_identifier = $this->model->get('alias');
 
 					// Group owners
-					$objO 	= $this->model->table('Owner');
+					$objO = $this->model->table('Owner');
 					if ($this->_gid)
 					{
-						if (!$objO->saveOwners (
+						if (!$objO->saveOwners(
 							$this->model->get('id'), User::get('id'),
 							0, $this->_gid, 0, 1, 1, '', $split_group_roles = 0
 						))
 						{
-							$this->setError( Lang::txt('COM_PROJECTS_ERROR_SAVING_AUTHORS')
-								. ': ' . $objO->getError() );
+							$this->setError(Lang::txt('COM_PROJECTS_ERROR_SAVING_AUTHORS')
+								. ': ' . $objO->getError());
 							return false;
 						}
 						// Make sure project creator is manager
-						$objO->reassignRole (
+						$objO->reassignRole(
 							$this->model->get('id'),
 							$users = array(User::get('id')),
 							0 ,
 							1
 						);
 					}
-					elseif (!$objO->saveOwners ( $this->model->get('id'), User::get('id'),
-						User::get('id'), $this->_gid, 1, 1, 1 )
+					elseif (!$objO->saveOwners($this->model->get('id'), User::get('id'),
+						User::get('id'), $this->_gid, 1, 1, 1)
 					)
 					{
-						$this->setError( Lang::txt('COM_PROJECTS_ERROR_SAVING_AUTHORS')
-							. ': ' . $objO->getError() );
+						$this->setError(Lang::txt('COM_PROJECTS_ERROR_SAVING_AUTHORS')
+							. ': ' . $objO->getError());
 						return false;
 					}
 				}
 
-				break;
+			break;
 
 			case 'team':
 
@@ -747,7 +786,7 @@ class Setup extends Base
 				}
 
 				// Save team
-				$content = Event::trigger( 'projects.onProject', array(
+				$content = Event::trigger('projects.onProject', array(
 					$this->model,
 					'save',
 					array('team')
@@ -761,7 +800,7 @@ class Setup extends Base
 					}
 				}
 
-				break;
+			break;
 
 			case 'settings':
 
@@ -778,13 +817,13 @@ class Setup extends Base
 					// Save changes
 					if (!$this->model->store())
 					{
-						$this->setError( $this->model->getError() );
+						$this->setError($this->model->getError());
 						return false;
 					}
 				}
 
 				// Save params
-				$incoming   = Request::getVar( 'params', array() );
+				$incoming   = Request::getVar('params', array());
 				if (!empty($incoming))
 				{
 					foreach ($incoming as $key => $value)
@@ -807,7 +846,7 @@ class Setup extends Base
 							// Save admin notes
 							if (!$this->model->store())
 							{
-								$this->setError( $this->model->getError() );
+								$this->setError($this->model->getError());
 								return false;
 							}
 
@@ -835,19 +874,19 @@ class Setup extends Base
 						}
 					}
 				}
-				break;
+			break;
 		}
 	}
 
 	/**
 	 * Load team editor
 	 *
-	 * @return  html
+	 * @return  string
 	 */
 	protected function _loadTeamEditor()
 	{
 		// Get plugin output
-		$content = Event::trigger( 'projects.onProject', array(
+		$content = Event::trigger('projects.onProject', array(
 			$this->model,
 			$this->_task,
 			array('team')
@@ -869,7 +908,7 @@ class Setup extends Base
 	/**
 	 * Edit project
 	 *
-	 * @return     void
+	 * @return  void
 	 */
 	public function editTask()
 	{
@@ -877,21 +916,18 @@ class Setup extends Base
 		if (!$this->model->exists() || $this->model->isDeleted())
 		{
 			throw new Exception(Lang::txt('COM_PROJECTS_PROJECT_CANNOT_LOAD'), 404);
-			return;
 		}
 
 		// Check if project is in setup
 		if ($this->model->inSetup())
 		{
 			App::redirect(Route::url($this->model->link('setup')));
-			return;
 		}
 
 		// Only managers can edit project
-		if (!$this->model->access('manager'))
+		if (!$this->model->access('manager') && !($this->model->access('content') && $this->config->get('edit_description')))
 		{
 			throw new Exception(Lang::txt('ALERTNOTAUTH'), 403);
-			return;
 		}
 
 		// Which section are we editing?
@@ -900,7 +936,21 @@ class Setup extends Base
 		{
 			array_pop($sections);
 		}
-		$this->section = in_array( $this->section, $sections ) ? $this->section : 'info';
+		$this->section = in_array($this->section, $sections) ? $this->section : 'info';
+
+		if ($this->config->get('custom_profile') == 'custom' && ($this->section == 'info' || $this->section == 'info_custom'))
+		{
+			//$sections = array('info_custom', 'team', 'settings');
+			$this->view->fields = Field::all()->order('ordering', 'ASC');
+
+			$projectID = $this->model->get('id');
+
+			// Load project values
+			$projectData = Description::all()->where('project_id', '=', $projectID);
+			$data = Description::collect($projectData);
+			$this->view->data = $data;
+			$this->section = 'info_custom';
+		}
 
 		// Set the pathway
 		$this->_buildPathway();
@@ -908,29 +958,29 @@ class Setup extends Base
 		// Set the page title
 		$this->_buildTitle();
 
-		$this->view->setLayout( 'edit' );
+		$this->view->setLayout('edit');
 		if ($this->section == 'team')
 		{
 			$this->view->content = $this->_loadTeamEditor();
 		}
 
 		// Output HTML
-		$this->view->model  	= $this->model;
-		$this->view->uid 		= User::get('id');
-		$this->view->section 	= $this->section;
-		$this->view->sections 	= $sections;
-		$this->view->title  	= $this->title;
-		$this->view->option 	= $this->_option;
-		$this->view->config 	= $this->config;
-		$this->view->task 		= $this->_task;
-		$this->view->publishing	= $this->_publishing;
-		$this->view->active		= 'edit';
+		$this->view->model      = $this->model;
+		$this->view->uid        = User::get('id');
+		$this->view->section    = $this->section;
+		$this->view->sections   = $sections;
+		$this->view->title      = $this->title;
+		$this->view->option     = $this->_option;
+		$this->view->config     = $this->config;
+		$this->view->task       = $this->_task;
+		$this->view->publishing = $this->_publishing;
+		$this->view->active     = 'edit';
 
 		// Get messages and errors
 		$error = $this->getError() ? $this->getError() : $this->_getNotifications('error');
 		if ($error)
 		{
-			$this->view->setError( $error );
+			$this->view->setError($error);
 		}
 		$this->view->msg = $this->_getNotifications('success');
 
@@ -940,14 +990,14 @@ class Setup extends Base
 	/**
 	 * Verify project name (AJAX)
 	 *
-	 * @return   boolean
+	 * @return  boolean
 	 */
 	public function verifyTask()
 	{
 		// Incoming
-		$name   = isset($this->_text) ? $this->_text : trim(Request::getVar( 'text', '' ));
-		$id 	= $this->_identifier ? $this->_identifier: trim(Request::getInt( 'pid', 0 ));
-		$ajax 	= isset($this->_ajax) ? $this->_ajax : trim(Request::getInt( 'ajax', 0 ));
+		$name = isset($this->_text) ? $this->_text : trim(Request::getVar('text', ''));
+		$id   = $this->_identifier  ? $this->_identifier: trim(Request::getInt('pid', 0));
+		$ajax = isset($this->_ajax) ? $this->_ajax : trim(Request::getInt('ajax', 0));
 
 		$this->model->check($name, $id, $ajax);
 
@@ -970,15 +1020,12 @@ class Setup extends Base
 	/**
 	 * Suggest alias name (AJAX)
 	 *
-	 * @param  int $ajax
-	 * @param  string $name
-	 * @param  int $pid
-	 * @return  void
+	 * @return  mixed
 	 */
 	public function suggestaliasTask()
 	{
 		// Incoming
-		$title   = isset($this->_text) ? $this->_text : trim(Request::getVar( 'text', '' ));
+		$title   = isset($this->_text) ? $this->_text : trim(Request::getVar('text', ''));
 		$title   = urldecode($title);
 
 		$suggested = Helpers\Html::suggestAlias($title);
@@ -998,8 +1045,8 @@ class Setup extends Base
 	 * Convert Microsoft characters and strip disallowed content
 	 * This includes script tags, HTML comments, xhubtags, and style tags
 	 *
-	 * @param      string &$text Text to clean
-	 * @return     string
+	 * @param   string  &$text  Text to clean
+	 * @return  string
 	 */
 	private function _txtClean(&$text)
 	{

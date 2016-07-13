@@ -97,6 +97,11 @@ $this->css()
 								     ->set('row', $row)
 								     ->display();
 							?>
+							<?php if ($tags = $row->item()->tags('cloud')) { ?>
+								<div class="tags-wrap">
+									<?php echo $tags; ?>
+								</div>
+							<?php } ?>
 							<div class="meta">
 								<p class="stats">
 									<span class="likes">
@@ -144,20 +149,20 @@ $this->css()
 							</div><!-- / .meta -->
 							<div class="convo attribution">
 								<?php
-								$name = $this->escape(stripslashes($row->creator('name')));
+								$name = $this->escape(stripslashes($row->creator()->get('name')));
 
-								if ($row->creator('public')) { ?>
-									<a href="<?php echo Route::url($row->creator()->getLink() . '&active=collections'); ?>" title="<?php echo $name; ?>" class="img-link">
-										<img src="<?php echo $row->creator()->getPicture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
+								if (in_array($row->creator()->get('access'), User::getAuthorisedViewLevels())) { ?>
+									<a href="<?php echo Route::url($row->creator()->link() . '&active=collections'); ?>" title="<?php echo $name; ?>" class="img-link">
+										<img src="<?php echo $row->creator()->picture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
 									</a>
 								<?php } else { ?>
 									<span class="img-link">
-										<img src="<?php echo $row->creator()->getPicture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
+										<img src="<?php echo $row->creator()->picture(); ?>" alt="<?php echo Lang::txt('COM_COLLECTIONS_PROFILE_PICTURE', $name); ?>" />
 									</span>
 								<?php } ?>
 								<p>
-									<?php if ($row->creator('public')) { ?>
-										<a href="<?php echo Route::url($row->creator()->getLink() . '&active=collections'); ?>">
+									<?php if (in_array($row->creator()->get('access'), User::getAuthorisedViewLevels())) { ?>
+										<a href="<?php echo Route::url($row->creator()->link() . '&active=collections'); ?>">
 											<?php echo $name; ?>
 										</a>
 									<?php } else { ?>
