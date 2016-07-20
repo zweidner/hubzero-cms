@@ -372,7 +372,7 @@ class Product
 
 				// Find out product type to instantiate the correct object
 				// software
-				if ($this->getTypeInfo()->name == 'Software Download')
+				if ($this->getTypeInfo() && $this->getTypeInfo()->name == 'Software Download')
 				{
 					//include_once(JPATH_ROOT . DS . 'components' . DS . 'com_storefront' . DS . 'models' . DS . 'SoftwareSku.php');
 					require_once(__DIR__ . DS . 'SoftwareSku.php');
@@ -1195,6 +1195,9 @@ class Product
 
 	private function updateDependencies()
 	{
+		// Update SKUs' references for this product first
+		Sku::updateReferences($this->getId());
+
 		// Check all active product SKUs and disable those that do not verify anymore
 		$skus = $this->getSkus();
 		$skusDisabled = false;
@@ -1208,7 +1211,7 @@ class Product
 				}
 				catch (\Exception $e)
 				{
-					$sku->unpublish();
+					$sku->unPublish();
 					$skusDisabled = true;
 				}
 			}
