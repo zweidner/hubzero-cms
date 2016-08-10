@@ -61,6 +61,12 @@ class plgResourcesWindowstools extends \Hubzero\Plugin\Plugin
 		$response->success = false;
 		$response->message = Lang::txt('No invoke URL found.');
 
+		if (User::isGuest())
+		{
+			$response->message = Lang::txt('Login is required to perform this action.');
+			$url = '';
+		}
+
 		if ($url)
 		{
 			$response->success = true;
@@ -159,9 +165,12 @@ class plgResourcesWindowstools extends \Hubzero\Plugin\Plugin
 	 */
 	public function &onResourcesAreas($model)
 	{
-		$areas = array(
-			'windowstools' => Lang::txt('PLG_RESOURCES_WINDOWSTOOLS_SETUP')
-		);
+		$areas = array();
+
+		if ($model->type->params->get('plg_' . $this->_name))
+		{
+			$areas['windowstools'] = Lang::txt('PLG_RESOURCES_WINDOWSTOOLS_SETUP');
+		}
 
 		return $areas;
 	}

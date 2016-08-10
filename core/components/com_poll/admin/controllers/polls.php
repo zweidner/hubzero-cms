@@ -267,7 +267,7 @@ class Polls extends AdminController
 		foreach ($options as $i => $text)
 		{
 			$option = new Option;
-			$option->set('pollid', (int) $row->get('id'));
+			$option->set('poll_id', (int) $row->get('id'));
 			$option->set('text', htmlspecialchars($text, ENT_QUOTES, 'UTF-8'));
 
 			if ($fields['id'])
@@ -431,10 +431,13 @@ class Polls extends AdminController
 		// Check for request forgeries
 		Request::checkToken();
 
-		if ($id  = Request::getVar('id', 0, '', 'int'))
+		if ($id = Request::getVar('id', 0, '', 'int'))
 		{
-			$row = Poll::oneOrFail($id);
-			$row->checkin();
+			if (is_int($id))
+			{
+				$row = Poll::oneOrFail($id);
+				$row->checkin();
+			}
 		}
 
 		App::redirect(

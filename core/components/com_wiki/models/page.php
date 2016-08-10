@@ -621,7 +621,7 @@ class Page extends Relational
 		{
 			$path = array();
 
-			foreach ($this->ancestors()->rows() as $ancestor)
+			foreach ($this->ancestors() as $ancestor)
 			{
 				$path[] = $ancestor->get('pagename');
 			}
@@ -1124,5 +1124,42 @@ class Page extends Relational
 		$keys = join('|', array_keys($classes));
 
 		return preg_replace_callback("/\[:($keys):]/", function($matches) use ($classes) { return $classes[$matches[1]]; }, $regexp);
+	}
+
+	/**
+	 * Calculate the average rating for the page
+	 *
+	 * @return  integer
+	 */
+	public function calculateRating()
+	{
+		$ratings = $this->comments()
+			->where('rating', '!=', 0)
+			->rows();
+
+		$totalcount = $ratings->count();
+		$totalvalue = 0;
+		$newrating  = 0;
+
+		if ($totalcount)
+		{
+			// Add the ratings up
+			foreach ($ratings as $item)
+			{
+				$totalvalue = $totalvalue + $item->get('rating', 0);
+			}
+
+			// Find the average of all ratings
+			$newrating = $totalvalue / $totalcount;
+
+			// Round to the nearest half
+			$newrating = round($newrating*2)/2;
+		}
+
+		// Update page with new rating
+		$this->set('rating', $newrating);
+		$this->set('times_rated', $totalcount);
+
+		return $newrating;
 	}
 }
