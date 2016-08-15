@@ -2,8 +2,8 @@
 
 use Hubzero\Content\Migration\Base;
 
-// Check to ensure this file is included in Joomla!
-defined('_JEXEC') or die('Restricted access');
+// No direct access
+defined('_HZEXEC_') or die();
 
 /**
  * Migration script for dropping the steps index when it was named automatically by the database and the name didn't match the previous migration
@@ -35,10 +35,19 @@ class Migration20151030000001ComCart extends Base
 				}
 			}
 
-			// Change tsMeta to 255 chars long
-			$query = "ALTER TABLE `#__cart_transaction_steps` MODIFY `tsMeta` CHAR(255)";
-			$this->db->setQuery($query);
-			$this->db->query();
+			if ($this->db->tableExists('#__cart_transaction_steps') && !$this->db->tableHasField('#__cart_transaction_steps', 'tsMeta'))
+			{
+				$query = "ALTER TABLE `#__cart_transaction_steps` ADD `tsMeta` CHAR(255)";
+				$this->db->setQuery($query);
+				$this->db->query();
+			}
+			else
+			{
+				// Change tsMeta to 255 chars long
+				$query = "ALTER TABLE `#__cart_transaction_steps` MODIFY `tsMeta` CHAR(255)";
+				$this->db->setQuery($query);
+				$this->db->query();
+			}
 		}
 	}
 
