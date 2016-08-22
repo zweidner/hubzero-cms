@@ -1493,7 +1493,7 @@ class plgGroupsForum extends \Hubzero\Plugin\Plugin
 			}
 
 			$from = array(
-				'name'  => (!$post->get('anonymous') ? $post->creator()->get('name', Lang::txt('PLG_GROUPS_FORUM_UNKNOWN')) : Lang::txt('PLG_GROUPS_FORUM_ANONYMOUS')) . ' @ ' . Config::get('sitename'),
+				'name'  => (!$post->get('anonymous') ? $post->creator->get('name', Lang::txt('PLG_GROUPS_FORUM_UNKNOWN')) : Lang::txt('PLG_GROUPS_FORUM_ANONYMOUS')) . ' @ ' . Config::get('sitename'),
 				'email' => Config::get('mailfrom'),
 				'replytoname'  => Config::get('sitename'),
 				'replytoemail' => Config::get('mailfrom')
@@ -1602,6 +1602,7 @@ class plgGroupsForum extends \Hubzero\Plugin\Plugin
 				'action'      => ($fields['id'] ? 'updated' : 'created'),
 				'scope'       => 'forum.' . $type,
 				'scope_id'    => $post->get('id'),
+				'anonymous'   => $post->get('anonymous', 0),
 				'description' => $desc,
 				'details'     => array(
 					'thread' => $post->get('thread'),

@@ -613,6 +613,10 @@ class plgGroupsBlog extends \Hubzero\Plugin\Plugin
 			array_push($filters['access'], 5);
 			$filters['authorized'] = true;
 		}
+		else
+		{
+			$filters['authorized'] = false;
+		}
 
 		$view = $this->view('default', 'entry')
 			->set('option', $this->option)
@@ -976,6 +980,7 @@ class plgGroupsBlog extends \Hubzero\Plugin\Plugin
 				'action'      => ($data['id'] ? 'updated' : 'created'),
 				'scope'       => 'blog.entry.comment',
 				'scope_id'    => $comment->get('id'),
+				'anonymous'   => $comment->get('anonymous', 0),
 				'description' => Lang::txt('PLG_GROUPS_BLOG_ACTIVITY_COMMENT_' . ($data['id'] ? 'UPDATED' : 'CREATED'), $comment->get('id'), '<a href="' . Route::url($entry->link() . '#c' . $comment->get('id')) . '">' . $entry->get('title') . '</a>'),
 				'details'     => array(
 					'title'    => $entry->get('title'),
