@@ -348,7 +348,7 @@ class plgGroupsMembers extends \Hubzero\Plugin\Plugin
 		foreach ($userIds as $k => $userid)
 		{
 			$profile = User::getInstance($userid);
-			if ($profile)
+			if ($profile->get('id'))
 			{
 				$users[$profile->get('uidNumber')] = $profile->get('surname');
 			}
@@ -1123,7 +1123,7 @@ class plgGroupsMembers extends \Hubzero\Plugin\Plugin
 		$user_emails = array();
 
 		// Incoming array of users to demote
-		$mbrs = Request::getVar('users', array(0), 'post');
+		$mbrs = Request::getVar('users', array(), 'post');
 
 		// Set a flag for emailing any changes made
 		$admchange = '';
@@ -1144,7 +1144,7 @@ class plgGroupsMembers extends \Hubzero\Plugin\Plugin
 				$targetuser = User::getInstance($mbr);
 
 				// Ensure we found an account
-				if (is_object($targetuser))
+				if (is_object($targetuser) && $targetuser->get('id'))
 				{
 					$admchange .= "\t\t".$targetuser->get('name')."\r\n";
 					$admchange .= "\t\t".$targetuser->get('username') .' ('. $targetuser->get('email') .')';
@@ -1156,7 +1156,7 @@ class plgGroupsMembers extends \Hubzero\Plugin\Plugin
 					// Log activity
 					$recipients = array(
 						['group', $this->group->get('gidNumber')],
-						['user', $uid]
+						['user', $targetuser->get('id')]
 					);
 					foreach ($this->group->get('managers') as $recipient)
 					{
@@ -1170,11 +1170,11 @@ class plgGroupsMembers extends \Hubzero\Plugin\Plugin
 							'scope_id'    => $this->group->get('gidNumber'),
 							'description' => Lang::txt(
 								'PLG_GROUPS_MEMBERS_ACTIVITY_CANCELLED',
-								'<a href="' . Route::url('index.php?option=com_members&id=' . $uid)  . '">' . $targetuser->get('name') . '</a>',
+								'<a href="' . Route::url('index.php?option=com_members&id=' . $targetuser->get('id'))  . '">' . $targetuser->get('name') . '</a>',
 								'<a href="' . Route::url('index.php?option=com_groups&cn=' . $this->group->get('cn')) . '">' . $this->group->get('description') . '</a>'
 							),
 							'details'     => array(
-								'user_id'  => $uid,
+								'user_id'  => $targetuser->get('id'),
 								'group_id' => $this->group->get('gidNumber')
 							)
 						],

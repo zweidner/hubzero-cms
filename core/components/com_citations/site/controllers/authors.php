@@ -105,13 +105,31 @@ class Authors extends SiteController
 			// Make sure the user exists
 			if (!is_object($user) || !$user->get('username'))
 			{
+				$mbr = trim($mbr);
+				$mbr = preg_replace('/\s+/', ' ', $mbr);
+
+				$user = new \Hubzero\User\User;
 				$user->set('name', $mbr);
+
+				$parts = explode(' ', $mbr);
+
+				if (count($parts) > 1)
+				{
+					$surname = array_pop($parts);
+					$user->set('surname', $surname);
+					$givenName = array_shift($parts);
+					$user->set('givenName', $givenName);
+					if (!empty($parts))
+					{
+						$user->get('middleName', implode(' ', $parts));
+					}
+				}
 			}
 
 			$author = new Author($this->database);
 			$author->cid          = $this->citation->id;
 			$author->author       = $user->get('name');
-			$author->uidNumber    = $user->get('uidNumber');
+			$author->uidNumber    = $user->get('id', 0);
 			$author->organization = $user->get('organization');
 			$author->givenName    = $user->get('givenName');
 			$author->middleName   = $user->get('middleName');
@@ -129,6 +147,8 @@ class Authors extends SiteController
 				continue;
 			}
 		}
+
+		$this->saveAuthorsList();
 
 		// Push through to the view
 		$this->displayTask();
@@ -198,6 +218,8 @@ class Authors extends SiteController
 			}
 		}
 
+		$this->saveAuthorsList();
+
 		// Push through to the view
 		$this->displayTask();
 	}
@@ -219,6 +241,24 @@ class Authors extends SiteController
 			->set('citation', $this->citation)
 			->setLayout('display')
 			->display();
+	}
+
+	/**
+	 * Update authors string on the citations entry
+	 * This is used primarily to make searching easier
+	 *
+	 * @return  void
+	 */
+	protected function saveAuthorsList()
+	{
+		// Reset the authors string
+		$authors = $this->citation->authors();
+		foreach ($authors as $author)
+		{
+			$auths[] = $author->author . ($author->uidNumber ? '{{' . $author->uidNumber . '}}' : '');
+		}
+		$this->citation->author = implode('; ', $auths);
+		$this->citation->store();
 	}
 }
 

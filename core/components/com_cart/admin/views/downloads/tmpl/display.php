@@ -92,6 +92,7 @@ $this->view('_submenu')
 				<th scope="col"><input type="checkbox" name="toggle" value="" onclick="checkAll(<?php echo count($this->rows);?>);" /></th>
 				<th scope="col"><?php echo Html::grid('sort', 'COM_CART_PRODUCT', 'product', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
 				<th scope="col"><?php echo Html::grid('sort', 'COM_CART_DOWNLOADED_BY', 'dName', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
+				<th scope="col"><?php echo Lang::txt('COM_CART_USER_INFO'); ?></th>
 				<th scope="col"><?php echo Html::grid('sort', 'COM_CART_DOWNLOADED', 'dDownloaded', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
 				<th scope="col">IP</th>
 				<th scope="col"><?php echo Html::grid('sort', 'COM_CART_STATUS', 'dStatus', @$this->filters['sort_Dir'], @$this->filters['sort']); ?></th>
@@ -99,7 +100,7 @@ $this->view('_submenu')
 		</thead>
 		<tfoot>
 		<tr>
-			<td colspan="6"><?php
+			<td colspan="7"><?php
 				// Initiate paging
 				echo $this->pagination(
 						$this->total,
@@ -112,13 +113,10 @@ $this->view('_submenu')
 		<tbody>
 <?php
 $k = 0;
-//for ($i=0, $n=count($this->rows); $i < $n; $i++)
 $i = 0;
 
 foreach ($this->rows as $row)
 {
-	//print_r($row); die;
-	//$row =& $this->rows[$i];
 	switch ($row->dStatus)
 	{
 		case 1:
@@ -155,7 +153,28 @@ foreach ($this->rows as $row)
 					<span><?php echo $product; ?></span>
 				</td>
 				<td>
-				<span><?php echo $this->escape(stripslashes($row->dName)) . ' (' . $this->escape(stripslashes($row->username)) . ')'; ?></span>
+					<span><?php echo $this->escape(stripslashes($row->dName)) . ' / ' . $this->escape(stripslashes($row->username)); ?></span>
+				</td>
+				<td>
+					<?php
+					if ($row->mtValue)
+					{
+						$meta = unserialize($row->mtValue);
+						$data = array();
+						foreach ($meta as $mtK => $mtV)
+						{
+							if (is_array($mtV))
+							{
+								$mtV = implode('; ', $mtV);
+							}
+							$data[] = $mtV;
+						}
+						echo implode(', ', $data);
+					}
+					else {
+						echo '&nbsp;';
+					}
+					?>
 				</td>
 				<td>
 					<span><?php echo $this->escape(stripslashes($row->dDownloaded)); ?></span>
