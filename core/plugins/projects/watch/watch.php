@@ -233,6 +233,8 @@ class plgProjectsWatch extends \Hubzero\Plugin\Plugin
 
 		$params = new \Hubzero\Config\Registry($watch->get('params', ''));
 
+		$params->set('frequency', $frequency);
+
 		foreach ($cats as $param => $value)
 		{
 			if (isset($categories[$param]))
@@ -304,7 +306,7 @@ class plgProjectsWatch extends \Hubzero\Plugin\Plugin
 		$subject = Lang::txt('PLG_PROJECTS_WATCH_EMAIL_SUBJECT');
 
 		// Do we have subscribers?
-		if (count($subscribers) > 0)
+		if ($subscribers->count() > 0)
 		{
 			foreach ($subscribers as $subscriber)
 			{

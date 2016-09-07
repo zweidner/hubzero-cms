@@ -84,6 +84,16 @@ class Threadsv1_0 extends ApiController
 			'access'     => User::getAuthorisedViewLevels()
 		);
 
+		if ($filters['scope'] == 'group')
+		{
+			$group = \Hubzero\User\Group::getInstance($filters['scope_id']);
+
+			if ($group && in_array(User::get('id'), $group->get('members')))
+			{
+				$filters['access'][] = 5; // Private
+			}
+		}
+
 		$model = new Manager($filters['scope'], $filters['scope_id']);
 
 		$response = new stdClass;
@@ -197,6 +207,16 @@ class Threadsv1_0 extends ApiController
 			'closed'     => Request::getVar('closed', null),
 			'access'     => User::getAuthorisedViewLevels()
 		);
+
+		if ($filters['scope'] == 'group')
+		{
+			$group = \Hubzero\User\Group::getInstance($filters['scope_id']);
+
+			if ($group && in_array(User::get('id'), $group->get('members')))
+			{
+				$filters['access'][] = 5; // Private
+			}
+		}
 
 		$forum = new Manager($filters['scope'], $filters['scope_id']);
 
@@ -347,7 +367,7 @@ class Threadsv1_0 extends ApiController
 	 * }
 	 * @apiParameter {
 	 * 		"name":          "threads_only",
-	 * 		"description":   "Return only threads (true) or any post (false)?",
+	 * 		"description":   "Return only thread starter posts (true) or any post (false).",
 	 * 		"type":          "boolean",
 	 * 		"required":      false,
 	 *      "default":       false
@@ -391,7 +411,7 @@ class Threadsv1_0 extends ApiController
 			'category_id' => Request::getInt('category', 0),
 			'parent'      => Request::getInt('parent', 0),
 			'thread'      => Request::getInt('thread', 0),
-			'threads'     => Request::getBool('threads_only', false),
+			'threads'     => Request::getVar('threads_only', false),
 			'search'      => Request::getVar('search', ''),
 			'scope'       => Request::getWord('scope', 'site'),
 			'scope_id'    => Request::getInt('scope_id', 0),
@@ -399,6 +419,17 @@ class Threadsv1_0 extends ApiController
 			'parent'      => 0,
 			'access'      => User::getAuthorisedViewLevels()
 		);
+		$filters['threads'] = (!$filters['threads'] || $filters['threads'] == 'false') ? false : true;
+
+		if ($filters['scope'] == 'group')
+		{
+			$group = \Hubzero\User\Group::getInstance($filters['scope_id']);
+
+			if ($group && in_array(User::get('id'), $group->get('members')))
+			{
+				$filters['access'][] = 5; // Private
+			}
+		}
 
 		$entries = Post::all()
 			->whereEquals('state', $filters['state'])
@@ -497,7 +528,7 @@ class Threadsv1_0 extends ApiController
 				$obj->title       = $thread->get('title');
 				$obj->created     = with(new Date($thread->get('created')))->format('Y-m-d\TH:i:s\Z');
 				$obj->modified    = $thread->get('modified');
-				$obj->anonymous   = ($thread->get('anonymous') ? true : false);
+				$obj->anonymous   = $thread->get('anonymous');
 				//$obj->closed      = ($thread->get('closed') ? true : false);
 				$obj->scope       = $thread->get('scope');
 				$obj->scope_id    = $thread->get('scope_id');
@@ -695,7 +726,19 @@ class Threadsv1_0 extends ApiController
 			}
 		}
 
-		$this->send($row->toObject());
+		$obj = $row->toObject();
+
+		$obj->creator = new stdClass;
+		$obj->creator->id   = 0;
+		$obj->creator->name = Lang::txt('Anonymous');
+
+		if (!$row->get('anonymous'))
+		{
+			$obj->creator->id   = $row->get('created_by');
+			$obj->creator->name = $row->creator->get('name');
+		}
+
+		$this->send($obj);
 	}
 
 	/**

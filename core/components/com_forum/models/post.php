@@ -193,11 +193,12 @@ class Post extends Relational
 	/**
 	 * Generates automatic created field value
 	 *
+	 * @param   array   $data  the data being saved
 	 * @return  string
 	 */
-	public function automaticModified()
+	public function automaticModified($data)
 	{
-		return Date::of('now')->toSql();
+		return (isset($data['id']) && $data['id'] ? Date::of('now')->toSql() : '0000-00-00 00:00:00');
 	}
 
 	/**
@@ -205,9 +206,9 @@ class Post extends Relational
 	 *
 	 * @return  int
 	 */
-	public function automaticModifiedBy()
+	public function automaticModifiedBy($data)
 	{
-		return User::get('id');
+		return (isset($data['id']) && $data['id'] ? User::get('id') : 0);
 	}
 
 	/**
@@ -528,6 +529,36 @@ class Post extends Relational
 
 		// Attempt to delete the record
 		return parent::destroy();
+	}
+
+	/**
+	 * Validates the set data attributes against the model rules
+	 *
+	 * @return  bool
+	 **/
+	public function validate()
+	{
+		$valid = parent::validate();
+
+		if ($valid)
+		{
+			$results = \Event::trigger('content.onContentBeforeSave', array(
+				'com_forum.post.comment',
+				&$this,
+				$this->isNew()
+			));
+
+			foreach ($results as $result)
+			{
+				if ($result === false)
+				{
+					$this->addError(Lang::txt('Content failed validation.'));
+					$valid = false;
+				}
+			}
+		}
+
+		return $valid;
 	}
 
 	/**
