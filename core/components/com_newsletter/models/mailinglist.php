@@ -25,26 +25,46 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Sam Wilson <samwilson@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
 
-namespace Components\Members\Tables;
+namespace Components\Newsletter\Models;
+
+use Hubzero\Database\Relational;
 
 /**
- * Members quota log db table class
+ * Newsletter model for a mailinglist
  */
-class QuotasLog extends \JTable
+class Mailinglist extends Relational
 {
 	/**
-	 * Constructor
+	 * The table namespace
 	 *
-	 * @param   object  &$db  Database
-	 * @return  void
+	 * @var  string
 	 */
-	public function __construct(&$db)
-	{
-		parent::__construct('#__users_quotas_log', 'id', $db);
-	}
+	protected $namespace = 'newsletter';
+
+	/**
+	 * Default order by for model
+	 *
+	 * @var  string
+	 */
+	public $orderBy = 'id';
+
+	/**
+	 * Default order direction for select queries
+	 *
+	 * @var  string
+	 */
+	public $orderDir = 'asc';
+
+	/**
+	 * Fields and their validation criteria
+	 *
+	 * @var  array
+	 */
+	protected $rules = array(
+		'name' => 'notempty'
+	);
 }

@@ -83,6 +83,16 @@ class Ticket extends Relational
 	}
 
 	/**
+	 * Get a list of attachments
+	 *
+	 * @return  object
+	 */
+	public function attachments()
+	{
+		return $this->oneToMany('Attachment', 'ticket');
+	}
+
+	/**
 	 * Get status
 	 *
 	 * @return  object
@@ -90,6 +100,16 @@ class Ticket extends Relational
 	public function status()
 	{
 		return $this->oneToOne('Status', 'id', 'status');
+	}
+
+	/**
+	 * Get category
+	 *
+	 * @return  object
+	 */
+	public function category()
+	{
+		return $this->oneToOne('Category', 'id', 'category');
 	}
 
 	/**
@@ -105,6 +125,15 @@ class Ticket extends Relational
 			if (!$comment->destroy())
 			{
 				$this->addError($comment->getError());
+				return false;
+			}
+		}
+
+		foreach ($this->attachments()->rows() as $attachment)
+		{
+			if (!$attachment->destroy())
+			{
+				$this->addError($attachment->getError());
 				return false;
 			}
 		}

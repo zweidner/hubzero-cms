@@ -25,70 +25,56 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Shawn Rice <zooley@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
 
-namespace Components\Members\Tables;
+namespace Components\Newsletter\Models\Mailinglist;
 
-use Lang;
+use Hubzero\Database\Relational;
 
 /**
- * Table class for member/object association
+ * Newsletter model for a mailinglist email
  */
-class Association extends \JTable
+class Email extends Relational
 {
 	/**
-	 * Constructor
+	 * The table namespace
 	 *
-	 * @param   object  &$db  Database
-	 * @return  void
+	 * @var  string
 	 */
-	public function __construct(&$db)
-	{
-		parent::__construct('#__author_assoc', 'authorid', $db);
-	}
+	protected $namespace = 'newsletter_mailinglist';
 
 	/**
-	 * Validate data
+	 * Default order by for model
 	 *
-	 * @return  boolean  True if data is valid
+	 * @var  string
 	 */
-	public function check()
-	{
-		if (!$this->authorid)
-		{
-			$this->setError(Lang::txt('Must have an author ID.'));
-			return false;
-		}
-
-		if (!$this->subid)
-		{
-			$this->setError(Lang::txt('Must have an item ID.'));
-			return false;
-		}
-
-		return true;
-	}
+	public $orderBy = 'id';
 
 	/**
-	 * Delete records for a user
+	 * Default order direction for select queries
 	 *
-	 * @param   integer  $id  User ID
-	 * @return  boolean  True on success
+	 * @var  string
 	 */
-	public function deleteAssociations($id=NULL)
-	{
-		$id = $id ?: $this->authorid;
+	public $orderDir = 'asc';
 
-		$this->_db->setQuery("DELETE FROM $this->_tbl WHERE authorid=" . $this->_db->quote($id));
-		if (!$this->_db->query())
-		{
-			$this->setError($this->_db->getErrorMsg());
-			return false;
-		}
-		return true;
+	/**
+	 * Fields and their validation criteria
+	 *
+	 * @var  array
+	 */
+	protected $rules = array(
+		'email' => 'notempty'
+	);
+
+	/**
+	 * Defines a belongs to one relationship between mailinglist and mailing
+	 *
+	 * @return  object
+	 */
+	public function mailinglist()
+	{
+		return $this->belongsToOne('Mailinglist', 'mid');
 	}
 }
-

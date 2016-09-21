@@ -25,78 +25,78 @@
  * HUBzero is a registered trademark of Purdue University.
  *
  * @package   hubzero-cms
- * @author    Christopher Smoak <csmoak@purdue.edu>
  * @copyright Copyright 2005-2015 HUBzero Foundation, LLC.
  * @license   http://opensource.org/licenses/MIT MIT
  */
 
-namespace Components\Members\Tables;
+namespace Components\Newsletter\Models;
 
-use Lang;
+use Hubzero\Database\Relational;
+use Date;
+use User;
 
 /**
- * Table class for member addresses
+ * Newsletter model for secondary story
  */
-class Address extends \JTable
+class Secondary extends Relational
 {
 	/**
-	 * Object constructor to set table and key field
+	 * The table namespace
 	 *
-	 * @param   object  $db  Database object
-	 * @return  void
+	 * @var  string
 	 */
-	public function __construct($db)
-	{
-		parent::__construct('#__xprofiles_address', 'id', $db);
-	}
+	protected $namespace = 'newsletter_secondary';
 
 	/**
-	 * Method for checking that fields are valid before sending to the database
+	 * The table to which the class pertains
 	 *
-	 * @return  boolean  True if the object is ok
-	 */
-	public function check()
-	{
-		if (!isset($this->uidNumber) || $this->uidNumber == '')
-		{
-			$this->setError(Lang::txt('You must supply a user id.'));
-			return false;
-		}
-
-		return true;
-	}
+	 * This will default to #__{namespace}_{modelName} unless otherwise
+	 * overwritten by a given subclass. Definition of this property likely
+	 * indicates some derivation from standard naming conventions.
+	 *
+	 * @var  string
+	 **/
+	protected $table = '#__newsletter_secondary_story';
 
 	/**
-	 * Method to verify we can delete address
+	 * Default order by for model
 	 *
-	 * @param   unknown  $pk
-	 * @param   unknown  $joins
-	 * @return  boolean
+	 * @var  string
 	 */
-	public function canDelete($pk = NULL, $joins = NULL)
-	{
-		return true;
-	}
+	public $orderBy = 'order';
 
 	/**
-	 * Method to get addressed for member
+	 * Default order direction for select queries
 	 *
-	 * @param   integer  $uidNumber  Member User Id
-	 * @return  array
+	 * @var  string
 	 */
-	public function getAddressesForMember($uidNumber)
+	public $orderDir = 'asc';
+
+	/**
+	 * Fields and their validation criteria
+	 *
+	 * @var  array
+	 */
+	protected $rules = array(
+		'story' => 'notempty'
+	);
+
+	/**
+	 * Automatic fields to populate every time a row is created
+	 *
+	 * @var  array
+	 */
+	public $initiate = array(
+		'order'
+	);
+
+	/**
+	 * Defines a belongs to one relationship between newsletter and story
+	 *
+	 * @return  object
+	 */
+	public function newsletter()
 	{
-		// Make sure we have a user id
-		if (!isset($uidNumber))
-		{
-			$this->setError(Lang::txt('You must supply a user id.'));
-			return false;
-		}
-
-		// Query database for addresses for user id
-		$sql = "SELECT * FROM {$this->_tbl} WHERE uidNumber=" . $this->_db->quote($uidNumber);
-		$this->_db->setQuery($sql);
-
-		return $this->_db->loadObjectList();
+		return $this->belongsToOne('Newsletter', 'nid');
 	}
 }
