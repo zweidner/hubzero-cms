@@ -515,7 +515,7 @@ class Profiles extends SiteController
 
 		$stats->total_public_members = Member::all()
 			->whereEquals('block', 0)
-			->whereEquals('activation', 1)
+			->where('activation', '>', 0)
 			->where('approved', '>', 0)
 			->whereEquals('access', 1)
 			->total();
@@ -659,9 +659,11 @@ class Profiles extends SiteController
 			}
 		}
 
-		if ($tab != 'profile' && !in_array($tab, $available))
+		//if ($tab != 'profile' && !in_array($tab, $available))
+		if (!in_array($tab, $available) && isset($available[0]))
 		{
-			$tab = 'profile';
+			//$tab = 'profile';
+			$tab = $available[0];
 		}
 
 		// Get the sections
