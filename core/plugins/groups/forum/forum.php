@@ -852,6 +852,11 @@ class plgGroupsForum extends \Hubzero\Plugin\Plugin
 			'state'      => 1,
 			'access'     => array(1)
 		);
+		if (!$filters['search'])
+		{
+			return $this->sections();
+		}
+
 		if (!User::isGuest())
 		{
 			$filters['access'][] = 2;
@@ -1011,7 +1016,7 @@ class plgGroupsForum extends \Hubzero\Plugin\Plugin
 			$category->set('section_id', (int) $category->get('section_id'));
 			Request::setVar('section_id', $category->get('section_id'));
 
-			Notify::error(Lang::txt('PLG_GROUPS_FORUM_ERROR_CATEGORY_ALREADY_EXISTS'));
+			Notify::error(Lang::txt('PLG_GROUPS_FORUM_CATEGORY_ALREADY_EXISTS'));
 			return $this->editcategory($category);
 		}
 
@@ -1380,6 +1385,9 @@ class plgGroupsForum extends \Hubzero\Plugin\Plugin
 			{
 				$moving = true;
 			}
+
+			$fields['modified'] = \Date::toSql();
+			$fields['modified_by'] = User::get('id');
 		}
 
 		if (!$this->params->get('access-edit-thread')
