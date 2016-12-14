@@ -128,9 +128,35 @@ $base = 'index.php?option=com_groups&cn=' . $this->group->get('cn') . '&active=a
 			</div><!-- / .activity-details -->
 
 			<div class="activity-event">
-				<?php echo $this->row->log->get('description'); ?>
+				<?php
+				$content = $this->row->log->get('description');
+				$short = null;
 
-				<?php if ($attachments = $this->row->log->details->get('attachments')) { ?>
+				$attachments = $this->row->log->details->get('attachments');
+				$attachments = $attachments ?: array();
+
+				$attached = count($attachments);
+
+				if (strlen(strip_tags($content)) > 150)
+				{
+					$short = Hubzero\Utility\String::truncate($content, 150, array('html' => true));
+					?>
+					<div class="activity-event-preview">
+						<?php echo $short; ?>
+						<p>
+							<a class="more-content" href="#activity-event-content<?php echo $this->row->get('id'); ?>">
+								<?php echo Lang::txt('PLG_GROUPS_ACTIVITY_MORE'); ?>
+							</a>
+						</p>
+					</div>
+					<?php
+				}
+				?>
+				<div class="activity-event-content<?php echo ($short ? ' hide' : ''); ?>" id="activity-event-content<?php echo $this->row->get('id'); ?>">
+					<?php echo $content; ?>
+				</div>
+
+				<?php if ($attached) { ?>
 					<div class="activity-attachments">
 						<?php
 						foreach ($attachments as $attachment)
@@ -153,11 +179,13 @@ $base = 'index.php?option=com_groups&cn=' . $this->group->get('cn') . '&active=a
 							if ($attachment->isImage())
 							{
 								?>
-								<p class="attachment-image">
-									<a href="<?php echo Route::url($link); ?>">
-										<img src="<?php echo Route::url($link); ?>" alt="<?php echo $this->escape($attachment->get('description')); ?>" width="<?php echo ($attachment->width() > 400 ? 400 : $attachment->width()); ?>" />
-									</a>
-								</p>
+								<a class="attachment img" rel="lightbox" href="<?php echo Route::url($link); ?>">
+									<img src="<?php echo Route::url($link); ?>" alt="<?php echo $this->escape($attachment->get('description')); ?>" width="<?php echo ($attachment->width() > 400 ? 400 : $attachment->width()); ?>" />
+									<p class="attachment-meta">
+										<span class="attachment-size"><?php echo Hubzero\Utility\Number::formatBytes($attachment->size()); ?></span>
+										<span class="attachment-action"><?php echo Lang::txt('PLG_GROUPS_ACTIVITY_FILE_DOWNLOAD'); ?></span>
+									</p>
+								</a>
 								<?php
 							}
 							else
@@ -272,7 +300,7 @@ $base = 'index.php?option=com_groups&cn=' . $this->group->get('cn') . '&active=a
 						<div class="input-wrap">
 							<label class="upload-label" for="activity-<?php echo $this->row->get('id'); ?>-file">
 								<span class="label-text"><?php echo Lang::txt('PLG_GROUPS_ACTIVITY_FIELD_FILE'); ?></span>
-								<input type="file" name="activity_file" id="activity-<?php echo $this->row->get('id'); ?>-file" />
+								<input type="file" class="inputfile" name="activity_file" id="activity-<?php echo $this->row->get('id'); ?>-file" data-multiple-caption="<?php echo Lang::txt('{count} files selected'); ?>" multiple="multiple" />
 							</label>
 						</div>
 

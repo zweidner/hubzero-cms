@@ -32,15 +32,20 @@
 namespace Components\Search\Admin\Controllers;
 
 use Hubzero\Component\AdminController;
-use Components\Search\Models\IndexQueue;
 use Components\Search\Models\Blacklist;
+use Components\Search\Models\QueueDB;
 use \Hubzero\Search\Query;
+use Components\Search\Helpers\SolrHelper;
 use stdClass;
+
+require_once Component::path('com_search') . DS . 'helpers' . DS . 'solr.php';
+require_once Component::path('com_search') . DS . 'models' . DS . 'indexqueue.php';
+require_once Component::path('com_search') . DS . 'models' . DS . 'blacklist.php';
 
 /**
  * Search AdminController Class
  */
-class Search extends AdminController
+class Solr extends AdminController
 {
 	/**
 	 * Display the overview
@@ -54,16 +59,33 @@ class Search extends AdminController
 
 		// Instantiate Search class
 		$config = Component::params('com_search');
-		$index = new \Hubzero\Search\Index($config);
-
-		// Get the last 10 entries
-		$this->view->logs = array_slice($index->getLogs(), -10, 10, true);
 
 		// Get the last insert date
-		$insertTime = Date::of($index->lastInsert())->format('relative');
+		try
+		{
+			$index = new \Hubzero\Search\Index($config);
+			$timestamp = $insertTime = $index->lastInsert();
+			$insertTime = Date::of($timestamp)->format('relative');
+			$status = $index->status();
 
-		$this->view->status = $index->status();
+			// Get the last 10 entries
+			$logs = array_slice($index->getLogs(), -10, 10, true);
+
+		}
+		catch (\Solarium\Exception\HttpException $e)
+		{
+			$this->view->setError($e->getMessage());
+			$insertTime = '';
+			$status = 'failed';
+			$logs = array();
+		}
+
+		// Get queue status
+		$this->view->queueStats = SolrHelper::queueStatus();
+
 		$this->view->mechanism = $config->get('engine');
+		$this->view->status = $status;
+		$this->view->logs = $logs;
 		$this->view->lastInsert = $insertTime;
 		$this->view->setLayout('overview');
 
@@ -88,15 +110,27 @@ class Search extends AdminController
 		$config = Component::params('com_search');
 		$hubtypes = Event::trigger('search.onGetTypes');
 
-		$queue = IndexQueue::all()->rows();
+		$queue = QueueDB::all()->rows();
 
 		$stats = array();
-		foreach ($hubtypes as $type)
+		try
 		{
-			$query = new \Hubzero\Search\Query($config);
-			$result = $query->query('*:*')->addFilter('hubtype', array('hubtype', '=', $type))->run()->getNumFound();
+			foreach ($hubtypes as $type)
+			{
+				$query = new \Hubzero\Search\Query($config);
+				$result = $query->query('*:*')
+					->addFilter('hubtype', array('hubtype', '=', $type))
+					->run()
+					->getNumFound();
 
-			$stats[$type] = $result;
+				$stats[$type] = $result;
+			}
+		}
+		catch (\Solarium\Exception\HttpException $e)
+		{
+			App::redirect(
+				Route::url('index.php?option=com_search&task=display', false)
+			);
 		}
 
 		// Display the view
@@ -104,6 +138,40 @@ class Search extends AdminController
 		$this->view->stats = $stats;
 		$this->view->queue = $queue;
 		$this->view->display();
+	}
+
+	/**
+	 * fullindexTask - Populates the queue with all indexable items
+	 * 
+	 * @access public
+	 * @return void
+	 */
+	public function fullindexTask()
+	{
+		// Get the enabled types and associated content
+		$enabledTypes = Event::trigger('search.onGetTypes');
+		foreach ($enabledTypes as $type)
+		{
+			$rows = Event::trigger('search.onIndex', array($type, null, false))[0];
+
+			try
+			{
+				if (count($rows) > 0)
+				{
+					SolrHelper::enqueueDB($type, $rows);
+				}
+			}
+			catch (\Hubzero\Exception $e)
+			{
+				\Notify::error($e->getMessage());
+			}
+		}
+
+		// Redirect to search index queue view
+		App::redirect(
+			Route::url('index.php?option=com_search&task=searchindex', false),
+			Lang::txt('Full index initiated.')
+		);
 	}
 
 	public function submitToQueueTask()
@@ -175,13 +243,22 @@ class Search extends AdminController
 		}
 
 		// Instantitate and get all results for a particular document type
-		$config = Component::params('com_search');
-		$query = new \Hubzero\Search\Query($config);
-		$results = $query->query($filter)->addFilter('hubtype', array('hubtype', '=', $type))
-			->limit($limit)->start($limitstart)->run()->getResults();
+		try
+		{
+			$config = Component::params('com_search');
+			$query = new \Hubzero\Search\Query($config);
+			$results = $query->query($filter)->addFilter('hubtype', array('hubtype', '=', $type))
+				->limit($limit)->start($limitstart)->run()->getResults();
 
-		// Get the total number of records
-		$total = $query->getNumFound();
+			// Get the total number of records
+			$total = $query->getNumFound();
+		}
+		catch (\Solarium\Exception\HttpException $e)
+		{
+			App::redirect(
+				Route::url('index.php?option=com_search&task=display', false)
+			);
+		}
 
 		// Pass the type the view
 		$this->view->type = $type;
@@ -191,9 +268,16 @@ class Search extends AdminController
 		$pagination->setLimits(array('5','10','15','20','50','100','200'));
 		$this->view->pagination = $pagination;
 
+		// Get the blacklist
+		$sql = "SELECT doc_id FROM #__search_blacklist;";
+		$db = App::get('db');
+		$db->setQuery($sql);
+		$blacklist = $db->query()->loadColumn();
+
 		// Pass the filters and documents to the display
 		$this->view->filter = !isset($filter) || $filter = '*:*' ? '' : $filter;
 		$this->view->documents = isset($results) ? $results : array();
+		$this->view->blacklist = $blacklist;
 
 		// Display the view
 		$this->view->display();
@@ -222,29 +306,22 @@ class Search extends AdminController
 	{
 		$id = Request::getVar('id', '');
 
-		// Break out the components
-		$parts = explode('-', $id);
-		$scope = $parts[0];
-		$scope_id = $parts[1];
-
 		// Make entry on blacklist
 		$entry = Blacklist::oneOrNew(0);
-		$entry->set('scope', $scope);
-		$entry->set('scope_id', $scope_id);
+		$entry->set('doc_id', $id);
 		$entry->set('created', \Date::of()->toSql());
 		$entry->set('created_by', User::getInstance()->get('id', 0));
 		$entry->save();
 
-		// Remove from index
-		$config = Component::params('com_search');
-		$index = new \Hubzero\Search\Index($config);
+		$item = SolrHelper::parseDocumentID($id);
 
-		if ($index->delete($id))
+		// Remove from index
+		if (SolrHelper::enqueueDB($item['type'], array($item['id']), 'delete'))
 		{
 			// Redirect back to the search page.
 			App::redirect(
-				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller. '&task=documentByType&type='.$scope, false),
-					'Successfully removed ' . $id, 'success'
+				Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller. '&task=documentByType&type='.$item['type'], false),
+					'Submitted ' . $id . ' for removal.', 'success'
 			);
 		}
 		else
@@ -273,22 +350,5 @@ class Search extends AdminController
 			Route::url('index.php?option=' . $this->_option . '&controller=' . $this->_controller. '&task=manageBlacklist', false),
 				'Successfully removed entry #' . $entryID, 'success'
 		);
-	}
-
-	/**
-	 * viewLogsTask 
-	 * 
-	 * @access public
-	 * @return void
-	 */
-	public function viewLogsTask()
-	{
-		// Instantiate Search class
-		$config = Component::params('com_search');
-		$index = new \Hubzero\Search\Index($config);
-
-		echo "<pre>";
-		print_r($index->getLogs());
-		exit();
 	}
 }

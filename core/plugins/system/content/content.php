@@ -29,50 +29,18 @@
  * @license   http://opensource.org/licenses/MIT MIT
  */
 
-namespace Components\Search\Site\Controllers;
-
-use Hubzero\Component\SiteController;
-use Document;
-use Pathway;
-use Request;
-use Plugin;
-use Config;
-use Lang;
-use stdClass;
+// No direct access
+defined('_HZEXEC_') or die();
 
 /**
- * Search controller class
+ * System plugin for content events
  */
-class ApiSearch extends SiteController
+class plgSystemContent extends \Hubzero\Plugin\Plugin
 {
-	/**
-	 * Display search form and results (if any)
-	 *
-	 * @return  void
-	 */
-	public function displayTask($response = NULL)
+	public function onContentSave($table, $model)
 	{
-		$terms = Request::get('terms', '');
-		$limit = Request::get('limit', 25);
-		$start = Request::get('limitstart', 0);
-		$type = Request::get('type', '');
-
-		if (isset($response))
-		{
-			$this->view->query = $response->search;
-			$this->view->queryString = $response->queryString;
-			$this->view->results = $response->results;
-		}
-		else
-		{
-			$this->view->queryString = '';
-			$this->view->results = '';
-		}
-
-		$this->view->terms = $terms;
-		$this->view->type = $type;
-		$this->view->setLayout('display');
-		$this->view->display();
+		//@TODO: Add check for isIndexable
+		Event::trigger('search.onContentAvailable', array($table, $model));
 	}
 }
 

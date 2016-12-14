@@ -31,10 +31,6 @@
 
 // No direct access.
 defined('_HZEXEC_') or die();
-
-// Generate table headers
-// @TODO create a standard document model, create view object
-$fields = array('hubid','hubtype','title','access_level','owner_type','owner');
 ?>
 <style>
 #noresults {
@@ -43,50 +39,57 @@ $fields = array('hubid','hubtype','title','access_level','owner_type','owner');
 }
 </style>
 
-<?php if (count($this->documents) > 0): ?>
 <table class="adminlist searchDocument">
 	<thead>
 		<tr>
-		<?php foreach ($fields as $field): ?>
-			<th><?php echo $field; ?></th>
-		<?php endforeach; ?>
-		<th>&nbsp;</th>
+			<th><?php echo Lang::txt('ID'); ?></th>
+			<th><?php echo Lang::txt('Type'); ?></th>
+			<th><?php echo Lang::txt('Title'); ?></th>
+			<th><?php echo Lang::txt('Access'); ?></th>
+			<th><?php echo Lang::txt('Owner'); ?></th>
+			<th> </th>
 		</tr>
 	</thead>
 	<tbody>
-		<?php foreach ($this->documents as $document)
-		{
-			echo '<tr>';
-			foreach ($fields as $field)
-			{
-				echo '<td>';
-				if (isset($document[$field]) && !is_array($document[$field]))
-				{
-					echo $document[$field];
-				}
-				elseif (isset($document[$field]))
-				{
-					$x = 0;
-					foreach ($document[$field] as $element)
-					{
-						echo $element;
-						if ($x < count($document[$field]) - 1)
-						{
-							echo '/';
-						}
-						$x++;
-					}
-				}
-				else
-				{
-					echo '-';
-				}
-				echo '</td>';
-			}
-			echo '<td><a class="button" href="' . Route::url('index.php?option='.$this->option.'&task=addToBlackList&controller='. $this->controller . '&id=' . $document['id']) . '">' . Lang::txt('COM_SEARCH_ADD_BLACKLIST') . '</a></td>';
-			echo '</tr>';
-		}
-		?>
+			<?php foreach ($this->documents as $document): ?>
+				<tr>
+					<td><?php echo $document['id']; ?></td>
+					<td><?php echo $document['hubtype']; ?></td>
+					<td><?php echo $document['title'][0]; ?></td>
+					<td><?php echo $document['access_level']; ?></td>
+					<td>
+						<?php 
+							if ($document['owner_type'] == 'user')
+							{
+								$user = \Hubzero\User\User::one($document['owner'][0]);
+								if (isset($user) && is_object($user))
+								{
+									echo $user->get('name');
+								}
+								else
+								{
+									echo Lang::txt('UNKNOWN');
+								}
+							}
+							elseif ($document['owner_type'] == 'group')
+							{
+								$group = \Hubzero\User\Group::getInstance($document['owner'][0]);
+								if (isset($group) && is_object($group))
+								{
+									echo $group->get('description');
+								}
+								else
+								{
+									echo Lang::txt('UNKNOWN');
+								}
+							}
+						?>
+					</td>
+					<td>
+						<a class="button" href="<?php echo Route::url('index.php?option='.$this->option.'&task=addToBlackList&controller='. $this->controller . '&id=' . $document['id']); ?>"><?php echo Lang::txt('COM_SEARCH_ADD_BLACKLIST'); ?></a>
+					</td>
+			</tr>
+			<?php endforeach; ?>
 	</tbody>
 	<tfoot>
 		<tr>
@@ -96,6 +99,3 @@ $fields = array('hubid','hubtype','title','access_level','owner_type','owner');
 		</tr>
 	</tfoot>
 </table>
-<?php else: ?>
-<div id="noresults" class="warning message"><?php echo Lang::txt('COM_SEARCH_NO_RESULTS_FOUND'); ?></div>
-<?php endif; ?>
