@@ -59,34 +59,47 @@ defined('_HZEXEC_') or die();
 					<td><?php echo $document['access_level']; ?></td>
 					<td>
 						<?php 
-							if ($document['owner_type'] == 'user')
+							if (isset($document['owner']) && $document['owner'] == '')
 							{
-								$user = \Hubzero\User\User::one($document['owner'][0]);
-								if (isset($user) && is_object($user))
+								if ($document['owner_type'] == 'user')
 								{
-									echo $user->get('name');
+									$user = \Hubzero\User\User::one($document['owner'][0]);
+									if (isset($user) && is_object($user))
+									{
+										echo $user->get('name');
+									}
+									else
+									{
+										echo Lang::txt('UNKNOWN');
+									}
 								}
-								else
+								elseif ($document['owner_type'] == 'group')
 								{
-									echo Lang::txt('UNKNOWN');
+									$group = \Hubzero\User\Group::getInstance($document['owner'][0]);
+									if (isset($group) && is_object($group))
+									{
+										echo $group->get('description');
+									}
+									else
+									{
+										echo Lang::txt('UNKNOWN');
+									}
 								}
 							}
-							elseif ($document['owner_type'] == 'group')
+							else
 							{
-								$group = \Hubzero\User\Group::getInstance($document['owner'][0]);
-								if (isset($group) && is_object($group))
-								{
-									echo $group->get('description');
-								}
-								else
-								{
-									echo Lang::txt('UNKNOWN');
-								}
+								echo $document['owner_type'] . ' - ';
+								echo Lang::txt('UNKNOWN');
 							}
 						?>
 					</td>
 					<td>
-						<a class="button" href="<?php echo Route::url('index.php?option='.$this->option.'&task=addToBlackList&controller='. $this->controller . '&id=' . $document['id']); ?>"><?php echo Lang::txt('COM_SEARCH_ADD_BLACKLIST'); ?></a>
+						<?php if (!in_array($document['id'], $this->blacklist)): ?>
+							<a class="button" href="<?php echo Route::url('index.php?option='.$this->option.'&task=addToBlackList&controller='. $this->controller . '&id=' . $document['id']); ?>"><?php echo Lang::txt('COM_SEARCH_ADD_BLACKLIST'); ?></a>
+						<?php else: ?>
+							<span><?php echo Lang::txt('COM_SEARCH_MARKED_FOR_REMOVAL'); ?></span>
+						<?php endif; ?>
+
 					</td>
 			</tr>
 			<?php endforeach; ?>

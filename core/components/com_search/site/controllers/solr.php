@@ -117,7 +117,17 @@ class Solr extends SiteController
 		$urlQuery .= '&start='.$start;
 
 		// Perform the query
-		$query = $query->run();
+		try
+		{
+			$query = $query->run();
+		}
+		catch (\Solarium\Exception\HttpException $e)
+		{
+			//@TODO: 'Did you mean' functionality.
+			$query->query('')->limit($limit)->start($start)->run();
+			\Notify::warning(Lang::txt('COM_SEARCH_MALFORMED_QUERY'));
+		}
+
 		$results = $query->getResults();
 		$numFound = $query->getNumFound();
 
@@ -240,7 +250,7 @@ class Solr extends SiteController
 					}
 
 					// Highlight everything except the URL
-					if ($field != 'url')
+					if ($field != 'url' && $field != 'tags')
 					{
 						$r = \Hubzero\Utility\String::highlight($r, $terms, $highlightOptions);
 					}
